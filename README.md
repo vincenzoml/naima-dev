@@ -84,3 +84,7 @@ link `relations`, reserved `dirs`, `checks` (problems fail, notes inform),
 `commands`, `views`, `summary` sections, `rank` terms, `gates`, and
 `verifiers`. Names are global; two plugins declaring the same one is an error
 at load time. Details: [docs/plugin-contract.md](docs/plugin-contract.md).
+
+## Licence
+
+Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
