@@ -16,7 +16,27 @@
         }
       }
     },
-    { "name": "beta-markers", "options": { "paths": ["src"] } },
-    "verifier"
+    {
+      "name": "beta-markers",
+      "options": {
+        "paths": [
+          "src"
+        ]
+      }
+    },
+    "verifier",
+    {
+      "name": "docs",
+      "options": {
+        "links": [
+          "README.md",
+          "AGENTS.md",
+          "CLAUDE.md",
+          "docs",
+          ".claude/commands",
+          "tracker/README.md"
+        ]
+      }
+    }
   ]
 }

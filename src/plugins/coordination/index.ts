@@ -112,6 +112,8 @@ const claim: Command = {
   name: "claim",
   says: "record that this branch is working on items (writes one file on this branch)",
   usage: 'claim <item>... [--note "why"]',
+  options: [{ name: "--note", says: "why this branch holds the items; replaces the previous note" }],
+  examples: ['claim export-drops export-keeps --note "alpha channel in the exporter"'],
   run(args, ctx) {
     const p = parse(args, { note: { type: "string" } })
     if (!p.positionals.length) throw new Error(`usage: naima ${this.usage}`)
@@ -140,6 +142,7 @@ const release: Command = {
   name: "release",
   says: "drop this branch's claim on items; the last one removes the file",
   usage: "release <item>...",
+  examples: ["release export-drops"],
   run(args, ctx) {
     const refs = parse(args).positionals
     if (!refs.length) throw new Error(`usage: naima ${this.usage}`)
@@ -165,6 +168,8 @@ const claims: Command = {
   name: "claims",
   says: "who holds what, recombined from every branch",
   usage: "claims [--branch <b>]",
+  options: [{ name: "--branch", says: "only the claim of this branch" }],
+  examples: ["claims", "claims --branch fix/export-alpha"],
   run(args, ctx) {
     const p = parse(args, { branch: { type: "string" } })
     const only = str(p, "branch")
@@ -190,6 +195,8 @@ const prune: Command = {
   name: "prune",
   says: "list (or with --write remove) claim files naming a branch git no longer has",
   usage: "prune [--write]",
+  options: [{ name: "--write", says: "remove the stale claim files instead of listing them" }],
+  examples: ["prune", "prune --write"],
   run(args, ctx) {
     const write = bool(parse(args, { write: { type: "boolean" } }), "write")
     const alive = allRefNames(ctx.root)
@@ -213,6 +220,11 @@ const pass: Command = {
   name: "pass",
   says: "write this session's note (one new file), or list the newest",
   usage: 'pass "<what changed, what is proven, what is left>" | pass --file <f> | pass --list [n]',
+  options: [
+    { name: "--file", says: "read the note from a file instead of the arguments" },
+    { name: "--list", says: "print the newest n notes across every branch instead of writing one", default: "5" },
+  ],
+  examples: ['pass "Exporter keeps alpha; proof owed: tests/export-keeps-alpha"', "pass --file note.md", "pass --list 3"],
   run(args, ctx) {
     const p = parse(args, { file: { type: "string" }, list: { type: "boolean" } })
     if (bool(p, "list")) {
@@ -269,6 +281,11 @@ export default function coordination(): Plugin {
   return {
     name: "coordination",
     says: "claims and session notes, one file per session, recombined from every branch",
+    about:
+      "No session writes a file another session writes. A claim is one file per branch, `CLAIMS/<uuid>.json`; a session note is one file per session, `PASSES/<date>-<uuid>.md`. " +
+      "Both are written on the writer's own branch and never staged or committed by the tool: commit them with the work. " +
+      "`claims`, `pass --list` and `summary` recombine them at read time from the trunk, every branch not merged into it, and whatever each worktree stands on, uncommitted files included. " +
+      "Several branches may claim one item: `claim` says who else holds it rather than refusing.",
     dirs: [CLAIMS, PASSES],
     checks: [claimsResolve],
     commands: [claim, release, claims, prune, pass],

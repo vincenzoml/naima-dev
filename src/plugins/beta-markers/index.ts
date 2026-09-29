@@ -107,6 +107,8 @@ export default function betaMarkers(options: Record<string, unknown> = {}): Plug
     name: "beta",
     says: "list what is marked as shipped without proof, and the state of each proof",
     usage: "beta [--check]",
+  options: [{ name: "--check", says: "exit 1 when a marker is stale or dangling" }],
+  examples: ["beta", "beta --check"],
     run(args, ctx) {
       const p = parse(args, { check: { type: "boolean" } })
       const states = audit(ctx, opts)
@@ -126,5 +128,19 @@ export default function betaMarkers(options: Record<string, unknown> = {}): Plug
     },
   }
 
-  return { name: "beta-markers", says: "markers in the code for behaviour shipped without proof", checks: [check], commands: [command], summary: [summary] }
+  return {
+    name: "beta-markers",
+    says: "markers in the code for behaviour shipped without proof",
+    about:
+      "A marker is a comment in the project's own source naming the item whose passing would prove the marked behaviour: `// naima:beta tests/export-keeps-alpha  export of layered files is unproven`. " +
+      "A marker is wrong in two ways: it names nothing (dangling), or it outlives its proof — the item it names has passed or is no longer open (stale). Both fail `naima check`: a stale marker teaches readers that markers mean nothing.",
+    options: [
+      { name: "paths", says: "files or directories, from the project root, to scan", default: '["src"]' },
+      { name: "extensions", says: "file extensions to scan", default: '[".ts", ".tsx", ".js", ".mjs", ".py", ".rs", ".go", ".java", ".c", ".h"]' },
+      { name: "pattern", says: "a regular expression with named groups ref and what, matched against each line", default: "a comment (//, #, --, ;, *) followed by naima:beta <ref> <what>" },
+    ],
+    checks: [check],
+    commands: [command],
+    summary: [summary],
+  }
 }

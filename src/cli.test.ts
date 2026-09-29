@@ -53,3 +53,9 @@ test("a plugin can be loaded from a path in the project", async () => {
     rmSync(root, { recursive: true, force: true })
   }
 })
+
+test("this repository's config loads every first-party plugin, so its reference documents them all", () => {
+  const config = JSON.parse(readFileSync(join(import.meta.dirname, "..", "naima.config.json"), "utf8")) as { plugins: (string | { name: string })[] }
+  const loaded = new Set(config.plugins.map((p) => (typeof p === "string" ? p : p.name)))
+  for (const name of Object.keys(builtins)) assert.ok(loaded.has(name), `naima.config.json does not load "${name}", so docs/reference.md cannot document it`)
+})

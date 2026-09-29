@@ -95,6 +95,8 @@ const triage: Command = {
   name: "triage",
   says: "coverage of the four fields; set them; list what needs a human; derive what the page proves",
   usage: "triage | triage set <item> field=value... | triage missing | triage derive [--write]",
+  options: [{ name: "--write", says: "with derive: save the derived values instead of reporting them" }],
+  examples: ["triage", "triage set export-drops impact=high priority=now effort=M", "triage missing", "triage derive --write"],
   run(args, ctx) {
     const [sub, ...rest] = args
     if (sub === "set") {
@@ -167,6 +169,10 @@ export default function triagePlugin(): Plugin {
   return {
     name: "triage",
     says: "priority, impact, effort, confidence; the urgency ranking built from them",
+    about:
+      "Four fields rank an item, and no more. `effort` is never derived: nothing in a report says what a fix costs, and a size guessed from the wording is how an XL hides inside an S. " +
+      "`triage derive` infers only `confidence`, from the page's own words, and stamps `triagedBy: derived` so a value a person set is never overwritten. " +
+      "Urgency is the sum of every plugin's rank terms, lower first; this plugin adds impact (×1.5), priority (×1.2) and effort (×0.3), each by its value's rank, unset counting as the middle.",
     fields: FIELDS,
     rank,
     commands: [triage],

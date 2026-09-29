@@ -71,3 +71,19 @@ test("bugs counts unfixed apart from fixed-but-unproven; partial must say what i
     p.cleanup()
   }
 })
+
+test("an item handed to a person says why, or check fails", () => {
+  const p = tempProject([trackers()])
+  try {
+    const { ctx } = p
+    const t = createItem(ctx, typeOrThrow(ctx, "tests"), "The export looks right", { runBy: "human" })
+    ctx.reload()
+    assert.match(runChecks(ctx).problems.map((f) => f.message).join(), /handed to a person without saying why/)
+    setFields(ctx, ctx.repo.resolve(t.slug), [["humanBecause", "judgement"]])
+    ctx.reload()
+    assert.equal(runChecks(ctx).problems.length, 0)
+    assert.throws(() => setFields(ctx, ctx.repo.resolve(t.slug), [["humanBecause", "busy"]]), /not one of/)
+  } finally {
+    p.cleanup()
+  }
+})

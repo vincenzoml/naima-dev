@@ -70,6 +70,8 @@ const gatesCommand: Command = {
   name: "gates",
   says: "every gate, whoever declared it, and whether it holds; --check exits 1 if one does not",
   usage: "gates [name...] [--check]",
+  options: [{ name: "--check", says: "exit 1 when a listed gate does not hold" }],
+  examples: ["gates", "gates first-public --check"],
   run(args, ctx) {
     const p = parse(args, { check: { type: "boolean" } })
     const wanted = p.positionals.length ? p.positionals : [...ctx.registry.gates.keys()]
@@ -91,6 +93,8 @@ const queue: Command = {
   name: "queue",
   says: "open items on a gate, split by whose hands the proof needs",
   usage: "queue [gate] [--human]",
+  options: [{ name: "--human", says: "also list the items that need a person or a build, with why" }],
+  examples: ["queue", "queue first-public --human"],
   run(args, ctx) {
     const p = parse(args, { human: { type: "boolean" } })
     const gate = p.positionals[0]
@@ -104,7 +108,12 @@ const queue: Command = {
     const noCode = open.filter((i) => !owesOnlyProof(ctx, i)).length
     ctx.out(`${gate ?? "all gates"}: ${open.length} open — ${["agent", "human", "build", "unclassified"].map((b) => `${b} ${by.get(b)?.length ?? 0}`).join(", ")}`)
     ctx.out(`  with no code yet: ${noCode}; owing only proof: ${open.length - noCode}`)
-    if (bool(p, "human")) for (const i of [...(by.get("human") ?? []), ...(by.get("build") ?? [])]) ctx.out(`  ${label(i)}  ${i.meta.title}`)
+    if (bool(p, "human")) {
+      for (const i of [...(by.get("human") ?? []), ...(by.get("build") ?? [])]) {
+        const why = typeof i.meta.humanBecause === "string" ? i.meta.humanBecause : runByOf(ctx, i)
+        ctx.out(`  ${label(i)}  ${i.meta.title}  (${why})`)
+      }
+    }
     return 0
   },
 }
@@ -132,6 +141,10 @@ export default function gates(options: Record<string, unknown> = {}): Plugin {
     name,
     title: c.title,
     says: c.says ?? "",
+    decides:
+      (c.holdsOn ?? "code") === "code"
+        ? `blocked by every open item with gate=${name} that still owes code: no fixedOn, and not itself a proving gesture. Fixed items and open proving gestures are owed, not blocking.`
+        : `blocked by every open item with gate=${name}, proof included.`,
     evaluate: (ctx) => evaluateGate(ctx, name, c.holdsOn ?? "code"),
   }))
   const status: SummarySection = {
@@ -145,6 +158,16 @@ export default function gates(options: Record<string, unknown> = {}): Plugin {
   return {
     name: "gates",
     says: "named release conditions backed by items",
+    about:
+      "A gate is the set of items that must be settled before something may happen — a release, a merge. An item joins a gate by carrying `gate: <name>`. " +
+      "Gates are configured, never hard-coded, and any plugin may contribute one through the contract; `naima gates` lists them all.",
+    options: [
+      {
+        name: "gates",
+        says: 'gate name → { "title", "says", "holdsOn" }. holdsOn "code" (the default) waits for code, not proof: a fixed item that owes only its proving gesture, and the gestures themselves, are owed but do not block. holdsOn "proof": every open item on the gate blocks it.',
+        default: "{}",
+      },
+    ],
     fields: [
       {
         name: "gate",

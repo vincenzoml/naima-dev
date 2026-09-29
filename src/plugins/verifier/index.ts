@@ -98,6 +98,8 @@ const verify: Command = {
   name: "verify",
   says: "run the verifier of properties and attach each run as evidence",
   usage: "verify <property>... | verify --all",
+  options: [{ name: "--all", says: "every property item" }],
+  examples: ["verify no-deadlock", "verify --all"],
   async run(args, ctx) {
     const p = parse(args, { all: { type: "boolean" } })
     const items = bool(p, "all") ? properties(ctx) : p.positionals.map((r) => ctx.repo.resolve(r))
@@ -118,6 +120,7 @@ const verifiers: Command = {
   name: "verifiers",
   says: "list the verifier adapters every plugin contributes",
   usage: "verifiers",
+  examples: ["verifiers"],
   run(_args, ctx) {
     for (const v of ctx.registry.verifiers.values()) ctx.out(`  ${v.id.padEnd(16)} ${v.says}`)
     return 0
@@ -150,6 +153,7 @@ const allHold: GateDef = {
   name: "properties",
   title: "Every property holds",
   says: "no property item is open, violated or in error",
+  decides: "blocked by every properties item whose status is not holds; nothing is owed.",
   evaluate(ctx) {
     const blocking = properties(ctx).filter((i) => i.meta.status !== "holds")
     return { holds: blocking.length === 0, blocking, owed: [] }
@@ -160,6 +164,11 @@ export default function verifier(): Plugin {
   return {
     name: "verifier",
     says: "properties checked by formal-methods tools, with each run attached as evidence",
+    about:
+      "A `properties` item names a `verifier` (an adapter any plugin can contribute), a `model` file (a path from the project root) and a `property` in the verifier's own language. " +
+      "`naima verify` runs the adapter and attaches the run — verdict, output, the model's sha256 — and the counterexample as its own file, then sets the status from the verdict. " +
+      "A property that holds is evidence exactly as a passed test is: it can `verify` a bug and close it. A verdict is only as good as the model it was reached on, so `naima check` fails when a property claims to hold and its model has changed since the run. " +
+      "The shipped adapter, `example-regex`, is a stand-in that shows the shape of a real one.",
     types: [
       {
         id: TYPE,

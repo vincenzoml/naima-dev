@@ -25,6 +25,16 @@ import {
   typeOrThrow,
 } from "../../core/index.ts"
 
+const ABOUT = `Three words that are not synonyms:
+
+- **fixed** — the code change exists: \`fixedOn\` is set. Nothing is proven.
+- **resolved** — fixed, and proven by an item that \`verifies\` it and whose status \`proves\` (a passed test, a property that holds).
+- **closed** — resolved, and moved to \`CLOSED/\` by \`naima close\`, carrying its proof.
+
+"How many bugs are left" means the unfixed count; \`naima bugs\` never adds the three together.
+
+An item whose proof needs a person says why in \`humanBecause\`. Only a judgement, a reserved decision, a credential or a physical act makes something a person's: needing the running software makes it \`agent-hands\`, not \`human\`.`
+
 export type Lifecycle = "unfixed" | "fixed" | "resolved" | "closed"
 
 const report = (title: string): string =>
@@ -76,10 +86,20 @@ const closedHasProof: Check = {
       .map((i): Finding => ({ level: "problem", message: `${label(i)} is closed without a passed proof`, item: i })),
 }
 
+const humanSaysWhy: Check = {
+  name: "human-says-why",
+  says: "an open item whose proof needs a person (runBy human) says why in humanBecause",
+  run: (ctx) =>
+    ctx.repo.items
+      .filter((i) => i.meta.runBy === "human" && isOpen(ctx, i) && i.meta.humanBecause === undefined)
+      .map((i): Finding => ({ level: "problem", message: `${label(i)} is handed to a person without saying why — set humanBecause, or runBy if an agent can do it`, item: i })),
+}
+
 const close: Command = {
   name: "close",
   says: "archive a resolved item: fixed, and proven by an item that has passed",
   usage: "close <item>",
+  examples: ["close export-drops"],
   run(args, ctx) {
     const item = ctx.repo.resolve(parse(args).positionals[0] ?? "")
     const state = lifecycle(ctx, item)
@@ -101,6 +121,7 @@ const bugs: Command = {
   name: "bugs",
   says: "how many bugs have no code written, and how many are fixed but unproven",
   usage: "bugs",
+  examples: ["bugs"],
   run(_args, ctx) {
     const open = ctx.repo.items.filter((i) => i.type === "bugs" && isOpen(ctx, i))
     const by = (s: Lifecycle) => open.filter((i) => lifecycle(ctx, i) === s)
@@ -128,6 +149,7 @@ export default function trackers(): Plugin {
   return {
     name: "trackers",
     says: "bugs, todos, features, tests, and the archive of closed bugs",
+    about: ABOUT,
     types: [
       {
         id: "bugs",
@@ -209,6 +231,18 @@ export default function trackers(): Plugin {
         },
         appliesTo: ["tests", "bugs", "todos"],
       },
+      {
+        name: "humanBecause",
+        kind: "enum",
+        says: "why only a person can perform the proof, when runBy is human",
+        values: {
+          judgement: "how it looks, sounds or feels: no instrument can settle it",
+          decision: "a decision reserved to the owner",
+          credential: "a secret, an account or a signature only a person holds",
+          physical: "a physical act or a machine only a person has at hand",
+        },
+        appliesTo: ["tests", "bugs", "todos"],
+      },
       { name: "area", kind: "string", says: "where it lives: the surface somebody would have open while working on it" },
       { name: "kind", kind: "string", says: "the mode of work it demands: code, decision, research, writing…" },
     ],
@@ -216,7 +250,7 @@ export default function trackers(): Plugin {
       { name: "verifies", inverse: "verified-by", says: "is the gesture that proves" },
       { name: "verified-by", inverse: "verifies", says: "is proven by" },
     ],
-    checks: [partialWithoutClause, provenButOpen, fixNamesGesture, closedHasProof],
+    checks: [partialWithoutClause, provenButOpen, fixNamesGesture, closedHasProof, humanSaysWhy],
     commands: [close, bugs],
     summary: [bugCounts],
   }

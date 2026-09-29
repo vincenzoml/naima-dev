@@ -1,0 +1,376 @@
+// Documentation as part of the implementation.
+//
+// The rule: a feature is not done until its documentation is in the same
+// change. This plugin makes the rule mechanical, in three places:
+//
+//   the manifests   every contribution a loaded plugin makes carries its own
+//                   documentation; `naima check` fails on one that does not,
+//                   and `naima docs` generates the reference from them, so the
+//                   reference cannot drift from the code;
+//   the tracker     a feature in a done status names its documentation in
+//                   `docs`, and every name resolves to a file and heading;
+//   the prose       relative links in the configured markdown resolve, so a
+//                   flow an instruction names exists.
+
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs"
+import { dirname, join, relative, resolve } from "node:path"
+import {
+  type Check,
+  type Command,
+  type Context,
+  type Finding,
+  type OptionDoc,
+  type Plugin,
+  bool,
+  cliCommands,
+  label,
+  parse,
+} from "../../core/index.ts"
+
+export interface DocsOptions {
+  reference?: string
+  featureTypes: string[]
+  documentedStatuses: string[]
+  links: string[]
+}
+
+function readOptions(o: Record<string, unknown>): DocsOptions {
+  const list = (v: unknown, name: string, fallback: string[]): string[] => {
+    if (v === undefined) return fallback
+    if (!Array.isArray(v) || !v.every((x) => typeof x === "string")) throw new Error(`docs: options.${name} must be a list of strings`)
+    return v
+  }
+  if (o.reference !== undefined && typeof o.reference !== "string") throw new Error("docs: options.reference must be a path")
+  return {
+    ...(typeof o.reference === "string" ? { reference: o.reference } : {}),
+    featureTypes: list(o.featureTypes, "featureTypes", ["features"]),
+    documentedStatuses: list(o.documentedStatuses, "documentedStatuses", ["shipped"]),
+    links: list(o.links, "links", []),
+  }
+}
+
+// ── the manifests ────────────────────────────────────────────────────────────
+
+const FLAG = /--[a-z][a-z0-9-]*/g
+
+/** Every contribution of every loaded plugin that lacks its documentation. */
+export function documentationGaps(ctx: Context): string[] {
+  const out: string[] = []
+  const blank = (s: unknown): boolean => typeof s !== "string" || !s.trim()
+  const commands = [...cliCommands.map((c) => ({ c, owner: "core" })), ...ctx.registry.plugins.flatMap((p) => (p.commands ?? []).map((c) => ({ c, owner: p.name })))]
+  for (const p of ctx.registry.plugins) if (blank(p.says)) out.push(`plugin "${p.name}" does not say what it is`)
+  for (const { c, owner } of commands) {
+    const where = `command "${c.name}" (${owner})`
+    if (blank(c.says)) out.push(`${where} does not say what it does`)
+    if (blank(c.usage)) out.push(`${where} has no usage`)
+    if (!c.examples?.length) out.push(`${where} has no example`)
+    const documented = new Set((c.options ?? []).map((o) => o.name))
+    for (const flag of new Set(c.usage.match(FLAG) ?? [])) if (!documented.has(flag)) out.push(`${where}: option ${flag} is in the usage but not documented`)
+    for (const o of c.options ?? []) {
+      if (!c.usage.includes(o.name)) out.push(`${where}: option ${o.name} is documented but not in the usage`)
+      if (blank(o.says)) out.push(`${where}: option ${o.name} does not say what it does`)
+    }
+  }
+  for (const p of ctx.registry.plugins) for (const o of p.options ?? []) if (blank(o.says)) out.push(`plugin "${p.name}": option ${o.name} does not say what it does`)
+  for (const t of ctx.registry.types.values()) {
+    if (blank(t.says)) out.push(`type "${t.id}" does not say what it is`)
+    for (const [name, s] of Object.entries(t.statuses)) if (blank(s.says)) out.push(`type "${t.id}": status "${name}" does not say what it means`)
+  }
+  for (const f of ctx.registry.fields.values()) {
+    if (blank(f.says)) out.push(`field "${f.name}" does not say what it holds`)
+    if (f.kind === "enum") for (const [v, says] of Object.entries(f.values ?? {})) if (blank(says)) out.push(`field "${f.name}": value "${v}" does not say what it means`)
+  }
+  for (const r of ctx.registry.relations.values()) if (blank(r.says)) out.push(`relation "${r.name}" does not say what it means`)
+  for (const c of ctx.registry.checks) if (blank(c.says)) out.push(`check "${c.name}" does not say what it holds`)
+  for (const v of ctx.registry.views.values()) if (blank(v.says)) out.push(`view "${v.name}" does not say what it shows`)
+  for (const g of ctx.registry.gates.values()) {
+    if (blank(g.says)) out.push(`gate "${g.name}" does not say what it is for`)
+    if (blank(g.decides)) out.push(`gate "${g.name}" does not say how it decides`)
+  }
+  for (const v of ctx.registry.verifiers.values()) if (blank(v.says)) out.push(`verifier "${v.id}" does not say what it checks`)
+  return out
+}
+
+const cell = (s: string | undefined): string => (s ?? "").replace(/\|/g, "\\|").replace(/\n/g, " ")
+const code = (s: string): string => "`" + s + "`"
+/** A `says` line as a sentence: capitalised, with a full stop. */
+const sentence = (s: string): string => {
+  const t = s.trim()
+  return (t.charAt(0).toUpperCase() + t.slice(1)).replace(/([^.!?])$/, "$1.")
+}
+
+function optionsTable(options: OptionDoc[], what: string): string[] {
+  if (!options.length) return []
+  return ["", `| ${what} | Default | What it does |`, "|---|---|---|", ...options.map((o) => `| ${code(o.name)} | ${o.default !== undefined ? code(o.default) : ""} | ${cell(o.says)} |`)]
+}
+
+function commandSection(c: Pick<Command, "name" | "says" | "usage" | "options" | "examples">): string[] {
+  return [
+    "",
+    `### naima ${c.name}`,
+    "",
+    sentence(c.says),
+    "",
+    "```sh",
+    ...c.usage.split(" | ").map((u) => `naima ${u}`),
+    "```",
+    ...optionsTable(c.options ?? [], "Option"),
+    ...(c.examples?.length ? ["", "Examples:", "", "```sh", ...c.examples.map((e) => `naima ${e}`), "```"] : []),
+  ]
+}
+
+/** The reference, generated from the manifests of the loaded plugins. Deterministic. */
+export function renderReference(ctx: Context): string {
+  const r = ctx.registry
+  const L: string[] = [
+    "# Reference",
+    "",
+    "<!-- Generated by `naima docs` from the plugin manifests. Do not edit: change the manifest, then run `naima docs --write`. -->",
+    "",
+    "Everything the loaded plugins contribute, generated from their manifests so it cannot drift from the code.",
+    "Names are global: no two plugins may declare the same command, type, field, relation, view, gate or verifier.",
+    "",
+    "## Contents",
+    "",
+    ...r.plugins.map((p) => `- [${p.name}](#${anchor(p.name)}) — ${p.says}`),
+    "",
+    "## Commands at a glance",
+    "",
+    "| Command | Plugin | What it does |",
+    "|---|---|---|",
+    ...cliCommands.map((c) => `| [${code(c.name)}](#${anchor("naima " + c.name)}) | core | ${cell(c.says)} |`),
+    ...r.plugins.flatMap((p) => (p.commands ?? []).map((c) => `| [${code(c.name)}](#${anchor("naima " + c.name)}) | ${p.name} | ${cell(c.says)} |`)),
+  ]
+  for (const p of r.plugins) {
+    L.push("", `## ${p.name}`, "", sentence(p.says))
+    if (p.about) L.push("", p.about)
+    if (p.options?.length) L.push("", `Options, under ${code(`{ "name": "${p.name}", "options": { … } }`)} in the config:`, ...optionsTable(p.options, "Option"))
+    if (p.name === "core") for (const c of cliCommands) L.push(...commandSection(c))
+    for (const c of p.commands ?? []) L.push(...commandSection(c))
+    for (const t of p.types ?? []) {
+      L.push("", `### type: ${t.id}`, "", `${t.title}: ${t.says}. Items live in ${code(`<tracker>/${t.dir}/`)}; a new one starts as ${code(t.initialStatus)}${t.creatable === false ? "; it is an archive: items arrive by being moved there, never by being opened" : ""}.`)
+      L.push("", "| Status | Category | Proves | Meaning |", "|---|---|---|---|")
+      for (const [name, s] of Object.entries(t.statuses)) L.push(`| ${code(name)} | ${s.category} | ${s.proves ? "yes" : ""} | ${cell(s.says)} |`)
+    }
+    if (p.fields?.length) {
+      L.push("", "**Fields**", "", "| Field | Kind | Applies to | Meaning | Values |", "|---|---|---|---|---|")
+      for (const f of p.fields) {
+        const values = f.values ? Object.entries(f.values).map(([v, s]) => `${code(v)} ${cell(s)}`).join("; ") : ""
+        L.push(`| ${code(f.name)} | ${f.kind} | ${f.appliesTo ? f.appliesTo.join(", ") : "every type"} | ${cell(f.says)} | ${values} |`)
+      }
+    }
+    if (p.relations?.length) {
+      L.push("", "**Link relations** — only the direction written is stored; the inverse is derived when read.", "", "| Relation | Inverse | Reads as |", "|---|---|---|")
+      for (const rel of p.relations) L.push(`| ${code(rel.name)} | ${code(rel.inverse)} | ${cell(rel.says)} |`)
+    }
+    if (p.checks?.length) {
+      L.push("", "**Checks**, run by `naima check`", "", "| Check | What it holds |", "|---|---|")
+      for (const c of p.checks) L.push(`| ${code(c.name)} | ${cell(c.says)} |`)
+    }
+    if (p.gates?.length) {
+      L.push("", "**Gates**, listed by `naima gates`", "", "| Gate | Title | What it is for | How it decides |", "|---|---|---|---|")
+      for (const g of p.gates) L.push(`| ${code(g.name)} | ${cell(g.title)} | ${cell(g.says)} | ${cell(g.decides)} |`)
+    }
+    if (p.verifiers?.length) {
+      L.push("", "**Verifiers**, used by `naima verify`", "", "| Verifier | What it checks |", "|---|---|")
+      for (const v of p.verifiers) L.push(`| ${code(v.id)} | ${cell(v.says)} |`)
+    }
+    if (p.views?.length) {
+      L.push("", "**Views**, printed by `naima view <name>`", "", "| View | What it shows |", "|---|---|")
+      for (const v of p.views) L.push(`| ${code(v.name)} | ${cell(v.says)} |`)
+    }
+    if (p.dirs?.length) L.push("", `**Directories** it owns under the tracker root: ${p.dirs.map((d) => code(d + "/")).join(", ")}.`)
+    if (p.summary?.length) L.push("", `**Summary sections**: ${p.summary.map((s) => code(s.name)).join(", ")}.`)
+    if (p.rank?.length) L.push("", `**Rank terms**, added to every item's urgency: ${p.rank.map((t) => code(t.name)).join(", ")}.`)
+  }
+  return L.join("\n") + "\n"
+}
+
+// ── anchors and links ────────────────────────────────────────────────────────
+
+/** A heading's anchor, as GitHub renders it. */
+export function anchor(heading: string): string {
+  return heading
+    .trim()
+    .toLowerCase()
+    .replace(/<[^>]*>/g, "")
+    .replace(/[^\p{L}\p{N}\s_-]/gu, "")
+    .replace(/\s/g, "-")
+}
+
+const FENCE = /^\s*(```|~~~)/
+
+/** Every anchor a markdown file offers, duplicates numbered as GitHub numbers them. */
+export function anchorsOf(text: string): Set<string> {
+  const out = new Set<string>()
+  const seen = new Map<string, number>()
+  let fenced = false
+  for (const line of text.split("\n")) {
+    if (FENCE.test(line)) fenced = !fenced
+    if (fenced) continue
+    const m = line.match(/^#{1,6}\s+(.+?)\s*#*\s*$/)
+    if (!m?.[1]) continue
+    const base = anchor(m[1].replace(/`/g, "").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1"))
+    const n = seen.get(base) ?? 0
+    seen.set(base, n + 1)
+    out.add(n ? `${base}-${n}` : base)
+  }
+  return out
+}
+
+/** Why `target` (a path from `from`'s directory, optionally `#anchor`) does not resolve, or null. */
+export function unresolved(root: string, fromDir: string, target: string): string | null {
+  const [path = "", hash] = target.split("#", 2)
+  const file = path ? resolve(fromDir, decodeURI(path)) : null
+  if (file && !existsSync(file)) return `${relative(root, file) || path} does not exist`
+  if (hash === undefined || hash === "") return null
+  const md = file ?? null
+  if (!md || !md.endsWith(".md") || statSync(md).isDirectory()) return null
+  return anchorsOf(readFileSync(md, "utf8")).has(hash.toLowerCase()) ? null : `${relative(root, md)} has no heading #${hash}`
+}
+
+function* markdown(path: string): Generator<string> {
+  if (!existsSync(path)) return
+  if (statSync(path).isFile()) {
+    if (path.endsWith(".md")) yield path
+    return
+  }
+  for (const e of readdirSync(path, { withFileTypes: true })) {
+    if (e.name.startsWith(".") && e.name !== ".claude") continue
+    if (e.name === "node_modules") continue
+    yield* markdown(join(path, e.name))
+  }
+}
+
+/** Relative links in the markdown under `paths` that do not resolve. */
+export function brokenLinks(root: string, paths: string[]): string[] {
+  const out: string[] = []
+  for (const base of paths) {
+    if (!existsSync(join(root, base))) {
+      out.push(`${base} is listed for link checking and does not exist`)
+      continue
+    }
+    for (const file of markdown(join(root, base))) {
+      let fenced = false
+      readFileSync(file, "utf8")
+        .split("\n")
+        .forEach((line, i) => {
+          if (FENCE.test(line)) fenced = !fenced
+          if (fenced) return
+          for (const m of line.replace(/`[^`]*`/g, "").matchAll(/\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g)) {
+            const target = m[1] ?? ""
+            if (/^[a-z][a-z0-9+.-]*:/i.test(target)) continue
+            const why = unresolved(root, dirname(file), target.startsWith("#") ? relative(dirname(file), file) + target : target)
+            if (why) out.push(`${relative(root, file)}:${i + 1}: link ${target} — ${why}`)
+          }
+        })
+    }
+  }
+  return out
+}
+
+// ── the plugin ───────────────────────────────────────────────────────────────
+
+export default function docs(options: Record<string, unknown> = {}): Plugin {
+  const opts = readOptions(options)
+
+  const documented: Check = {
+    name: "documented",
+    says: "every loaded plugin, command (with an example and every option), type, status, field, value, relation, check, view, gate and verifier carries its documentation",
+    run: (ctx) => documentationGaps(ctx).map((message): Finding => ({ level: "problem", message: `undocumented: ${message}` })),
+  }
+
+  const referenceCurrent: Check = {
+    name: "reference-current",
+    says: "with the reference option set, the reference file is what `naima docs` generates from the loaded manifests",
+    run(ctx) {
+      if (!opts.reference) return []
+      const path = join(ctx.root, opts.reference)
+      if (!existsSync(path)) return [{ level: "problem", message: `${opts.reference} does not exist — naima docs --write` }]
+      return readFileSync(path, "utf8") === renderReference(ctx) ? [] : [{ level: "problem", message: `${opts.reference} is out of date with the manifests — naima docs --write` }]
+    },
+  }
+
+  const featuresDocumented: Check = {
+    name: "features-documented",
+    says: "a feature in a documented status names its documentation in `docs`, and every name there resolves to a file and heading",
+    run(ctx) {
+      const out: Finding[] = []
+      for (const item of ctx.repo.items.filter((i) => opts.featureTypes.includes(i.type))) {
+        const refs = Array.isArray(item.meta.docs) ? (item.meta.docs as unknown[]).filter((d): d is string => typeof d === "string") : []
+        if (opts.documentedStatuses.includes(item.meta.status) && !refs.length) {
+          out.push({ level: "problem", message: `${label(item)} is ${item.meta.status} with no documentation — set docs=<path>[#heading]`, item })
+        }
+        for (const ref of refs) {
+          const why = unresolved(ctx.root, ctx.root, ref)
+          if (why) out.push({ level: "problem", message: `${label(item)}: docs ${ref} — ${why}`, item })
+        }
+      }
+      return out
+    },
+  }
+
+  const linksResolve: Check = {
+    name: "links-resolve",
+    says: "every relative link in the markdown under the links option points at a file, and a heading when it names one",
+    run: (ctx) => brokenLinks(ctx.root, opts.links).map((message): Finding => ({ level: "problem", message })),
+  }
+
+  const command: Command = {
+    name: "docs",
+    says: "print the reference generated from the loaded manifests; write it, or check that a file matches it",
+    usage: "docs [--write [path]] [--check [path]]",
+    options: [
+      { name: "--write", says: "write the reference to the path, or to the reference option" },
+      { name: "--check", says: "exit 1 when the file differs from the generated reference, or something is undocumented" },
+    ],
+    examples: ["docs", "docs --write docs/reference.md", "docs --check docs/reference.md"],
+    run(args, ctx) {
+      const p = parse(args, { write: { type: "boolean" }, check: { type: "boolean" } })
+      const path = p.positionals[0] ?? opts.reference
+      const text = renderReference(ctx)
+      if (!bool(p, "write") && !bool(p, "check")) {
+        ctx.out(text.trimEnd())
+        return 0
+      }
+      if (!path) throw new Error("name the file, or set the reference option")
+      const file = join(ctx.root, path)
+      if (bool(p, "write")) {
+        writeFileSync(file, text)
+        ctx.out(`wrote ${path}`)
+      }
+      const gaps = documentationGaps(ctx)
+      for (const g of gaps) ctx.out(`  ✗ undocumented: ${g}`)
+      const current = existsSync(file) && readFileSync(file, "utf8") === text
+      if (!current) ctx.out(`  ✗ ${path} is out of date with the manifests — naima docs --write ${path}`)
+      if (gaps.length || !current) return 1
+      ctx.out(`${path} is current, and everything loaded is documented`)
+      return 0
+    },
+  }
+  return {
+    name: "docs",
+    says: "every feature is documented as part of its implementation, and naima check holds it",
+    about:
+      "The rule: a feature is not done until its documentation is in the same change. Loading this plugin switches it on, in three places. " +
+      "**The manifests**: every contribution of every loaded plugin carries its own documentation — a command its usage, an example and every `--flag` it takes; a type, status, field, enum value, relation, check, view and verifier what it means; a gate what it is for and how it decides — and `documented` fails on any that does not. `naima docs` generates the reference from them, so it cannot drift. " +
+      "**The tracker**: an item of a feature type in a documented status names its documentation in `docs` (`path` or `path#heading`, from the project root), and every name resolves. " +
+      "**The prose**: every relative link in the markdown under `links` resolves, so a flow an instruction names exists.",
+    options: [
+      { name: "reference", says: "the reference file `naima docs --write` writes; when set, `naima check` fails when it is out of date" },
+      { name: "featureTypes", says: "item types whose items are features", default: '["features"]' },
+      { name: "documentedStatuses", says: "statuses in which a feature must name its documentation", default: '["shipped"]' },
+      { name: "links", says: "markdown files or directories, from the project root, whose relative links must resolve", default: "[]" },
+    ],
+    fields: [
+      {
+        name: "docs",
+        kind: "strings",
+        says: "where the feature is documented: path or path#heading, from the project root",
+        appliesTo: opts.featureTypes,
+      },
+    ],
+    checks: [documented, referenceCurrent, featuresDocumented, linksResolve],
+    commands: [command],
+  }
+}

@@ -13,4 +13,4 @@ export { currentBranch, allRefNames, refsWorthReading, readAcrossBranches, isGit
 export { findRoot, readConfig, parseConfig, loadPlugins, CONFIG_FILE } from "./config.ts"
 export { createContext, consoleIO, type IO } from "./context.ts"
 export { buildRegistry } from "./registry.ts"
-export { runCli, openProject, type CliOptions } from "./cli.ts"
+export { runCli, openProject, cliCommands, type CliOptions } from "./cli.ts"

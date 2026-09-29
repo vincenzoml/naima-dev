@@ -24,20 +24,28 @@ project root, or by package name, with optional `options`:
 
 | Part | What it declares |
 |---|---|
+| `says` | one line: what the plugin is (required) |
+| `about` | longer markdown: the concepts a reader needs before the reference |
+| `options` | the keys the plugin reads from its `options` in the config: `name`, `says`, `default` |
 | `types` | item types: `id`, `dir`, `statuses` (each `open` or `done`, optionally `proves`), `initialStatus`, a README `template`, `creatable: false` for archives |
 | `fields` | fields with a kind (`string`, `strings`, `date`, `enum`, `boolean`, `number`), enum values in rank order, and the types they apply to |
 | `relations` | link relations; each names its inverse, which must also be declared |
 | `dirs` | directories under the tracker root the plugin owns that are not item types |
 | `checks` | `run(ctx) → Finding[]`; `problem` fails `naima check`, `note` does not |
-| `commands` | `naima <name>`; `run(args, ctx)` returns an exit code (may be async) |
+| `commands` | `naima <name>`: `says`, `usage`, `options` (one per `--flag` in the usage), `examples` (invocations without the leading `naima`); `run(args, ctx)` returns an exit code (may be async) |
 | `views` | `naima view <name>`: a named rendering of derived state |
 | `summary` | a block of `naima summary` |
 | `rank` | an additive urgency term; lower is more urgent |
-| `gates` | a named condition: `evaluate(ctx) → { holds, blocking, owed }` |
+| `gates` | a named condition: `title`, `says`, `decides` (how it decides, in words), `evaluate(ctx) → { holds, blocking, owed }` |
 | `verifiers` | an adapter to a formal-methods tool: `verify({ model, property, options }) → { verdict, output, counterexample? }` |
 
 Every name — type, directory, field, relation, command, view, gate, verifier —
 is global. Declaring one twice is an error when the project loads.
+
+**Documentation is part of the manifest.** Every `says`, every example and
+every option entry is what `naima docs` turns into the reference, and with the
+`docs` plugin loaded `naima check` fails on a contribution that lacks its own:
+[the documentation rule](documentation.md).
 
 ## The context
 
@@ -55,6 +63,34 @@ the `trackers` plugin's `close` accepts any item whose status `proves`, so a
 `gates` plugin lists every gate in the registry, including the verifier's
 `properties` gate; `triage` and `gates` each add a `rank` term and the core
 sums them.
+
+## The verifier contract
+
+A verifier is an adapter to a formal-methods tool (a model checker, a
+theorem prover, a spatial logic checker):
+
+```ts
+const myChecker: Verifier = {
+  id: "my-checker",
+  says: "what it checks, in one line",
+  async verify({ model, property, options }, ctx) {
+    // model: absolute path of the model file; property: in the tool's own language;
+    // options: the item's `verifierOptions` object.
+    return { verdict: "holds", output: "…", /* counterexample: "…" */ }
+  },
+}
+```
+
+| Verdict | Item status | Meaning |
+|---|---|---|
+| `holds` | `holds` (proves) | the property holds on this model |
+| `violated` | `violated` | the tool found a counterexample; return it as `counterexample` |
+| `error` | `error` | the tool could not run or reach a verdict |
+| `unknown` | `error` | the tool ran and could not decide (a bound was hit) |
+
+An adapter that throws is recorded as `error` with the message as output.
+Map the tool's exit status and output to a verdict; never report `holds` on
+a run that did not complete.
 
 ## Evidence from a verifier
 

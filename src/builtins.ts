@@ -4,6 +4,7 @@
 
 import type { PluginFactory } from "./core/index.ts"
 import betaMarkers from "./plugins/beta-markers/index.ts"
+import docs from "./plugins/docs/index.ts"
 import coordination from "./plugins/coordination/index.ts"
 import gates from "./plugins/gates/index.ts"
 import trackers from "./plugins/trackers/index.ts"
@@ -17,6 +18,7 @@ export const builtins: Record<string, PluginFactory> = {
   gates,
   "beta-markers": betaMarkers,
   verifier,
+  docs,
 }
 
-export const defaultPlugins = ["trackers", "coordination", "triage", "gates"]
+export const defaultPlugins = ["trackers", "coordination", "triage", "gates", "docs"]

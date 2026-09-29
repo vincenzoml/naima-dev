@@ -82,10 +82,23 @@ export interface Check {
   run(ctx: Context): Finding[]
 }
 
+/** One documented option: a command's `--flag`, or a plugin's configuration key. */
+export interface OptionDoc {
+  /** `--flag` for a command; the key under `options` for a plugin. */
+  name: string
+  says: string
+  /** The value used when the option is absent, as written in the config or on the command line. */
+  default?: string
+}
+
 export interface Command {
   name: string
   says: string
   usage: string
+  /** Every `--flag` the usage names. */
+  options?: OptionDoc[]
+  /** Complete invocations, without the leading `naima`. */
+  examples?: string[]
   run(args: string[], ctx: Context): number | Promise<number>
 }
 
@@ -121,6 +134,8 @@ export interface GateDef {
   name: string
   title: string
   says: string
+  /** How `evaluate` decides: what blocks the gate and what is only owed. */
+  decides?: string
   evaluate(ctx: Context): GateResult
 }
 
@@ -150,6 +165,10 @@ export interface Verifier {
 export interface Plugin {
   name: string
   says: string
+  /** Longer documentation, in markdown: the concepts a reader needs before the reference. */
+  about?: string
+  /** The keys the plugin reads from its `options` in the config. */
+  options?: OptionDoc[]
   types?: TypeDef[]
   fields?: FieldDef[]
   relations?: RelationDef[]

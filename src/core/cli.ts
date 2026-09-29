@@ -8,7 +8,7 @@ import { CONFIG_FILE, findRoot, loadPlugins, readConfig } from "./config.ts"
 import { type IO, consoleIO, createContext } from "./context.ts"
 import { writeJson } from "./item.ts"
 import { buildRegistry } from "./registry.ts"
-import type { Context, PluginEntry, PluginFactory } from "./types.ts"
+import type { Command, Context, PluginEntry, PluginFactory } from "./types.ts"
 
 export interface CliOptions {
   cwd: string
@@ -24,6 +24,23 @@ export async function openProject(root: string, builtins: Record<string, PluginF
   const plugins = await loadPlugins(root, config, builtins)
   return createContext(root, config, buildRegistry([corePlugin, ...plugins]), io)
 }
+
+/** The two commands the entry point answers itself, before any plugin is loaded. Documented like any other. */
+export const cliCommands: Omit<Command, "run">[] = [
+  {
+    name: "init",
+    says: `create ${CONFIG_FILE} with the default plugins, and the tracker directory`,
+    usage: "init [--tracker-dir <dir>]",
+    options: [{ name: "--tracker-dir", says: "the tracker directory, relative to the project root", default: "tracker" }],
+    examples: ["init", "init --tracker-dir .tracker"],
+  },
+  {
+    name: "help",
+    says: "list every command the loaded plugins provide, with its usage",
+    usage: "help",
+    examples: ["help"],
+  },
+]
 
 function init(args: string[], opts: CliOptions, io: IO): number {
   const p = parse(args, { "tracker-dir": { type: "string" } })
@@ -48,7 +65,8 @@ function init(args: string[], opts: CliOptions, io: IO): number {
 
 function help(ctx: Context | null, io: IO): number {
   io.out("usage: naima <command> [args]\n")
-  io.out(`  ${"init".padEnd(10)} create ${CONFIG_FILE} and the tracker directory`)
+  const [init] = cliCommands
+  if (init) io.out(`  ${init.name.padEnd(10)} ${init.says}\n  ${"".padEnd(10)} naima ${init.usage}`)
   if (!ctx) {
     io.out(`\nno ${CONFIG_FILE} found here or above — run naima init`)
     return 0

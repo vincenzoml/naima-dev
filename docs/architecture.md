@@ -18,9 +18,15 @@ src/
     base.ts        the core's own contributions: generic fields, relations, commands
     cli.ts         dispatch
     testing.ts     a throwaway project for tests
-  plugins/<name>/  one directory per first-party plugin, with its tests
+  plugins/<name>/  one directory per first-party plugin, with its tests:
+                   trackers, coordination, triage, gates, beta-markers, verifier, docs
   builtins.ts      first-party plugins by config name   } the composition root:
   cli.ts           the executable                        } the only modules that see both
+```
+
+```
+scripts/stable.mjs  runs the pinned stable Naima on this repository's tracker (bootstrap.md)
+docs/reference.md   generated from the manifests by naima docs; never edited by hand
 ```
 
 ## The tracker on disk
@@ -63,7 +69,8 @@ records count.
 
 `naima check` runs the core invariants (readable items, unique uuids, known
 statuses, well-typed fields, resolvable links, no stray directories, unlinked
-duplicate titles as a note) and every plugin's checks. A problem fails the
+duplicate titles as a note) and every plugin's checks; the full list is in the
+[reference](reference.md). A problem fails the
 run; a note never does. A check that throws is reported as a problem, not a
 crash.
 
@@ -71,5 +78,5 @@ crash.
 
 The coordination plugin writes files and never stages or commits them. The
 flows that go with it — one worktree per piece of work, a worktree writes only
-its own branch, every merge to the trunk is `--ff-only` — are tracked as
-roadmap work in `tracker/TODOS/`.
+its own branch, every merge to the trunk is `--ff-only` — are in
+[flows](flows/README.md).

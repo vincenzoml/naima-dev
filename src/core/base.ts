@@ -59,6 +59,11 @@ const newCommand: Command = {
   name: "new",
   says: "open an item",
   usage: 'new <type> "<title>" [--section <s>] [--set field=value]...',
+  options: [
+    { name: "--section", says: "the heading the item is grouped under on its board" },
+    { name: "--set", says: "a field=value pair to set on the new item; repeatable" },
+  ],
+  examples: ['new bugs "Export drops the alpha channel"', 'new tests "Export keeps the alpha channel" --set runBy=agent --section export'],
   run(args, ctx) {
     const p = parse(args, { section: { type: "string" }, set: { type: "string", multiple: true } })
     const [typeId, title] = p.positionals
@@ -78,6 +83,7 @@ const show: Command = {
   name: "show",
   says: "print one item: fields, links in both directions, attachments, prose",
   usage: "show <item>",
+  examples: ["show export-drops", "show bugs/export-drops-alpha-channel"],
   run(args, ctx) {
     const item = ctx.repo.resolve(parse(args).positionals[0] ?? "")
     const { id, title, status, links: _links, ...rest } = item.meta
@@ -101,6 +107,8 @@ const list: Command = {
   name: "list",
   says: "list items, most urgent first",
   usage: "list [type] [--open]",
+  options: [{ name: "--open", says: "only items whose status is in the open category" }],
+  examples: ["list", "list bugs --open"],
   run(args, ctx) {
     const p = parse(args, { open: { type: "boolean" } })
     const typeId = p.positionals[0]
@@ -116,6 +124,7 @@ const set: Command = {
   name: "set",
   says: "set fields on an item; an empty value removes the field",
   usage: "set <item> field=value...",
+  examples: ["set export-drops status=partial area=export", "set export-drops area="],
   run(args, ctx) {
     const [ref, ...rest] = parse(args).positionals
     const item = ctx.repo.resolve(ref ?? "")
@@ -129,6 +138,7 @@ const link: Command = {
   name: "link",
   says: "link two items; only this direction is stored, the inverse is derived",
   usage: "link <from> <relation> <to>",
+  examples: ["link export-keeps verifies export-drops", "link export-drops blocked-by release-notes"],
   run(args, ctx) {
     const [from, rel, to] = parse(args).positionals
     if (!from || !rel || !to) throw new Error(`usage: naima ${this.usage}`)
@@ -143,6 +153,7 @@ const unlink: Command = {
   name: "unlink",
   says: "remove a stored link",
   usage: "unlink <from> <relation> <to>",
+  examples: ["unlink export-keeps verifies export-drops"],
   run(args, ctx) {
     const [from, rel, to] = parse(args).positionals
     if (!from || !rel || !to) throw new Error(`usage: naima ${this.usage}`)
@@ -162,6 +173,7 @@ const check: Command = {
   name: "check",
   says: "run every invariant; exit 1 on any problem",
   usage: "check",
+  examples: ["check"],
   run(_args, ctx) {
     const { problems, notes } = runChecks(ctx)
     ctx.out(`${ctx.repo.items.length} items, ${ctx.registry.checks.length} checks`)
@@ -203,6 +215,8 @@ const board: Command = {
   name: "board",
   says: "print a type's board, grouped by section, most urgent first",
   usage: "board <type> [--all]",
+  options: [{ name: "--all", says: "also list the items whose status is done" }],
+  examples: ["board bugs", "board todos --all"],
   run(args, ctx) {
     const p = parse(args, { all: { type: "boolean" } })
     for (const l of renderBoard(ctx, typeOrThrow(ctx, p.positionals[0]), bool(p, "all"))) ctx.out(l)
@@ -214,6 +228,7 @@ const view: Command = {
   name: "view",
   says: "print a plugin view; without a name, list them",
   usage: "view [name] [args...]",
+  examples: ["view", "view next 10"],
   run(args, ctx) {
     const [name, ...rest] = args
     if (!name) {
@@ -231,6 +246,8 @@ const summary: Command = {
   name: "summary",
   says: "where the project stands, in one screen: every plugin's section",
   usage: "summary [--json]",
+  options: [{ name: "--json", says: "print the sections as one JSON object, section name to lines" }],
+  examples: ["summary", "summary --json"],
   run(args, ctx) {
     const p = parse(args, { json: { type: "boolean" } })
     const sections = ctx.registry.summary.map((s) => ({ name: s.name, lines: s.render(ctx) }))
@@ -252,6 +269,7 @@ const plugins: Command = {
   name: "plugins",
   says: "list loaded plugins and what each contributes",
   usage: "plugins",
+  examples: ["plugins"],
   run(_args, ctx) {
     for (const p of ctx.registry.plugins) {
       ctx.out(`${p.name} — ${p.says}`)
@@ -275,6 +293,7 @@ const types: Command = {
   name: "types",
   says: "list item types, their statuses and fields",
   usage: "types",
+  examples: ["types"],
   run(_args, ctx) {
     for (const t of ctx.registry.types.values()) {
       ctx.out(`${t.id} (${ctx.config.trackerDir}/${t.dir}/) — ${t.says}`)
@@ -300,6 +319,13 @@ const counts = {
 export const corePlugin: Plugin = {
   name: "core",
   says: "items, fields, links and the invariants every project has",
+  about:
+    "An item is a directory under `<tracker>/<TYPE>/<slug>/`: `README.md` for the prose, `meta.json` for the fields, `attachments/` for the evidence. " +
+    "`meta.json` always holds `id` (a permanent uuid), `title` and `status` (one the item's type declares), and optionally `links`, a list of `{ rel, id }`. The slug may change; the id may not, and links hold ids. " +
+    "An item reference on the command line is an id, `type/slug`, a slug, or a fragment of a slug that matches one item. " +
+    "Fields are typed by the plugin that declares them — `string`, `strings` (comma-separated on the command line), `date` (YYYY, YYYY-MM or YYYY-MM-DD), `enum` (values in rank order), `boolean`, `number` — and unknown fields are kept and not checked. " +
+    "Only one direction of a link is stored; the inverse is derived when read. Boards, queues, gate states and summaries are derived when asked and never stored. " +
+    "An item is open or done by its status's category; urgency is the sum of every plugin's rank terms, and done items sink.",
   fields: [
     { name: "section", kind: "string", says: "the heading the item is grouped under on its board" },
     { name: "created", kind: "date", says: "when the item was opened" },
