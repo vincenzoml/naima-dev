@@ -17,6 +17,17 @@ that adopts it gets them:
 - **reporting and triage** — write it down before fixing it; four triage
   fields; effort is never guessed.
 
-- [ ] write each flow as one page in `docs/flows/`
-- [ ] ship them as agent commands (harness-neutral where possible)
-- [ ] a check that the flows named in agent instructions exist
+- [x] write each flow as one page in `docs/flows/`: asking the human,
+  worktree isolation, the coordinator and the workers, opening a worktree,
+  closing a worktree, reporting and triage
+- [x] ship them as agent commands: `.claude/commands/flow/` (where, open,
+  close, report, coordinate), each a checklist pointing at its page
+- [x] a check that the flows named in agent instructions exist: the `docs`
+  plugin's `links-resolve`, run here over README.md, AGENTS.md, CLAUDE.md,
+  docs/, .claude/commands/ and tracker/README.md
+
+## Evidence
+
+`attachments/flows-and-links-2026-09-29.txt`: the pages and commands, and
+`naima check` (stable v0.1.0) holding every link in them. Proof owed:
+`tests/agent-flows-exist-every-link-them-resolves`.

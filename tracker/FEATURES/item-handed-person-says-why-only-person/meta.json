@@ -1,7 +1,7 @@
 {
   "id": "ab4b52bf-915d-4cff-b291-41098c11232e",
   "title": "An item handed to a person says why only a person can do it",
-  "status": "requested",
+  "status": "shipped",
   "created": "2026-09-29",
   "area": "flows",
   "kind": "code",
@@ -9,5 +9,9 @@
   "priority": "now",
   "effort": "M",
   "confidence": "diagnosed",
-  "triagedOn": "2026-09-29"
+  "triagedOn": "2026-09-29",
+  "docs": [
+    "docs/flows/asking-the-human.md#when-you-hand-work-to-a-person",
+    "docs/reference.md#trackers"
+  ]
 }

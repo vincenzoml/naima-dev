@@ -13,5 +13,20 @@ The policy to decide and write down:
 - a format change ships with the stable release that can read it before the
   development version is allowed to write it.
 
-- [ ] decide the pin mechanism (npm version, git tag, or vendored build)
-- [ ] switch `npm run naima` to the pinned version once one exists
+- [x] decide the pin mechanism: a git tag, named by `naimaStable` in
+  `package.json`, extracted with `git archive` into `.naima/stable/<tag>-<commit>/`
+  and run by node directly (no runtime dependencies, TypeScript run as is)
+- [x] switch `npm run naima` to the pinned version: `v0.1.0`, tagged at
+  7405111; `npm run naima:dev` runs the working tree; `npm run verify` checks
+  with both; `npm run stable:bump -- <tag>` moves the pin only when the new
+  tag passes `check` on the tracker
+
+Written down in `docs/bootstrap.md`.
+
+## Evidence
+
+`attachments/stable-run-2026-09-29.txt`: the pin resolves to the tagged
+commit, and `src/stable.test.ts` passes — in a throwaway repository, a change
+to the working tree's CLI is not seen by `npm run naima`, a bump to a tag
+that fails `check` is refused with the pin unchanged, and a bump to one that
+passes moves it. Proof owed: `tests/tracker-managed-by-pinned-stable-not-working`.
