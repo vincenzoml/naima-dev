@@ -3,7 +3,7 @@
 For anyone, person or agent, who changes this repository. Short on purpose:
 each rule links the page that holds its reasoning.
 
-## The owner's two rules
+## The owner's rules
 
 1. **Don't ask the human if you know the answer.** Decide, act, report. Ask
    only for what is genuinely the owner's: a judgement of how something looks
@@ -18,6 +18,13 @@ each rule links the page that holds its reasoning.
    `docs/reference.md` is regenerated with `npm run docs`; for anything else,
    the page under `docs/` that explains it. `npm run verify` fails otherwise:
    [the documentation rule](docs/documentation.md).
+3. **Don't start working until the feature is totally defined, or the issue
+   triaged.** A request from the owner is not a work order until its item says
+   what "done" is: for a feature, its behaviour, its boundaries and how it is
+   documented; for a defect, its triage fields and the gesture that proves the
+   fix. Until then the only work allowed is writing that definition. A
+   requirement that arrives while work is running goes into the definition,
+   not into the running work.
 
 ## Working rules
 
