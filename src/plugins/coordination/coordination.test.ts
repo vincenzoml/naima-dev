@@ -1,0 +1,88 @@
+import assert from "node:assert/strict"
+import { existsSync, readdirSync } from "node:fs"
+import { join } from "node:path"
+import { test } from "node:test"
+import { createItem, type Plugin } from "../../core/index.ts"
+import { tempProject } from "../../core/testing.ts"
+import coordination, { readClaims, readPasses } from "./index.ts"
+
+const things: Plugin = {
+  name: "things",
+  says: "test type",
+  types: [{ id: "things", dir: "THINGS", title: "Things", says: "", statuses: { open: { category: "open", says: "" } }, initialStatus: "open" }],
+}
+
+test("a claim is one file on the claimer's branch, visible from every other", async () => {
+  const p = tempProject([things, coordination()], { git: true })
+  try {
+    const { ctx } = p
+    const a = createItem(ctx, ctx.registry.types.get("things")!, "Alpha")
+    const b = createItem(ctx, ctx.registry.types.get("things")!, "Beta")
+    p.git("add", "-A")
+    p.git("commit", "-q", "-m", "items")
+
+    p.git("checkout", "-q", "-b", "work")
+    assert.equal(await p.run("claim", a.slug, b.slug, "--note", "why"), 0)
+    assert.equal(readdirSync(join(ctx.trackerRoot, "CLAIMS")).length, 1)
+    assert.equal(await p.run("claim", a.slug), 0) // idempotent, same file
+    assert.equal(readdirSync(join(ctx.trackerRoot, "CLAIMS")).length, 1)
+    p.git("add", "-A")
+    p.git("commit", "-q", "-m", "claim")
+
+    p.git("checkout", "-q", "main")
+    assert.ok(!existsSync(join(ctx.trackerRoot, "CLAIMS")), "main's working tree was never written")
+    const seen = readClaims(ctx)
+    assert.equal(seen.length, 1)
+    assert.deepEqual([seen[0]?.branch, seen[0]?.local, seen[0]?.items.length, seen[0]?.note], ["work", false, 2, "why"])
+
+    p.git("checkout", "-q", "-b", "other")
+    p.output.length = 0
+    await p.run("claim", a.slug)
+    assert.match(p.output.join("\n"), /also claimed by work/)
+    p.output.length = 0
+    await p.run("claims")
+    assert.match(p.output.join("\n"), /more than one branch/)
+
+    await p.run("release", a.slug)
+    assert.ok(!existsSync(join(ctx.trackerRoot, "CLAIMS")) || readdirSync(join(ctx.trackerRoot, "CLAIMS")).length === 0)
+    await assert.rejects(async () => p.run("release", a.slug), /holds no claim/)
+  } finally {
+    p.cleanup()
+  }
+})
+
+test("prune finds claims whose branch is gone", async () => {
+  const p = tempProject([things, coordination()], { git: true })
+  try {
+    const a = createItem(p.ctx, p.ctx.registry.types.get("things")!, "Alpha")
+    p.git("checkout", "-q", "-b", "gone")
+    await p.run("claim", a.slug)
+    p.git("checkout", "-q", "main")
+    p.git("branch", "-q", "-D", "gone")
+    p.output.length = 0
+    await p.run("prune")
+    assert.match(p.output.join("\n"), /gone\s+1 items/)
+    await p.run("prune", "--write")
+    assert.equal(readClaims(p.ctx).length, 0)
+  } finally {
+    p.cleanup()
+  }
+})
+
+test("session notes are one file each, newest first by instant", async () => {
+  let clock = new Date("2026-01-15T09:00:00Z")
+  const p = tempProject([coordination()], { git: true })
+  try {
+    Object.assign(p.ctx, { now: () => clock })
+    await p.run("pass", "first")
+    clock = new Date("2026-01-15T17:00:00Z")
+    await p.run("pass", "second")
+    const passes = readPasses(p.ctx)
+    assert.deepEqual(passes.map((s) => s.body), ["second", "first"])
+    p.output.length = 0
+    await p.run("summary")
+    assert.match(p.output.join("\n"), /where we were[\s\S]*second[\s\S]*\+1 more that day/)
+  } finally {
+    p.cleanup()
+  }
+})

@@ -1,0 +1,277 @@
+// Who is working on what, and where each session left off — without any
+// session ever writing a file another session writes.
+//
+//   <tracker>/CLAIMS/<uuid>.json        one per branch that claims work
+//   <tracker>/PASSES/<date>-<uuid>.md   one per session note
+//
+// Both are written on the writer's own branch, never staged, never committed
+// by the tool. The collections are recombined at read time from every branch.
+
+import { randomUUID } from "node:crypto"
+import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs"
+import { join } from "node:path"
+import {
+  type BranchFile,
+  type Check,
+  type Command,
+  type Context,
+  type Finding,
+  type Item,
+  type Plugin,
+  type SummarySection,
+  allRefNames,
+  bool,
+  currentBranch,
+  label,
+  parse,
+  readAcrossBranches,
+  str,
+  today,
+  writeJson,
+} from "../../core/index.ts"
+
+export const CLAIMS = "CLAIMS"
+export const PASSES = "PASSES"
+
+export interface ClaimEntry {
+  id: string
+  ref: string
+  title: string
+}
+
+export interface Claim {
+  branch: string
+  claimedAt: string
+  note?: string
+  items: ClaimEntry[]
+  file: string
+  local: boolean
+}
+
+export interface Pass {
+  file: string
+  date: string
+  at: string
+  branch: string
+  body: string
+  local: boolean
+}
+
+const rel = (ctx: Context, dir: string): string => join(ctx.config.trackerDir, dir)
+
+function parseClaim(f: BranchFile): Claim | null {
+  try {
+    const c = JSON.parse(f.text) as Partial<Claim>
+    if (!Array.isArray(c.items)) return null
+    const items = c.items.filter((e): e is ClaimEntry => typeof e?.id === "string")
+    return { branch: c.branch ?? f.ref, claimedAt: c.claimedAt ?? "", ...(c.note ? { note: c.note } : {}), items, file: f.name, local: f.local }
+  } catch {
+    return null // an unreadable claim is one row missing, never a broken listing
+  }
+}
+
+export function readClaims(ctx: Context): Claim[] {
+  return readAcrossBranches(ctx.root, rel(ctx, CLAIMS), ".json")
+    .map(parseClaim)
+    .filter((c): c is Claim => c !== null)
+}
+
+const FRONT = /^---\n([\s\S]*?)\n---\n/
+
+function parsePass(f: BranchFile): Pass | null {
+  const m = f.text.match(FRONT)
+  if (!m?.[1]) return null
+  const field = (k: string) => m[1]?.match(new RegExp(`^${k}:\\s*(.+)$`, "m"))?.[1]?.trim() ?? ""
+  const date = field("date")
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null
+  return { file: f.name, date, at: field("at"), branch: field("branch") || f.ref, body: f.text.slice(m[0].length).trim(), local: f.local }
+}
+
+/** Every session note on every branch, newest first by instant. */
+export function readPasses(ctx: Context): Pass[] {
+  const key = (p: Pass) => p.at || p.date
+  return readAcrossBranches(ctx.root, rel(ctx, PASSES), ".md")
+    .map(parsePass)
+    .filter((p): p is Pass => p !== null)
+    .sort((a, b) => (key(a) < key(b) ? 1 : key(a) > key(b) ? -1 : a.file < b.file ? 1 : -1))
+}
+
+function writeClaim(ctx: Context, claim: Claim): string {
+  const dir = join(ctx.root, rel(ctx, CLAIMS))
+  mkdirSync(dir, { recursive: true })
+  const { file, local: _local, ...body } = claim
+  writeJson(join(dir, file), body)
+  return join(rel(ctx, CLAIMS), file)
+}
+
+function myClaim(ctx: Context, branch: string): Claim | undefined {
+  return readClaims(ctx).find((c) => c.local && c.branch === branch)
+}
+
+const claim: Command = {
+  name: "claim",
+  says: "record that this branch is working on items (writes one file on this branch)",
+  usage: 'claim <item>... [--note "why"]',
+  run(args, ctx) {
+    const p = parse(args, { note: { type: "string" } })
+    if (!p.positionals.length) throw new Error(`usage: naima ${this.usage}`)
+    const items = p.positionals.map((r) => ctx.repo.resolve(r))
+    const branch = currentBranch(ctx.root)
+    const all = readClaims(ctx)
+    const mine = all.find((c) => c.local && c.branch === branch) ?? { branch, claimedAt: today(ctx), items: [], file: `${randomUUID()}.json`, local: true }
+    const note = str(p, "note")
+    if (note) mine.note = note
+    for (const item of items) {
+      if (mine.items.some((e) => e.id === item.meta.id)) {
+        ctx.out(`already claimed on ${branch}: ${label(item)}`)
+        continue
+      }
+      const others = all.filter((c) => c.branch !== branch && c.items.some((e) => e.id === item.meta.id)).map((c) => c.branch)
+      if (others.length) ctx.out(`note: also claimed by ${others.join(", ")} — allowed, and worth knowing`)
+      mine.items.push({ id: item.meta.id, ref: label(item), title: item.meta.title })
+      ctx.out(`claimed ${label(item)}`)
+    }
+    ctx.out(`wrote ${writeClaim(ctx, mine)} — commit it on ${branch} with your work`)
+    return 0
+  },
+}
+
+const release: Command = {
+  name: "release",
+  says: "drop this branch's claim on items; the last one removes the file",
+  usage: "release <item>...",
+  run(args, ctx) {
+    const refs = parse(args).positionals
+    if (!refs.length) throw new Error(`usage: naima ${this.usage}`)
+    const branch = currentBranch(ctx.root)
+    const mine = myClaim(ctx, branch)
+    if (!mine) throw new Error(`nothing to release: ${branch} holds no claim here`)
+    const ids = new Set(refs.map((r) => ctx.repo.resolve(r).meta.id))
+    const kept = mine.items.filter((e) => !ids.has(e.id))
+    if (kept.length === mine.items.length) throw new Error(`none of ${refs.join(", ")} is claimed on ${branch}; nothing changed`)
+    ctx.out(`released ${mine.items.length - kept.length} on ${branch}`)
+    if (kept.length === 0) {
+      unlinkSync(join(ctx.root, rel(ctx, CLAIMS), mine.file))
+      ctx.out(`removed ${join(rel(ctx, CLAIMS), mine.file)} — commit the deletion on ${branch}`)
+    } else {
+      mine.items = kept
+      ctx.out(`wrote ${writeClaim(ctx, mine)}`)
+    }
+    return 0
+  },
+}
+
+const claims: Command = {
+  name: "claims",
+  says: "who holds what, recombined from every branch",
+  usage: "claims [--branch <b>]",
+  run(args, ctx) {
+    const p = parse(args, { branch: { type: "string" } })
+    const only = str(p, "branch")
+    const here = currentBranch(ctx.root)
+    const list = readClaims(ctx).filter((c) => !only || c.branch === only)
+    if (!list.some((c) => c.items.length)) ctx.out("no claims")
+    for (const c of list) {
+      ctx.out(`${c.branch}${c.branch === here ? "  ← here" : ""}${c.local ? "  (working tree)" : ""}${c.note ? `  — ${c.note}` : ""}`)
+      for (const e of c.items) ctx.out(`  ${e.ref}  ${e.title}`)
+    }
+    const holders = new Map<string, Set<string>>()
+    for (const c of list) for (const e of c.items) holders.set(e.id, (holders.get(e.id) ?? new Set()).add(c.branch))
+    const contested = [...holders].filter(([, b]) => b.size > 1)
+    if (contested.length) {
+      ctx.out("\nclaimed by more than one branch (allowed):")
+      for (const [id, b] of contested) ctx.out(`  ${ctx.repo.byId.get(id) ? label(ctx.repo.byId.get(id) as Item) : id} → ${[...b].join(", ")}`)
+    }
+    return 0
+  },
+}
+
+const prune: Command = {
+  name: "prune",
+  says: "list (or with --write remove) claim files naming a branch git no longer has",
+  usage: "prune [--write]",
+  run(args, ctx) {
+    const write = bool(parse(args, { write: { type: "boolean" } }), "write")
+    const alive = allRefNames(ctx.root)
+    const stale = readClaims(ctx).filter((c) => c.local && !alive.has(c.branch))
+    if (!stale.length) {
+      ctx.out("every claim names a branch that exists")
+      return 0
+    }
+    for (const c of stale) ctx.out(`  ${c.branch}  ${c.items.length} items  ${c.file}`)
+    if (!write) {
+      ctx.out("nothing removed — run again with --write")
+      return 0
+    }
+    for (const c of stale) unlinkSync(join(ctx.root, rel(ctx, CLAIMS), c.file))
+    ctx.out(`removed ${stale.length} — commit the deletions on ${currentBranch(ctx.root)}`)
+    return 0
+  },
+}
+
+const pass: Command = {
+  name: "pass",
+  says: "write this session's note (one new file), or list the newest",
+  usage: 'pass "<what changed, what is proven, what is left>" | pass --file <f> | pass --list [n]',
+  run(args, ctx) {
+    const p = parse(args, { file: { type: "string" }, list: { type: "boolean" } })
+    if (bool(p, "list")) {
+      const n = Number(p.positionals[0] ?? 5)
+      const passes = readPasses(ctx).slice(0, n)
+      if (!passes.length) ctx.out("no session notes")
+      for (const s of passes) ctx.out(`── ${s.date}  ${s.branch}${s.local ? "  (working tree)" : ""}\n${s.body}\n`)
+      return 0
+    }
+    const file = str(p, "file")
+    const text = (file ? readFileSync(file, "utf8") : p.positionals.join(" ")).trim()
+    if (!text) throw new Error(`usage: naima ${this.usage}`)
+    const now = ctx.now()
+    const date = now.toISOString().slice(0, 10)
+    const branch = currentBranch(ctx.root)
+    const dir = join(ctx.root, rel(ctx, PASSES))
+    mkdirSync(dir, { recursive: true })
+    const name = `${date}-${randomUUID()}.md`
+    writeFileSync(join(dir, name), `---\ndate: ${date}\nat: ${now.toISOString()}\nbranch: ${branch}\n---\n\n${text}\n`)
+    ctx.out(`wrote ${join(rel(ctx, PASSES), name)} — commit it on ${branch} with the work it describes`)
+    return 0
+  },
+}
+
+const claimsResolve: Check = {
+  name: "claims-resolve",
+  says: "a claim written in this worktree names items that exist",
+  run: (ctx) =>
+    readClaims(ctx)
+      .filter((c) => c.local)
+      .flatMap((c) => c.items.filter((e) => !ctx.repo.byId.has(e.id)).map((e): Finding => ({ level: "note", message: `claim ${c.file} names ${e.ref} (${e.id}), which is not here` }))),
+}
+
+const whereWeWere: SummarySection = {
+  name: "where we were",
+  render(ctx) {
+    const [newest, ...rest] = readPasses(ctx)
+    if (!newest) return []
+    const sameDay = rest.filter((p) => p.date === newest.date).length
+    return [`  ${newest.date}  ${newest.branch}`, ...newest.body.split("\n").slice(0, 8).map((l) => `  ${l}`), ...(sameDay ? [`  (+${sameDay} more that day — naima pass --list)`] : [])]
+  },
+}
+
+const inHand: SummarySection = {
+  name: "in hand",
+  render(ctx) {
+    return readClaims(ctx)
+      .filter((c) => c.items.length)
+      .map((c) => `  ${c.branch}: ${c.items.map((e) => e.ref).join(", ")}`)
+  },
+}
+
+export default function coordination(): Plugin {
+  return {
+    name: "coordination",
+    says: "claims and session notes, one file per session, recombined from every branch",
+    dirs: [CLAIMS, PASSES],
+    checks: [claimsResolve],
+    commands: [claim, release, claims, prune, pass],
+    summary: [whereWeWere, inHand],
+  }
+}

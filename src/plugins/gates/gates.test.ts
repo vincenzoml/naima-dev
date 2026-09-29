@@ -1,0 +1,76 @@
+import assert from "node:assert/strict"
+import { test } from "node:test"
+import { createItem, runChecks, typeOrThrow, type Plugin } from "../../core/index.ts"
+import { tempProject } from "../../core/testing.ts"
+import gates from "./index.ts"
+
+// A stand-in for whatever plugin declares the item types: plugins never import each other.
+const open = { category: "open" as const, says: "" }
+const fixture = (): Plugin => ({
+  name: "fixture",
+  says: "work items and proofs",
+  types: [
+    { id: "bugs", dir: "BUGS", title: "", says: "", statuses: { open }, initialStatus: "open" },
+    { id: "todos", dir: "TODOS", title: "", says: "", statuses: { open }, initialStatus: "open" },
+    { id: "tests", dir: "TESTS", title: "", says: "", statuses: { open, passed: { category: "done", proves: true, says: "" } }, initialStatus: "open" },
+  ],
+  fields: [
+    { name: "fixedOn", kind: "date", says: "" },
+    { name: "runBy", kind: "string", says: "" },
+  ],
+  relations: [
+    { name: "verifies", inverse: "verified-by", says: "" },
+    { name: "verified-by", inverse: "verifies", says: "" },
+  ],
+})
+
+const config = { gates: { v1: { title: "First release" }, strict: { title: "Strict", holdsOn: "proof" } } }
+
+test("a code gate waits for code, a proof gate for everything", async () => {
+  const p = tempProject([fixture(), gates(config)])
+  try {
+    const { ctx } = p
+    const bug = createItem(ctx, typeOrThrow(ctx, "bugs"), "Crash", { gate: "v1" })
+    createItem(ctx, typeOrThrow(ctx, "tests"), "No crash", { gate: "v1", links: [{ rel: "verifies", id: bug.meta.id }], runBy: "human" })
+    createItem(ctx, typeOrThrow(ctx, "todos"), "Docs", { gate: "strict", fixedOn: "2026-01-01" })
+
+    let v1 = ctx.registry.gates.get("v1")!.evaluate(ctx)
+    assert.deepEqual([v1.holds, v1.blocking.length, v1.owed.length], [false, 1, 1])
+    assert.equal(await p.run("gates", "--check"), 1)
+
+    const { setFields } = await import("../../core/index.ts")
+    setFields(ctx, ctx.repo.resolve(bug.slug), [["fixedOn", "2026-01-14"]])
+    ctx.reload()
+    v1 = ctx.registry.gates.get("v1")!.evaluate(ctx)
+    assert.deepEqual([v1.holds, v1.owed.length], [true, 2])
+    assert.equal(ctx.registry.gates.get("strict")!.evaluate(ctx).holds, false)
+    assert.equal(await p.run("gates", "v1", "--check"), 0)
+
+    p.output.length = 0
+    await p.run("queue", "v1")
+    assert.match(p.output.join("\n"), /v1: 2 open — agent 0, human 2/)
+  } finally {
+    p.cleanup()
+  }
+})
+
+test("an unknown gate is refused, and a proof of a gated item must be gated", () => {
+  const p = tempProject([fixture(), gates(config)])
+  try {
+    const { ctx } = p
+    const bug = createItem(ctx, typeOrThrow(ctx, "bugs"), "Crash", { gate: "v1" })
+    createItem(ctx, typeOrThrow(ctx, "tests"), "No crash", { links: [{ rel: "verifies", id: bug.meta.id }] })
+    createItem(ctx, typeOrThrow(ctx, "todos"), "Typo", { gate: "v9" })
+    const problems = runChecks(ctx).problems.map((f) => f.message).join("\n")
+    assert.match(problems, /verifies bugs\/crash \(gate v1\) but has no gate/)
+    assert.match(problems, /gate "v9" is not one of: v1, strict/)
+  } finally {
+    p.cleanup()
+  }
+})
+
+test("gates are configured, never hard-coded", () => {
+  assert.throws(() => gates({ gates: { x: {} } }), /needs a title/)
+  assert.throws(() => gates({ gates: { x: { title: "X", holdsOn: "vibes" } } }), /holdsOn/)
+  assert.equal(gates().gates?.length, 0)
+})

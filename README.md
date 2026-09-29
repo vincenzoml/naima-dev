@@ -26,3 +26,61 @@ more by agents, and the tool is designed for them as much as for people.
 
 **The word.** In Arabic, *naʿīma* means grace and calm. Five letters, said the
 same way in every language, nothing to explain.
+
+## What it is
+
+Every item — a bug, a task, a feature, a test, a property — is a directory:
+`README.md` for the prose, `meta.json` for the fields, `attachments/` for the
+evidence. Items have permanent ids and typed links. Boards, queues and gates
+are derived when read and never stored. `naima check` holds the whole tracker
+to its invariants, the way a test suite holds the code.
+
+Work in progress is coordinated through git: each session writes only its own
+files on its own branch, and the collection is recombined from every branch
+when read, so two sessions never edit one file.
+
+Three states are kept apart: *fixed* (the code exists), *resolved* (fixed and
+proven by an item that verifies it and has passed), *closed* (resolved and
+archived with its proof). A property checked by a model checker counts as
+proof exactly as a passed test does.
+
+## Quick start
+
+Requires Node 22.18 or later. No runtime dependencies.
+
+```sh
+npm install
+npm run naima -- init                       # naima.config.json + tracker/
+npm run naima -- new bugs "Export drops the alpha channel"
+npm run naima -- new tests "Export keeps the alpha channel"
+npm run naima -- link export-keeps verifies export-drops
+npm run naima -- triage set export-drops impact=high priority=now effort=M
+npm run naima -- check
+npm run naima -- summary
+npm run naima -- help                       # every command the loaded plugins provide
+```
+
+`npm run verify` runs the typecheck, the tests, and `naima check` on this
+repository's own tracker: Naima tracks itself, in `tracker/`.
+
+## Architecture
+
+A small core knows items, fields, links, invariants, reading git across
+branches, and how to load plugins; it knows no item type, gate or workflow.
+Everything else is a plugin declared through one contract and selected in
+`naima.config.json`: `trackers` (bugs, todos, features, tests, the closed
+archive), `coordination` (claims and session notes), `triage` (four fields and
+the urgency ranking), `gates` (named release conditions), `beta-markers`
+(behaviour shipped without proof, marked in the code) and `verifier` (formal
+methods tools as evidence). The core imports no plugin, a plugin imports only
+the core's public API, and a test enforces both. Details:
+[docs/architecture.md](docs/architecture.md).
+
+## Plugin contract
+
+A plugin is a module whose default export takes its options and returns a
+manifest. Every part is optional: item `types` with their statuses, `fields`,
+link `relations`, reserved `dirs`, `checks` (problems fail, notes inform),
+`commands`, `views`, `summary` sections, `rank` terms, `gates`, and
+`verifiers`. Names are global; two plugins declaring the same one is an error
+at load time. Details: [docs/plugin-contract.md](docs/plugin-contract.md).

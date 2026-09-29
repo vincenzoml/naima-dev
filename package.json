@@ -1,0 +1,22 @@
+{
+  "name": "naima",
+  "version": "0.1.0",
+  "description": "A file-based project tracker for software built by people and AI agents together.",
+  "type": "module",
+  "private": true,
+  "engines": { "node": ">=22.18" },
+  "bin": { "naima": "dist/cli.js" },
+  "exports": { "./core": "./dist/core/index.js", "./core/testing": "./dist/core/testing.js" },
+  "files": ["dist"],
+  "scripts": {
+    "naima": "node src/cli.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json",
+    "test": "node --test \"src/**/*.test.ts\"",
+    "verify": "npm run typecheck && npm test && node src/cli.ts check"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "typescript": "^7.0.2"
+  }
+}
