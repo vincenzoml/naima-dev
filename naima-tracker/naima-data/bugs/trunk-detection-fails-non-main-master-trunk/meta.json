@@ -5,5 +5,8 @@
   "created": "2026-09-30",
   "impact": "medium",
   "priority": "next",
-  "confidence": "measured"
+  "confidence": "measured",
+  "fixedOn": "2026-09-30",
+  "effort": "M",
+  "triagedOn": "2026-09-30"
 }
