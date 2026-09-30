@@ -1,7 +1,7 @@
 {
   "format": 1,
   "source": "https://github.com/vincenzoml/naima.git",
-  "commit": "7a5ef4691cf10553cae22a30f2335e1276bd9e9f",
+  "commit": "068ace6e207e661d647e9c495c934b40cb90a4df",
   "carry": "clone",
   "gates": {
     "first-public": {
