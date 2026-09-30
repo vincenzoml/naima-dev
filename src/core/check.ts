@@ -15,7 +15,7 @@ const note = (message: string): Finding => ({ level: "note", message })
 
 const readable: Check = {
   name: "readable",
-  says: "every item directory has a README.md and a meta.json that parses",
+  says: "every item directory has a README.md and a meta.json that parses to an object whose id, title and status are strings",
   run: (ctx) => [
     ...ctx.repo.unreadable,
     ...ctx.repo.items.filter((i) => !existsSync(join(i.dir, README))).map((i) => problem(`${label(i)}: no ${README}`, i)),

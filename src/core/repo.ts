@@ -24,18 +24,26 @@ export function loadRepo(trackerRoot: string, registry: Registry): Repo {
         unreadable.push({ level: "problem", message: `${where}: no ${META}` })
         continue
       }
+      let meta: unknown
       try {
-        const meta = JSON.parse(readFileSync(path, "utf8")) as unknown
+        meta = JSON.parse(readFileSync(path, "utf8"))
         if (!meta || typeof meta !== "object" || Array.isArray(meta)) throw new Error("not an object")
-        items.push({ type: type.id, slug, dir, meta: meta as Meta })
       } catch (e) {
         unreadable.push({ level: "problem", message: `${where}: ${META} is not a JSON object (${(e as Error).message})` })
+        continue
       }
+      // What every item is read by. An item without them is reported, never handed to a command to crash on.
+      const wrong = (["id", "title", "status"] as const).filter((k) => typeof (meta as Record<string, unknown>)[k] !== "string")
+      if (wrong.length) {
+        unreadable.push({ level: "problem", message: `${where}: ${META}: ${wrong.map((k) => `${k} is not a string`).join(", ")}` })
+        continue
+      }
+      items.push({ type: type.id, slug, dir, meta: meta as Meta })
     }
   }
 
   const byId = new Map<string, Item>()
-  for (const item of items) if (typeof item.meta.id === "string" && !byId.has(item.meta.id)) byId.set(item.meta.id, item)
+  for (const item of items) if (!byId.has(item.meta.id)) byId.set(item.meta.id, item)
 
   // Only one direction of a link is stored; the inverse is computed here, so
   // the two halves can never disagree.
@@ -59,7 +67,7 @@ export function loadRepo(trackerRoot: string, registry: Registry): Repo {
       items.find((i) => `${registry.types.get(i.type)?.dir}/${i.slug}` === ref)
     if (exact) return exact
     const bySlug = items.filter((i) => i.slug === ref)
-    const candidates = bySlug.length ? bySlug : items.filter((i) => i.slug.includes(ref) || (typeof i.meta.id === "string" && i.meta.id.startsWith(ref)))
+    const candidates = bySlug.length ? bySlug : items.filter((i) => i.slug.includes(ref) || i.meta.id.startsWith(ref))
     if (candidates.length === 1 && candidates[0]) return candidates[0]
     if (candidates.length === 0) throw new Error(`no item matches "${ref}"`)
     throw new Error(`"${ref}" is ambiguous: ${candidates.map((i) => `${i.type}/${i.slug}`).join(", ")}`)

@@ -12,7 +12,7 @@ export interface ResolvedLink extends Link {
   implied: boolean
 }
 
-/** The fields of an item (`meta.json`). Unknown fields are preserved untouched. */
+/** The fields of an item (`meta.json`). `id`, `title` and `status` are checked on read; unknown fields are preserved untouched. */
 export interface Meta {
   id: string
   title: string
@@ -227,7 +227,7 @@ export interface Registry {
 }
 
 export interface Repo {
-  /** Every readable item. */
+  /** Every readable item: a meta.json that is a JSON object whose id, title and status are strings. */
   items: Item[]
   /** Items that could not be read, as findings. */
   unreadable: Finding[]

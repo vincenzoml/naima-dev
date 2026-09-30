@@ -283,3 +283,26 @@ test("a link is stored in one direction only: its inverse is already the link", 
     p.cleanup()
   }
 })
+
+test("a meta.json whose id, title or status is not a string is unreadable, not a crash", async () => {
+  const p = tempProject([notes])
+  try {
+    const type = p.ctx.registry.types.get("notes")!
+    const good = createItem(p.ctx, type, "Good")
+    for (const [title, patch] of [["Bad status", { status: 5 }], ["Bad title", { title: ["x"] }], ["Bad id", { id: 7 }]] as const) {
+      const item = createItem(p.ctx, type, title)
+      const meta = JSON.parse(readFileSync(join(item.dir, "meta.json"), "utf8"))
+      writeFileSync(join(item.dir, "meta.json"), JSON.stringify({ ...meta, ...patch }))
+    }
+    p.ctx.reload()
+    assert.equal(await p.run("list"), 0)
+    assert.match(p.output.join("\n"), /1 item$/)
+    assert.deepEqual(p.ctx.repo.items.map((i) => i.meta.id), [good.meta.id])
+    const text = messages(runChecks(p.ctx))
+    assert.match(text, /bad-status: meta\.json: status is not a string/)
+    assert.match(text, /bad-title: meta\.json: title is not a string/)
+    assert.match(text, /bad-id: meta\.json: id is not a string/)
+  } finally {
+    p.cleanup()
+  }
+})
