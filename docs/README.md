@@ -2,6 +2,7 @@
 
 | Page | What it holds |
 |---|---|
+| [Purpose, requirements and principles](purpose.md) | **read first**: why Naima exists, whom it serves, its requirements and what holds each, its design principles, its non-goals |
 | [Concepts](concepts.md) | items, links, fixed / resolved / closed, derived state, cross-branch coordination |
 | [Installing and updating](install.md) | Deno, bootstrapping a project, the lock and alignment, `naima update`, the permissions and what they do not protect, forks, how the program is carried |
 | [Using Naima in your project](using-naima.md) | `naima init`, the `naima-tracker/` folder, the lock, migration, moving things |

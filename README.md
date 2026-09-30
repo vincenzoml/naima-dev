@@ -9,6 +9,9 @@ Status: research project, private while it takes shape. Open source by
 design: the file format is an open specification, and changing Naima to fit a
 project is encouraged.
 
+Why Naima exists, what it requires of itself and the principles behind it:
+[purpose, requirements and principles](docs/purpose.md). Read it first.
+
 ## Why the name
 
 **Coltrane.** *Naima* is John Coltrane's ballad on *Giant Steps* (1959). It is
@@ -57,6 +60,10 @@ project](docs/using-naima.md), [the format](docs/format.md). An agent can do
 all of this itself: [the Naima skill](docs/skill.md).
 
 ## Documentation
+
+**[Purpose, requirements and principles](docs/purpose.md)** — read first:
+why Naima exists, whom it serves, what it requires of itself and what holds
+each requirement, its design principles and its non-goals.
 
 **[docs/](docs/README.md)** — concepts, configuration, the generated
 reference of every command, type, field, relation, check, gate and plugin, the
