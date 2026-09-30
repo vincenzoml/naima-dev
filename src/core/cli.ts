@@ -34,7 +34,7 @@ export async function openProject(place: Place, opts: Pick<CliOptions, "programR
   const config = readConfig(place.data)
   const firstParty = opts.firstParty(config)
   const extra = await loadPlugins(opts.programRoot, config, firstParty.map((p) => p.name))
-  return createContext(place, config, buildRegistry([corePlugin, ...firstParty, ...extra]), io)
+  return createContext(place, config, buildRegistry([corePlugin, ...firstParty, ...extra], { reserved: cliCommands.map((c) => c.name) }), io)
 }
 
 /** The commands the entry point answers itself, before any plugin is loaded. Documented like any other. */

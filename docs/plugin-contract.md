@@ -40,8 +40,11 @@ Naima that carries it — with optional `options` ([configuration](config.md)):
 | `gates` | a named condition: `title`, `says`, `decides` (how it decides, in words), `evaluate(ctx) → { holds, blocking, owed }` |
 | `verifiers` | an adapter to a formal-methods tool: `verify({ model, property, options }) → { verdict, output, counterexample? }` |
 
-Every name — type, directory, field, relation, command, view, gate, verifier —
-is global. Declaring one twice is an error when the project loads.
+Every name — type, directory, field, relation, command, view, gate, verifier,
+check, summary section, rank term — is global. Declaring one twice is an
+error when the project loads. So is a command named after one the entry point
+answers before any plugin loads (`init`, `update`, `carry`, `guide`, `help`):
+it could never run.
 
 **Documentation is part of the manifest.** Every `says`, every example and
 every option entry is what `naima docs` turns into the reference, and with the

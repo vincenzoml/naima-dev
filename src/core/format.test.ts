@@ -88,7 +88,7 @@ test("newer data is refused and left as it was; a migration that throws writes n
 })
 
 test("check fails on a tracker that mixes formats", () => {
-  const p = tempProject([{ name: "mixed", says: "the fixture's format check", checks: [formatCheck(fixture)] }, {
+  const p = tempProject([{ name: "mixed", says: "the fixture's format check", checks: [{ ...formatCheck(fixture), name: "one-format-fixture" }] }, {
     name: "bugs",
     says: "a type",
     types: [{ id: "bugs", dir: "bugs", title: "Bugs", says: "bugs", statuses: { open: { category: "open", says: "open" } }, initialStatus: "open" }],

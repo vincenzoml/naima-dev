@@ -343,3 +343,16 @@ test("a write is seen by the next read in the same run, with no reload", async (
     p.cleanup()
   }
 })
+
+test("a plugin cannot take a name the entry point answers, nor a check, summary or rank name another declared", () => {
+  const cmd = (name: string) => ({ name, says: "x", usage: name, run: () => 0 })
+  const reserved = ["init", "update", "carry", "guide", "help"]
+  for (const name of reserved) {
+    assert.throws(() => buildRegistry([corePlugin, { name: "p", says: "", commands: [cmd(name)] }], { reserved }), new RegExp(`command "${name}" is answered by the entry point`))
+  }
+  const check = { name: "links", says: "x", run: () => [] }
+  assert.throws(() => buildRegistry([corePlugin, { name: "p", says: "", checks: [check] }]), /check "links" is declared by both "core" and "p"/)
+  assert.throws(() => buildRegistry([corePlugin, { name: "p", says: "", summary: [{ name: "items", render: () => [] }] }]), /summary section "items" is declared by both "core" and "p"/)
+  const term = { name: "t", score: () => 0 }
+  assert.throws(() => buildRegistry([corePlugin, { name: "p", says: "", rank: [term] }, { name: "q", says: "", rank: [term] }]), /rank term "t" is declared by both "p" and "q"/)
+})
