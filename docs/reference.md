@@ -832,7 +832,7 @@ Properties: a property of the software, proven or refuted by a verifier. Items l
 
 Every feature is documented as part of its implementation, and naima check holds it.
 
-The rule: a feature is not done until its documentation is in the same change. It is always on, in three places, and nothing has to be configured for it. **The manifests**: every contribution of every loaded plugin carries its own documentation — a command its usage, an example and every `--flag` it takes; a type, status, field, enum value, relation, check, view and verifier what it means; a gate what it is for and how it decides — and `documented` fails on any that does not. `naima docs` generates the reference from them, so it cannot drift. **The tracker**: an item of a feature type in a documented status names its documentation in `docs` (`path` or `path#heading`, from the project root), and every name resolves. **The prose**: every relative link in every markdown file git tracks resolves, so a flow an instruction names exists.
+The rule: a feature is not done until its documentation is in the same change. It is always on, in three places, and nothing has to be configured for it. **The manifests**: every contribution of every loaded plugin carries its own documentation — a command its usage, an example and every `--flag` it takes; a type, status, field, enum value, relation, check, view and verifier what it means; a gate what it is for and how it decides — and `documented` fails on any that does not. `naima docs` generates the reference from them, so it cannot drift. **The tracker**: an item of a feature type in a documented status names its documentation in `docs` (`path` or `path#heading`, from the project root), and every name resolves to a markdown file, and to a heading in it when it names one. **The prose**: every relative link in every markdown file git tracks resolves, so a flow an instruction names exists.
 
 Options, each with the default it takes when nothing sets it:
 
@@ -876,5 +876,5 @@ naima docs --check docs/reference.md
 |---|---|
 | `documented` | every loaded plugin, command (with an example and every option), type, status, field, value, relation, check, view, gate and verifier carries its documentation |
 | `reference-current` | with the reference option set, the reference file is what `naima docs` generates from the loaded manifests |
-| `features-documented` | a feature in a documented status names its documentation in `docs`, and every name there resolves to a file and heading |
+| `features-documented` | a feature in a documented status names its documentation in `docs`, and every name there resolves to a markdown file, and a heading when it names one |
 | `links-resolve` | every relative link in every markdown file of the project (or under the links option) points at a file, and a heading when it names one |

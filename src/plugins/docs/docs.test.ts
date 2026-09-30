@@ -136,3 +136,20 @@ test("with nothing configured, every markdown file of the project is link-checke
     p.cleanup()
   }
 })
+
+test("a feature's docs name a markdown file: a bare #heading, an empty entry or a directory is no documentation", async () => {
+  const p = tempProject([docs({}), features])
+  try {
+    await p.run("new", "features", "Export keeps alpha", "--set", "status=shipped")
+    mkdirSync(join(p.root, "guide"))
+    writeFileSync(join(p.root, "notes.txt"), "export keeps alpha\n")
+    for (const [value, why] of [["#x", /docs #x — names no file/], ["guide", /docs guide — is a directory, not a markdown file/], ["guide#x", /docs guide#x — is a directory/], ["notes.txt", /docs notes\.txt — is not a markdown file/]] as const) {
+      await p.run("set", "export-keeps-alpha", `docs=${value}`)
+      assert.match(runChecks(p.ctx).problems.map((f) => f.message).join("\n"), why, value)
+    }
+    await p.run("set", "export-keeps-alpha", "docs=,")
+    assert.match(runChecks(p.ctx).problems.map((f) => f.message).join("\n"), /shipped with no documentation/)
+  } finally {
+    p.cleanup()
+  }
+})

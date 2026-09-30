@@ -250,6 +250,16 @@ export function unresolved(root: string, fromDir: string, target: string): strin
   return anchorsOf(readFileSync(md, "utf8")).has(hash.toLowerCase()) ? null : `${relative(root, md)} has no heading #${hash}`
 }
 
+/** Why a feature's `docs` entry (`path` or `path#heading`, from the root) is not documentation, or null. */
+export function docsRefError(root: string, ref: string): string | null {
+  const [path = ""] = ref.split("#", 1)
+  if (!path.trim()) return "names no file — docs is path or path#heading"
+  const file = resolve(root, decodeURI(path))
+  if (existsSync(file) && statSync(file).isDirectory()) return "is a directory, not a markdown file"
+  if (!file.endsWith(".md")) return "is not a markdown file"
+  return unresolved(root, root, ref)
+}
+
 function* markdown(path: string): Generator<string> {
   if (!existsSync(path)) return
   if (statSync(path).isFile()) {
@@ -316,7 +326,7 @@ export default function docs(options: Record<string, unknown> = {}): Plugin {
 
   const featuresDocumented: Check = {
     name: "features-documented",
-    says: "a feature in a documented status names its documentation in `docs`, and every name there resolves to a file and heading",
+    says: "a feature in a documented status names its documentation in `docs`, and every name there resolves to a markdown file, and a heading when it names one",
     run(ctx) {
       const out: Finding[] = []
       for (const item of ctx.repo.items.filter((i) => opts.featureTypes.includes(i.type))) {
@@ -325,7 +335,7 @@ export default function docs(options: Record<string, unknown> = {}): Plugin {
           out.push({ level: "problem", message: `${label(item)} is ${item.meta.status} with no documentation — set docs=<path>[#heading]`, item })
         }
         for (const ref of refs) {
-          const why = unresolved(ctx.root, ctx.root, ref)
+          const why = docsRefError(ctx.root, ref)
           if (why) out.push({ level: "problem", message: `${label(item)}: docs ${ref} — ${why}`, item })
         }
       }
@@ -378,7 +388,7 @@ export default function docs(options: Record<string, unknown> = {}): Plugin {
     about:
       "The rule: a feature is not done until its documentation is in the same change. It is always on, in three places, and nothing has to be configured for it. " +
       "**The manifests**: every contribution of every loaded plugin carries its own documentation — a command its usage, an example and every `--flag` it takes; a type, status, field, enum value, relation, check, view and verifier what it means; a gate what it is for and how it decides — and `documented` fails on any that does not. `naima docs` generates the reference from them, so it cannot drift. " +
-      "**The tracker**: an item of a feature type in a documented status names its documentation in `docs` (`path` or `path#heading`, from the project root), and every name resolves. " +
+      "**The tracker**: an item of a feature type in a documented status names its documentation in `docs` (`path` or `path#heading`, from the project root), and every name resolves to a markdown file, and to a heading in it when it names one. " +
       "**The prose**: every relative link in every markdown file git tracks resolves, so a flow an instruction names exists.",
     options: [
       { name: "reference", says: "the reference file `naima check` holds current with the manifests; `naima docs --check <path>` holds any file without it", default: "none" },
