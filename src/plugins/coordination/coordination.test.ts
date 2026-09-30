@@ -45,7 +45,7 @@ test("a claim is one file on the claimer's branch, visible from every other", as
 
     await p.run("release", a.slug)
     assert.ok(!existsSync(join(ctx.trackerRoot, "claims")) || readdirSync(join(ctx.trackerRoot, "claims")).length === 0)
-    await assert.rejects(async () => p.run("release", a.slug), /holds no claim/)
+    await assert.rejects(() => p.run("release", a.slug), /holds no claim/)
   } finally {
     p.cleanup()
   }

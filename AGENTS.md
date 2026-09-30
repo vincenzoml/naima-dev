@@ -96,7 +96,7 @@ rewriting published history, discarding someone's uncommitted work.
 ## Before pushing
 
 ```sh
-deno task verify    # typecheck, tests, check (working tree and lock), reference current
+deno task verify    # typecheck, lint, tests, check (working tree and lock), reference current
 node --test "src/**/*.test.ts" && bun test ./src/     # the same tests on Node and Bun
 ```
 

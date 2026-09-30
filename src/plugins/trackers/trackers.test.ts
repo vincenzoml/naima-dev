@@ -12,7 +12,7 @@ test("fixed, resolved, closed are three states, and closing needs the proof", as
     const { ctx } = p
     const bug = createItem(ctx, typeOrThrow(ctx, "bugs"), "Export drops alpha")
     assert.equal(lifecycle(ctx, bug), "unfixed")
-    await assert.rejects(async () => p.run("close", bug.slug), /unfixed/)
+    await assert.rejects(() => p.run("close", bug.slug), /unfixed/)
 
     setFields(ctx, bug, [["fixedOn", "2026-01-14"]])
     ctx.reload()
@@ -22,7 +22,7 @@ test("fixed, resolved, closed are three states, and closing needs the proof", as
     const t = createItem(ctx, typeOrThrow(ctx, "tests"), "Export keeps alpha", { links: [{ rel: "verifies", id: bug.meta.id }] })
     ctx.reload()
     assert.equal(lifecycle(ctx, ctx.repo.resolve(bug.slug)), "fixed")
-    await assert.rejects(async () => p.run("close", bug.slug), /fixed/)
+    await assert.rejects(() => p.run("close", bug.slug), /fixed/)
 
     setFields(ctx, ctx.repo.resolve(t.slug), [["status", "passed"]])
     ctx.reload()
@@ -41,7 +41,7 @@ test("fixed, resolved, closed are three states, and closing needs the proof", as
 test("an archived item without proof fails the check; archives cannot be opened", async () => {
   const p = tempProject([trackers()])
   try {
-    await assert.rejects(async () => p.run("new", "closed", "x"), /archive/)
+    await assert.rejects(() => p.run("new", "closed", "x"), /archive/)
     const bug = createItem(p.ctx, typeOrThrow(p.ctx, "bugs"), "Lost")
     const { moveItem } = await import("../../core/index.ts")
     setFields(p.ctx, bug, [["status", "wontfix"]])

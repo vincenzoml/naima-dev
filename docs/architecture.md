@@ -34,7 +34,7 @@ src/
 
 ```
 naima.ts            the launcher's executable: deno run -A naima.ts <command>
-deno.json           the tasks: naima, dev, typecheck, test, docs, verify, dist, coverage
+deno.json           the tasks: naima, dev, typecheck, lint, test, docs, verify, dist, coverage
 skills/naima/       the agent skill (skill.md), and the flow commands in commands/flow/
 docs/reference.md   generated from the manifests by naima docs; never edited by hand
 dist.json           the runtime allowlist: the files a dist commit, and so a project, holds

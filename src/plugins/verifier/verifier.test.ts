@@ -44,7 +44,7 @@ test("a run is attached as evidence, with the counterexample and the model's has
 })
 
 test("adapters come from any plugin; a missing verifier or model is a problem", async () => {
-  const always: Verifier = { id: "always", says: "", verify: async () => ({ verdict: "holds", output: "ok" }) }
+  const always: Verifier = { id: "always", says: "", verify: () => Promise.resolve({ verdict: "holds", output: "ok" }) }
   const extra: Plugin = { name: "extra", says: "", verifiers: [always] }
   const p = tempProject([verifier(), extra])
   try {
@@ -57,7 +57,7 @@ test("adapters come from any plugin; a missing verifier or model is a problem", 
     const problems = runChecks(ctx).problems.map((f) => f.message).join("\n")
     assert.match(problems, /verifier "nope" is not loaded/)
     assert.match(problems, /model gone does not exist/)
-    await assert.rejects(async () => p.run("verify", "broken"), /no verifier "nope"/)
+    await assert.rejects(() => p.run("verify", "broken"), /no verifier "nope"/)
   } finally {
     p.cleanup()
   }
@@ -85,12 +85,10 @@ test("an adapter outside the contract gives a property in error with a readable 
     name: "extra",
     says: "",
     verifiers: [
-      bad("pass", async () => ({ verdict: "pass", output: "fine" })),
-      bad("silent", async () => ({ verdict: "holds" })),
-      bad("nothing", async () => undefined),
-      bad("throws", async () => {
-        throw "a string, not an Error"
-      }),
+      bad("pass", () => Promise.resolve({ verdict: "pass", output: "fine" })),
+      bad("silent", () => Promise.resolve({ verdict: "holds" })),
+      bad("nothing", () => Promise.resolve(undefined)),
+      bad("throws", () => Promise.reject("a string, not an Error")),
     ],
   }
   const p = tempProject([verifier(), extra])
@@ -111,7 +109,7 @@ test("an adapter outside the contract gives a property in error with a readable 
 })
 
 test("a property holds only for what was run: a changed property, verifier, model path or options is reported", async () => {
-  const other: Verifier = { id: "other", says: "", verify: async () => ({ verdict: "holds", output: "ok" }) }
+  const other: Verifier = { id: "other", says: "", verify: () => Promise.resolve({ verdict: "holds", output: "ok" }) }
   const p = tempProject([verifier(), { name: "extra", says: "", verifiers: [other] }])
   try {
     const { ctx } = p

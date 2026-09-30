@@ -29,7 +29,7 @@ const undocumented: Plugin = {
   gates: [{ name: "g", title: "G", says: "", evaluate: () => ({ holds: true, blocking: [], owed: [] }) }],
 }
 
-test("a contribution without its documentation fails check, named", async () => {
+test("a contribution without its documentation fails check, named", () => {
   const p = tempProject([docs({}), features, undocumented])
   try {
     const gaps = documentationGaps(p.ctx)

@@ -99,7 +99,7 @@ test("every first-party plugin is loaded with nothing but the lock; new, link, s
     assert.equal((await naima(sub, ["new", "tests", "Export keeps alpha"])).code, 0)
     assert.equal((await naima(sub, ["link", "export-keeps-alpha", "verifies", "export-drops-alpha"])).code, 0)
     const shown = await naima(sub, ["show", "export-drops-alpha"])
-    assert.match(shown.out, /is proven by tests\/export-keeps-alpha \[open\]  \(inverse\)/)
+    assert.match(shown.out, /is proven by tests\/export-keeps-alpha \[open\] {2}\(inverse\)/)
     const check = await naima(sub, ["check"])
     assert.equal(check.code, 0, check.out)
     assert.match((await naima(sub, ["board", "bugs"])).out, /1 open, 0 done/)

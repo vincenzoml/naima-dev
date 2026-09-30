@@ -65,11 +65,14 @@ export function tempProject(plugins: Plugin[], opts: { git?: boolean; now?: Date
     ctx,
     output,
     errors,
-    async run(command, ...args) {
-      const cmd = ctx.registry.commands.get(command)
-      if (!cmd) throw new Error(`no command ${command}`)
-      ctx.reload()
-      return cmd.run(args, ctx)
+    run(command, ...args) {
+      // A promise either way: a command that throws before it returns is a rejection, as it is to runCli.
+      return new Promise<number>((done) => {
+        const cmd = ctx.registry.commands.get(command)
+        if (!cmd) throw new Error(`no command ${command}`)
+        ctx.reload()
+        done(cmd.run(args, ctx))
+      })
     },
     git,
     cleanup: () => removeTemp(root),

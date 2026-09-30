@@ -51,11 +51,11 @@ const tryGit = (repo: string, args: string[]): string | null => {
 export function globRegex(glob: string): RegExp {
   const body = glob
     .split("/")
-    .map((part) => (part === "**" ? "\u0000" : part.replace(/[.+^${}()|[\]\\?]/g, "\\$&").replace(/\*/g, "[^/]*")))
+    .map((part) => (part === "**" ? "\uFFFF" : part.replace(/[.+^${}()|[\]\\?]/g, "\\$&").replace(/\*/g, "[^/]*")))
     .join("/")
-    .replace(/\u0000\//g, "(?:.*/)?")
-    .replace(/\/\u0000$/, "(?:/.*)?")
-    .replace(/\u0000/g, ".*")
+    .replace(/\uFFFF\//g, "(?:.*/)?")
+    .replace(/\/\uFFFF$/, "(?:/.*)?")
+    .replace(/\uFFFF/g, ".*")
   return new RegExp(`^${body}$`)
 }
 

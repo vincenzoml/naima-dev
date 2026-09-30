@@ -8,12 +8,10 @@
 // exit status and output to a verdict, and returns the trace it printed.
 
 import { readFileSync } from "node:fs"
-import { type Verifier, type VerifyResult, message } from "../../../core/index.ts"
+import { type Verifier, type VerifyRequest, type VerifyResult, message } from "../../../core/index.ts"
 
-export const exampleRegex: Verifier = {
-  id: "example-regex",
-  says: 'line-regex properties over a text file: "some <re>" or "never <re>"',
-  async verify({ model, property }): Promise<VerifyResult> {
+/** The whole check, synchronous: a real adapter awaits its tool here. */
+function check({ model, property }: VerifyRequest): VerifyResult {
     const m = property.match(/^(some|never)\s+(.+)$/)
     if (!m?.[1] || !m[2]) return { verdict: "error", output: `property must be "some <regex>" or "never <regex>", got: ${property}` }
     let re: RegExp
@@ -27,5 +25,10 @@ export const exampleRegex: Verifier = {
     const hit = lines.findIndex((l) => re.test(l))
     if (m[1] === "some") return hit === -1 ? { verdict: "violated", output: "no line matches", counterexample: `no line of the model matches /${m[2]}/` } : { verdict: "holds", output: `line ${hit + 1} matches` }
     return hit === -1 ? { verdict: "holds", output: `none of ${lines.length} lines matches` } : { verdict: "violated", output: `line ${hit + 1} matches`, counterexample: `${hit + 1}: ${lines[hit]}` }
-  },
+}
+
+export const exampleRegex: Verifier = {
+  id: "example-regex",
+  says: 'line-regex properties over a text file: "some <re>" or "never <re>"',
+  verify: (request) => Promise.resolve(check(request)),
 }

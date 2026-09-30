@@ -17,7 +17,12 @@
     "docs": "deno run -A src/cli.ts docs --write docs/reference.md",
     "dist": "deno run -A scripts/dist.ts",
     "coverage": "deno run -A scripts/coverage.ts",
-    "verify": "deno task typecheck && deno task test && deno run -A src/cli.ts check && deno run -A src/cli.ts docs --check docs/reference.md && deno run -A naima.ts check"
+    "lint": "deno lint",
+    "verify": "deno task typecheck && deno task lint && deno task test && deno run -A src/cli.ts check && deno run -A src/cli.ts docs --check docs/reference.md && deno run -A naima.ts check"
+  },
+  "lint": {
+    "include": ["naima.ts", "src/", "scripts/"],
+    "rules": { "tags": ["recommended"] }
   },
   "lock": false,
   "nodeModulesDir": "none"

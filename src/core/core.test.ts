@@ -66,7 +66,7 @@ test("the data directory: --data or NAIMA_DATA, else the first naima-tracker/nai
   }
 })
 
-test("an item is a directory with a uuid, and links are resolved in both directions", async () => {
+test("an item is a directory with a uuid, and links are resolved in both directions", () => {
   const p = tempProject([notes])
   try {
     const type = p.ctx.registry.types.get("notes")!

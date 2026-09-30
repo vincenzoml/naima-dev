@@ -6,7 +6,7 @@
 // have, is refused, never reset. None ever pulls on its own: only `naima
 // update` asks the source where its main is.
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync } from "node:fs"
 import { basename, dirname, join, resolve } from "node:path"
 import { isLocalSource, posixRelative } from "./config.ts"
 import { writeFileAtomic } from "./files.ts"

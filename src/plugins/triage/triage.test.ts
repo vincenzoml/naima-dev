@@ -22,7 +22,7 @@ test("set stamps a human decision; derive never touches effort or a decided item
     await p.run("triage", "set", a.slug, "impact=high", "effort=S")
     let meta = ctx.repo.resolve(a.slug).meta
     assert.deepEqual([meta["impact"], meta["effort"], meta["triagedOn"], meta["triagedBy"]], ["high", "S", "2026-01-15", undefined])
-    await assert.rejects(async () => p.run("triage", "set", a.slug, "effort=huge"), /not one of/)
+    await assert.rejects(() => p.run("triage", "set", a.slug, "effort=huge"), /not one of/)
 
     await p.run("triage", "derive", "--write")
     meta = ctx.repo.resolve(b.slug).meta

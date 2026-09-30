@@ -2,7 +2,7 @@
 
 import { randomUUID } from "node:crypto"
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs"
-import { dirname, join } from "node:path"
+import { join } from "node:path"
 import { writeFileAtomic } from "./files.ts"
 import type { Context, Item, Meta, TypeDef } from "./types.ts"
 

@@ -64,7 +64,7 @@ test("with nothing configured, every source file of the project is scanned, and 
   }
 })
 
-test("a marker naming an item since archived is found through the archive, and a bad reference says why", async () => {
+test("a marker naming an item since archived is found through the archive, and a bad reference says why", () => {
   const archive: Plugin = {
     name: "archive",
     says: "",
