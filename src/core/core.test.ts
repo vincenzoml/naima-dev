@@ -58,7 +58,15 @@ test("the registry refuses a name declared twice", () => {
 const LOCK = { source: "https://example.invalid/naima.git", commit: "a".repeat(40) }
 
 test("naima.json: the format, the lock, gates and third-party plugins; nothing to switch on", () => {
-  assert.deepEqual(parseConfig({ format: FORMAT, ...LOCK }), { format: FORMAT, ...LOCK, carry: "clone", program: "../naima", gates: {}, plugins: [] })
+  assert.deepEqual(parseConfig({ format: FORMAT, ...LOCK }), {
+    format: FORMAT,
+    formats: {},
+    ...LOCK,
+    carry: "clone",
+    program: "../naima",
+    gates: {},
+    plugins: [],
+  })
   const c = parseConfig({
     format: FORMAT,
     ...LOCK,
@@ -74,6 +82,8 @@ test("naima.json: the format, the lock, gates and third-party plugins; nothing t
   assert.throws(() => parseConfig({ format: FORMAT, ...LOCK, carry: "zip" }), /carry must be one of: clone, vendored, submodule/)
   assert.throws(() => parseConfig({ format: FORMAT, ...LOCK, naima: "^0.2.0" }), /unknown key "naima"/)
   assert.throws(() => parseConfig({ format: FORMAT, ...LOCK, plugins: [3] }), /a plugin entry/)
+  assert.deepEqual(parseConfig({ format: FORMAT, formats: { gates: 2 }, ...LOCK }).formats, { gates: 2 })
+  assert.throws(() => parseConfig({ format: FORMAT, formats: { gates: 0 }, ...LOCK }), /formats\.gates must be a format/)
 })
 
 test("the data directory: --data or NAIMA_DATA, else the first naima-tracker/naima-data/ walking up", () => {

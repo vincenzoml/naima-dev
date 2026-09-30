@@ -359,7 +359,7 @@ naima types
 | `links` | every link uses a declared relation and names an existing item other than its own |
 | `layout` | every directory under the tracker root belongs to an item type or a plugin |
 | `duplicates` | items of one type with the same title are linked as duplicates, or reported |
-| `one-format` | no item is still in a shape a format migration replaced: a tracker never mixes formats |
+| `one-format` | no item is still in a shape a format migration, the core's or a plugin's own, replaced: a tracker never mixes formats |
 
 **Summary sections**: `items`.
 

@@ -119,6 +119,9 @@ export function documentationGaps(ctx: Context): string[] {
     if (blank(g.decides)) out.push(`gate "${g.name}" does not say how it decides`)
   }
   for (const v of ctx.registry.verifiers.values()) if (blank(v.says)) out.push(`verifier "${v.id}" does not say what it checks`)
+  for (const p of ctx.registry.plugins) {
+    for (const m of p.migrations ?? []) if (blank(m.says)) out.push(`plugin "${p.name}": migration ${m.from} does not say what it does`)
+  }
   return out
 }
 
@@ -237,6 +240,10 @@ export function renderReference(ctx: Context): string {
     if (p.dirs?.length) L.push("", `**Directories** it owns under the tracker root: ${p.dirs.map((d) => code(d + "/")).join(", ")}.`)
     if (p.summary?.length) L.push("", `**Summary sections**: ${p.summary.map((s) => code(s.name)).join(", ")}.`)
     if (p.rank?.length) L.push("", `**Rank terms**, added to every item's urgency: ${p.rank.map((t) => code(t.name)).join(", ")}.`)
+    if (p.migrations?.length) {
+      L.push("", `**Migrations** of its own data, run by \`naima update\` after the core's; its format is ${p.migrations.length + 1}:`, "")
+      for (const m of p.migrations) L.push(`- format ${m.from} → ${m.from + 1}: ${m.says}`)
+    }
   }
   return L.join("\n") + "\n"
 }

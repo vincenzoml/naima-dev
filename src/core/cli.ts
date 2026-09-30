@@ -5,10 +5,11 @@
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs"
 import { dirname, join, relative, resolve } from "node:path"
-import { corePlugin } from "./base.ts"
-import { CARRY_MODES, loadPlugins, type Lock, parseLock, posixRelative, programDir, readConfig, readRaw, sourceRefusal, writeRaw } from "./config.ts"
-import { consoleIO, createContext, type IO, type Place } from "./context.ts"
-import { FORMAT, formatRefusal, isFormat, migrate } from "./format.ts"
+import { CARRY_MODES, type Lock, parseLock, posixRelative, programDir, readRaw, sourceRefusal, writeRaw } from "./config.ts"
+import { consoleIO, type IO, type Place } from "./context.ts"
+import { cliCommands } from "./entry.ts"
+import { FORMAT, formatRefusal, isFormat, migrate, MIGRATIONS, type Step } from "./format.ts"
+import { formatsFor, type OpenOptions, openProject, owed } from "./project.ts"
 import { bool, parse } from "./args.ts"
 import { gitOrNull, toplevel } from "./git.ts"
 import { exclusions } from "./excludes.ts"
@@ -16,6 +17,7 @@ import {
   DATA_DIR,
   DATA_FILE,
   DEFAULT_DATA,
+  DEFAULT_PROGRAM,
   DIST_BRANCH,
   findData,
   globalOptions,
@@ -28,10 +30,9 @@ import {
 } from "./layout.ts"
 import { align, carry, ignoreProgram, localWork, refuseLocalWork, remoteHead, short, stage, type Target, vendor } from "./program.ts"
 import { EXIT, isInternal, message } from "./errors.ts"
-import { buildRegistry } from "./registry.ts"
-import type { Carry, Command, Config, Context, Plugin } from "./types.ts"
+import type { Carry, Config, Context, Plugin } from "./types.ts"
 
-export interface CliOptions {
+export interface CliOptions extends OpenOptions {
   cwd: string
   /** The Naima that is running: the directory holding its naima.ts and src/. */
   programRoot: string
@@ -45,56 +46,6 @@ export interface CliOptions {
   /** Print the stack of an internal error (NAIMA_DEBUG=1). */
   debug?: boolean
 }
-
-/** Load a project into a context: config (in this Naima's format), plugins, registry. */
-export async function openProject(place: Place, opts: Pick<CliOptions, "programRoot" | "firstParty">, io: IO = consoleIO): Promise<Context> {
-  const config = readConfig(place.data)
-  const firstParty = opts.firstParty(config)
-  const extra = await loadPlugins(opts.programRoot, config, firstParty.map((p) => p.name))
-  return createContext(place, config, buildRegistry([corePlugin, ...firstParty, ...extra], { reserved: cliCommands.map((c) => c.name) }), io)
-}
-
-/** The commands the entry point answers itself, before any plugin is loaded. Documented like any other. */
-export const cliCommands: Omit<Command, "run">[] = [
-  {
-    name: "init",
-    says:
-      `make this git repository a Naima project: create ${TRACKER_DIR}/ — its README.md, its .gitignore and ${DATA_DIR}/${DATA_FILE}, locked to the source and commit of the Naima that runs it, which must be committed and pushed; print the line that keeps the program out of each host tool configuration it finds (deno.json, tsconfig.json, .prettierignore); nothing outside ${TRACKER_DIR}/ is touched unless --write-excludes is given`,
-    usage: "init [--write-excludes]",
-    options: [{
-      name: "--write-excludes",
-      says:
-        "also write those lines into the host's own files: deno.json and tsconfig.json when they are plain JSON, .prettierignore; a file with comments is left to be edited by hand",
-    }],
-    examples: ["init", "init --write-excludes"],
-  },
-  {
-    name: "update",
-    says:
-      `move the lock to the head of the source's ${DIST_BRANCH} branch — its main, when the source publishes no ${DIST_BRANCH}: fetch it, migrate the data forward if its format moved, and record the new commit, as one change to commit; the only command that asks the source anything`,
-    usage: "update [--check]",
-    options: [{ name: "--check", says: `only say whether the source's ${DIST_BRANCH} (or main) has moved past the locked commit; exit 1 when it has` }],
-    examples: ["update --check", "update"],
-  },
-  {
-    name: "carry",
-    says: "switch how the program is carried — a gitignored clone, vendored as committed files, or a git submodule — staging the switch as one change",
-    usage: `carry <${CARRY_MODES.join("|")}>`,
-    examples: ["carry vendored", "carry clone"],
-  },
-  {
-    name: "guide",
-    says: "print where the running Naima's documentation is: the skill, the docs index, the flows, the format, installing; read them as files",
-    usage: "guide",
-    examples: ["guide"],
-  },
-  {
-    name: "help",
-    says: "list every command the loaded plugins provide, with its usage",
-    usage: "help",
-    examples: ["help"],
-  },
-]
 
 const usage = (name: string): string => `usage: naima ${cliCommands.find((c) => c.name === name)?.usage ?? name}`
 
@@ -183,7 +134,8 @@ async function init(args: string[], opts: CliOptions, io: IO): Promise<number> {
   mkdirSync(data, { recursive: true })
   const readme = join(tracker, "README.md")
   if (!existsSync(readme)) writeFileSync(readme, TRACKER_README)
-  writeRaw(data, { format: FORMAT, source, commit, carry: "clone" })
+  const formats = formatsFor(opts.firstParty(parseConfigFor(source, commit)))
+  writeRaw(data, { format: FORMAT, ...(Object.keys(formats).length ? { formats } : {}), source, commit, carry: "clone" })
   ignoreProgram({ root, tracker, program, source, commit, carry: "clone" }, true)
   io.out(`wrote ${TRACKER_DIR}/: README.md, .gitignore, ${DATA_DIR}/${DATA_FILE} — locked to ${source} at ${short(commit)}`)
   excludeHost(root, program, write, io)
@@ -191,7 +143,30 @@ async function init(args: string[], opts: CliOptions, io: IO): Promise<number> {
   return 0
 }
 
-function update(args: string[], place: Place, lock: Lock, raw: Record<string, unknown>, io: IO): number {
+/** What `naima update` says it migrated: the core's format, then each plugin's own. */
+function migrated(steps: readonly Step[], from: unknown, plugins: readonly { plugin: string | null; migrations: readonly unknown[] }[]): string[] {
+  if (!steps.length) return [`the data is format ${FORMAT}: nothing to migrate`]
+  const out = steps.some((s) => s.plugin === null) ? [`migrated the data from format ${String(from)} to ${FORMAT}`] : []
+  for (const p of plugins) {
+    const mine = steps.filter((s) => s.plugin === p.plugin)
+    if (mine.length) out.push(`migrated ${p.plugin}'s data from its format ${mine[0]?.from} to ${1 + p.migrations.length}`)
+  }
+  return out
+}
+
+/** The config of a project init is about to write: nothing but its lock, in this Naima's format. */
+const parseConfigFor = (source: string, commit: string): Config => ({
+  format: FORMAT,
+  formats: {},
+  source,
+  commit,
+  carry: "clone",
+  program: DEFAULT_PROGRAM,
+  gates: {},
+  plugins: [],
+})
+
+async function update(args: string[], opts: CliOptions, place: Place, lock: Lock, raw: Record<string, unknown>, io: IO): Promise<number> {
   const check = bool(parse(args, { check: { type: "boolean" } }), "check")
   const t = targetOf(place, lock)
   const head = remoteHead(t)
@@ -212,8 +187,9 @@ function update(args: string[], place: Place, lock: Lock, raw: Record<string, un
     return RELAUNCH // the new Naima finishes: it is the one that knows the new format
   }
   const from = raw["format"]
-  const migrated = migrate(place.data)
-  io.out(migrated.length ? `migrated the data from format ${String(from)} to ${FORMAT}` : `the data is format ${FORMAT}: nothing to migrate`)
+  const { all } = await owed(raw, opts)
+  const steps = migrate(place.data, MIGRATIONS, all.slice(1))
+  for (const line of migrated(steps, from, all.slice(1))) io.out(line)
   const tracker = posixRelative(place.root, trackerOf(place.data))
   io.out(`${short(main)} is the lock — commit it as one change: git add ${tracker} && git commit -m "Update Naima to ${short(main)}"`)
   return 0
@@ -288,7 +264,7 @@ export async function runCli(argv: string[], opts: CliOptions): Promise<number> 
       if (!opts.launched) {
         throw new Error(`naima ${command} moves the program, so it runs through the launcher: deno run -A ${TRACKER_DIR}/naima/naima.ts ${command}`)
       }
-      return command === "update" ? update(args, place, place.lock, place.raw, io) : carryCommand(args, place, place.lock, place.raw, io)
+      return command === "update" ? await update(args, opts, place, place.lock, place.raw, io) : carryCommand(args, place, place.lock, place.raw, io)
     }
     const ctx = await openProject(place, opts, io)
     if (isHelp(command)) return help(ctx, io)

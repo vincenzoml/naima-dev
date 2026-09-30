@@ -28,7 +28,7 @@ export {
 } from "./git.ts"
 export { CARRY_MODES, loadPlugins, type Lock, parseConfig, parseLock, programOf, readConfig } from "./config.ts"
 export { EXCLUDE_FILES, type Exclusion, exclusions } from "./excludes.ts"
-export { FORMAT, formatCheck, formatRefusal, migrate, type Migration, MIGRATIONS } from "./format.ts"
+export { FORMAT, formatCheck, formatOf, formatRefusal, migrate, type Migration, MIGRATIONS, type Migrations, type Step } from "./format.ts"
 export {
   ABOUT,
   DATA_DIR,
@@ -48,4 +48,6 @@ export {
 } from "./layout.ts"
 export { consoleIO, createContext, type IO, type Place } from "./context.ts"
 export { buildRegistry } from "./registry.ts"
-export { cliCommands, type CliOptions, openProject, runCli } from "./cli.ts"
+export { type CliOptions, runCli } from "./cli.ts"
+export { cliCommands } from "./entry.ts"
+export { type OpenOptions, openProject } from "./project.ts"

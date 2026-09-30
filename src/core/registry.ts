@@ -2,6 +2,7 @@
 // error at load time, never a silent override.
 
 import { FrozenMap, FrozenSet } from "./collections.ts"
+import { inOrder } from "./format.ts"
 import type { Check, Command, FieldDef, GateDef, Plugin, RankTerm, Registry, RelationDef, SummarySection, TypeDef, Verifier, View } from "./types.ts"
 
 export interface RegistryOptions {
@@ -42,6 +43,7 @@ export function buildRegistry(plugins: Plugin[], opts: RegistryOptions = {}): Re
   for (const p of plugins) {
     if (names.has(p.name)) throw new Error(`plugin "${p.name}" is loaded twice`)
     names.add(p.name)
+    inOrder({ plugin: p.name, migrations: p.migrations ?? [] })
     for (const t of p.types ?? []) {
       if (!Object.hasOwn(t.statuses, t.initialStatus)) throw new Error(`type "${t.id}": initial status "${t.initialStatus}" is not one of its statuses`)
       put(registry.types, t.id, t, "type", p.name)

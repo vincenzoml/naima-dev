@@ -2,7 +2,7 @@
 //
 // Automatic, not configured: every first-party plugin is always loaded, with
 // defaults it infers from the repository. The file holds only what the tool
-// cannot infer — the data format, the lock (which Naima runs: its source,
+// cannot infer — the data formats, the lock (which Naima runs: its source,
 // commit and how it is carried), where the program is when it has moved, the
 // project's gates, and third-party plugins to add. Nothing in it switches
 // anything on. The format is specified in docs/format.md.
@@ -13,12 +13,12 @@ import { pathToFileURL } from "node:url"
 import { message } from "./errors.ts"
 import { writeFileAtomic } from "./files.ts"
 import { DATA_FILE, DEFAULT_PROGRAM } from "./layout.ts"
-import { FORMAT, formatRefusal } from "./format.ts"
+import { FORMAT, formatRefusal, formatsOf } from "./format.ts"
 import type { Carry, Config, Plugin, PluginEntry, PluginFactory, PluginOptions } from "./types.ts"
 
 export const CARRY_MODES: readonly Carry[] = ["clone", "vendored", "submodule"]
 
-const KEYS = new Set(["format", "source", "commit", "carry", "program", "gates", "plugins"])
+const KEYS = new Set(["format", "formats", "source", "commit", "carry", "program", "gates", "plugins"])
 const COMMIT = /^[0-9a-f]{40}$/
 
 const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v)
@@ -62,13 +62,21 @@ export function parseLock(raw: Record<string, unknown>): Lock {
   return { source, commit, carry: carry as Carry, program }
 }
 
-/** The contents of a naima.json in the format this Naima reads. Throws with the reason when it is not one. */
-export function parseConfig(raw: unknown): Config {
+/**
+ * The contents of a naima.json in the format this Naima reads. Throws with the
+ * reason when it is not one. `lenient` reads a naima.json whose core shape is
+ * current but which still owes a plugin's migration: its format and any key a
+ * plugin's migration will move are not held — only to load the plugins whose
+ * migrations it owes.
+ */
+export function parseConfig(raw: unknown, opts: { lenient?: boolean } = {}): Config {
   if (!isObject(raw)) throw new Error(`${DATA_FILE} must hold a JSON object`)
   const refusal = formatRefusal(raw["format"])
-  if (refusal) throw new Error(`${DATA_FILE} ${refusal}`)
+  if (refusal && !opts.lenient) throw new Error(`${DATA_FILE} ${refusal}`)
   for (const key of Object.keys(raw)) {
-    if (!KEYS.has(key)) throw new Error(`${DATA_FILE}: unknown key "${key}" — it holds only ${[...KEYS].join(", ")}; everything else is inferred`)
+    if (!KEYS.has(key) && !opts.lenient) {
+      throw new Error(`${DATA_FILE}: unknown key "${key}" — it holds only ${[...KEYS].join(", ")}; everything else is inferred`)
+    }
   }
   const lock = parseLock(raw)
   const gates = raw["gates"] ?? {}
@@ -84,7 +92,7 @@ export function parseConfig(raw: unknown): Config {
     }
     throw new Error(`${DATA_FILE}: a plugin entry is a path inside the program, or { "name", "options" }`)
   })
-  return { format: FORMAT, ...lock, gates, plugins }
+  return { format: FORMAT, formats: formatsOf(raw), ...lock, gates, plugins }
 }
 
 /** The raw JSON of `<data>/naima.json`. */

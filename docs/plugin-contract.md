@@ -39,6 +39,7 @@ Naima that carries it — with optional `options` ([configuration](config.md)):
 | `rank` | an additive urgency term; lower is more urgent |
 | `gates` | a named condition: `title`, `says`, `decides` (how it decides, in words), `evaluate(ctx) → { holds, blocking, owed }`; `configured: true` for a gate the project's configuration declares, which the program's reference leaves out |
 | `verifiers` | an adapter to a formal-methods tool: `verify({ model, property, options }) → { verdict, output, counterexample? }` |
+| `migrations` | its own data migrations, in order from its format 1: `from`, `says`, and pure `config(raw)`, `item(meta)`, `stale(meta)`; its format is 1 + their number ([migrations](format.md#migrations)) |
 
 Every name — type, directory, field, relation, command, view, gate, verifier,
 check, summary section, rank term — is global. Declaring one twice is an

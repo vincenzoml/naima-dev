@@ -185,6 +185,23 @@ export interface Plugin {
   rank?: RankTerm[]
   gates?: GateDef[]
   verifiers?: Verifier[]
+  /** Its own data migrations, in order from its format 1: its format is 1 + their number (docs/format.md#migrations). */
+  migrations?: Migration[]
+}
+
+type Json = Record<string, unknown>
+
+/** One step of a data format: the core's, or one plugin's own. Pure, deterministic, forward only. */
+export interface Migration {
+  /** The format it reads; it writes `from + 1`. */
+  from: number
+  says: string
+  /** The new naima.json from the old one, without `format` or `formats`. Pure. */
+  config?(raw: Json): Json
+  /** The new meta.json of one item from the old one. Pure. */
+  item?(meta: Json): Json
+  /** True when an item still has the shape this migration replaces: `check` reports it. */
+  stale?(meta: Json): boolean
 }
 
 export type PluginOptions = Record<string, unknown>
@@ -202,6 +219,8 @@ export type Carry = "clone" | "vendored" | "submodule"
 export interface Config {
   /** The data format (docs/format.md). */
   format: number
+  /** Each plugin's own data format, by plugin name; a plugin absent from it is at format 1. */
+  formats: Record<string, number>
   /** The git URL (or path) of the Naima this project runs: Naima's own, or a fork. */
   source: string
   /** The commit of `source` this project runs: the lock. */

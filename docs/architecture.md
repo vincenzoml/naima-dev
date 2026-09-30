@@ -19,7 +19,9 @@ src/
     files.ts       the one walker (regular files only, links never followed); writeFileAtomic
     layout.ts      naima-tracker/ and its names; finding the data directory
     config.ts      naima.json: the lock, gates, third-party plugin loading
-    format.ts      the data format, migrations, the one-format check
+    format.ts      the data formats, the core's and each plugin's; migrations; the one-format check
+    project.ts     opening a project: naima.json, the plugins, their formats, the registry, the context
+    entry.ts       the commands the entry point answers before any plugin loads
     excludes.ts    the host tool configurations init prints, or writes, an exclusion for
     program.ts     the program directory: alignment, update, carry — all through git
     base.ts        the core's own contributions: generic fields, relations, commands

@@ -52,6 +52,7 @@ the one whose `naima.json` carries `format`.
 | Key | Required | What it is |
 |---|---|---|
 | `format` | yes | the data format, an integer: this page is format 1 |
+| `formats` | no, `{}` | each plugin's own data format, by plugin name: only the plugins whose format has moved past 1 appear; one absent is at format 1 ([migrations](#migrations)) |
 | `source` | yes | the git URL, or absolute path, of the Naima the project runs: Naima's own repository, or a fork; never starting with `-`, and a path on this disk is absolute |
 | `commit` | yes | the full hash of the `source` commit the project runs: **the lock**; a commit of its [`dist` branch](install.md#the-dist-branch), or of `main` for a source without one |
 | `carry` | no, `clone` | how the program is carried: `clone`, `vendored` or `submodule` (below) |
@@ -130,7 +131,7 @@ branch, recombined when read ([concepts](concepts.md)):
 - every item has a uuid no other item has, a title, and a status its type declares;
 - every declared field holds a value of its kind;
 - every link uses a declared relation and names an existing item other than its own;
-- no item is still in a shape a format migration replaced (`one-format`).
+- no item is still in a shape a format migration, the core's or a plugin's own, replaced (`one-format`).
 
 ## Migrations
 
@@ -142,7 +143,22 @@ at the lock is refused in one line; it can only come from a hand edit.
 
 A migration rewrites `naima.json` and every item's `meta.json`, and declares
 which items still have the shape it replaces, so that `check` fails on a
-tracker that mixes formats. Parallel branches: update on its own branch and
+tracker that mixes formats.
+
+A plugin may carry migrations of its own data — a field it renames, a setting
+it moves — without moving the core's format or any other plugin's. Its format
+is 1 + the number of its migrations, recorded in `formats` under its name
+(absent means 1), and `naima update` runs its migrations after the core's, in
+load order, under the same rules: deterministic, forward only, idempotent, and
+held by the same `one-format` check. `init` records the format every
+first-party plugin starts at. Data a newer plugin wrote is refused in one
+line, as the core's is.
+
+The launched program, which is the project's authority, refuses data that
+still owes a migration until `naima update` runs it. The development build
+(`src/cli.ts` run directly, which never writes the tracker) reads such data as
+migrated, in memory, and says so on stderr — but only when the migrations owed
+change `naima.json` alone; one that rewrites items is refused there too. Parallel branches: update on its own branch and
 merge it first; every other branch then merges the trunk and runs `naima
 update`, which finishes the migration of its own new items or does nothing.
 
