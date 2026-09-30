@@ -77,3 +77,30 @@ documents that a host's own tracked material lives in its own
 `review-host-leakage.md`: the full measurement — which tools leak today (V0),
 the four mitigation variants tried (V1 sparse, V2 dot-dir, V3 both, V4 dist),
 and the per-tool, per-variant result table this decision is based on.
+
+## Implementation (branch `claude/host-dist`, 2026-09-30)
+
+Decisions taken while implementing, where the definition left a choice:
+
+- **One branch of the same repository**, `dist`, not a second repository:
+  `source` stays Naima's URL; `update` follows `dist` when the source has
+  it, `main` otherwise (forks, local sources). No new `naima.json` key.
+- **The allowlist** is `dist.json` (the only source of truth); the builder
+  is `scripts/dist.ts` (git plumbing from the commit's own tree:
+  reproducible, no commit when no shipped file changed, never moved back by
+  a late run). The measured 52 files are 58 now: `src/core/excludes.ts` and
+  the five flow commands.
+- **The flow commands** are meant for hosts (docs/flows/README.md offers
+  them), so they ship with the skill, in `skills/naima/commands/flow/`;
+  Naima's own `.claude/commands/flow` is a link to them.
+- **Naima's self-tracking follows its dist**, as every project does; the
+  current lock on a main commit keeps working until the next update.
+- **`naima carry dev`** is not added: changing Naima is done on a full
+  checkout of main (docs/install.md#modifying-naima).
+- **`init --write-excludes`** is the opt-in flag; the launcher grants write
+  to exactly `deno.json`, `deno.jsonc`, `tsconfig.json` and
+  `.prettierignore`, for that command only.
+
+Proof: `tests/project-dist-holds-only-what-runs-naima` (offline half passed;
+the online half needs the first dist push) and
+`tests/ci-runs-pinned-linux-macos-pushes-dist`.

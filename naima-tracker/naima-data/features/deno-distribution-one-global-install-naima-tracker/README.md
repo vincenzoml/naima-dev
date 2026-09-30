@@ -308,3 +308,25 @@ Every done-criterion has a TESTS item that `verifies` this one. The suite:
 `deno task verify` passes (`tests/naima-s-own-tracker-managed-by-locked`).
 Naima's own tracker moved to `naima-tracker/naima-data/` with `git mv`, locked
 to the implementation commit, and is managed through the launcher.
+
+## Amended by the host-leakage feature (2026-09-30, branch `claude/host-dist`)
+
+The feature "Host leakage: the installed program directory holds only what
+runs Naima" changes these clauses; where this page says otherwise, that one
+wins:
+
+- **What is cloned** is Naima's `dist` branch, not `main`: the runtime files
+  only (`dist.json`), built by CI from every commit of main with a
+  `Source-Commit:` trailer. Clauses 2, 4 and 6 read "the source's dist, or its
+  main when it has none" wherever they say "main".
+- **`update` and `update --check`** follow `refs/heads/dist` when the source
+  has it, `refs/heads/main` otherwise. A lock on a main commit keeps working
+  and moves onto the dist at the next update.
+- **Env is an allow-list** (`ENV` in `src/launcher.ts`), enforced by handing
+  the program only those variables; the "granted in full" decision above is
+  replaced.
+- **Seeds** now also fetch the locked commit from the seed into
+  `refs/remotes/origin/naima-locked`, so a commit that is only a
+  remote-tracking ref in the seed (Naima's own repository, for its dist)
+  still clones offline and is not taken for local work.
+- **Naima's own tracker** follows its dist like any project.
