@@ -356,3 +356,22 @@ test("a plugin cannot take a name the entry point answers, nor a check, summary 
   const term = { name: "t", score: () => 0 }
   assert.throws(() => buildRegistry([corePlugin, { name: "p", says: "", rank: [term] }, { name: "q", says: "", rank: [term] }]), /rank term "t" is declared by both "p" and "q"/)
 })
+
+test("the registry and the config cannot be changed once the project is loaded", () => {
+  const p = tempProject([notes])
+  try {
+    const { registry, config } = p.ctx
+    const mutable = registry as unknown as { commands: Map<string, unknown>; dirs: Set<string>; checks: unknown[]; types: Map<string, unknown> }
+    assert.throws(() => mutable.commands.delete("show"), /registry is read-only/)
+    assert.throws(() => mutable.commands.set("show", {}), /registry is read-only/)
+    assert.throws(() => mutable.types.clear(), /registry is read-only/)
+    assert.throws(() => mutable.dirs.add("X"), /registry is read-only/)
+    assert.throws(() => mutable.checks.push({}), TypeError)
+    assert.throws(() => Object.assign(registry, { commands: new Map() }), TypeError)
+    assert.throws(() => Object.assign(config.gates, { v2: {} }), TypeError)
+    assert.throws(() => Object.assign(config, { commit: "f".repeat(40) }), TypeError)
+    assert.ok(registry.commands.has("show") && registry.types.has("notes"))
+  } finally {
+    p.cleanup()
+  }
+})

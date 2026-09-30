@@ -1,7 +1,8 @@
 // Merging plugin manifests into one registry. A name claimed twice is an
 // error at load time, never a silent override.
 
-import type { Plugin, Registry } from "./types.ts"
+import { FrozenMap, FrozenSet } from "./collections.ts"
+import type { Check, Command, FieldDef, GateDef, Plugin, RankTerm, Registry, RelationDef, SummarySection, TypeDef, Verifier, View } from "./types.ts"
 
 export interface RegistryOptions {
   /** Command names the entry point answers before any plugin is loaded: a plugin command by one of them could never run. */
@@ -9,19 +10,19 @@ export interface RegistryOptions {
 }
 
 export function buildRegistry(plugins: Plugin[], opts: RegistryOptions = {}): Registry {
-  const registry: Registry = {
-    plugins,
-    types: new Map(),
-    fields: new Map(),
-    relations: new Map(),
-    dirs: new Set(),
-    checks: [],
-    commands: new Map(),
-    views: new Map(),
-    summary: [],
-    rank: [],
-    gates: new Map(),
-    verifiers: new Map(),
+  // Built mutable here, then handed out frozen: no plugin can change another's contributions at run time.
+  const registry = {
+    types: new Map<string, TypeDef>(),
+    fields: new Map<string, FieldDef>(),
+    relations: new Map<string, RelationDef>(),
+    dirs: new Set<string>(),
+    checks: [] as Check[],
+    commands: new Map<string, Command>(),
+    views: new Map<string, View>(),
+    summary: [] as SummarySection[],
+    rank: [] as RankTerm[],
+    gates: new Map<string, GateDef>(),
+    verifiers: new Map<string, Verifier>(),
   }
   const owners = new Map<string, string>()
   const names = new Set<string>()
@@ -77,5 +78,18 @@ export function buildRegistry(plugins: Plugin[], opts: RegistryOptions = {}): Re
       if (!registry.types.has(t)) throw new Error(`field "${f.name}" applies to type "${t}", which no plugin declares`)
     }
   }
-  return registry
+  return Object.freeze({
+    plugins: Object.freeze([...plugins]),
+    types: new FrozenMap(registry.types),
+    fields: new FrozenMap(registry.fields),
+    relations: new FrozenMap(registry.relations),
+    dirs: new FrozenSet(registry.dirs),
+    checks: Object.freeze(registry.checks),
+    commands: new FrozenMap(registry.commands),
+    views: new FrozenMap(registry.views),
+    summary: Object.freeze(registry.summary),
+    rank: Object.freeze(registry.rank),
+    gates: new FrozenMap(registry.gates),
+    verifiers: new FrozenMap(registry.verifiers),
+  })
 }

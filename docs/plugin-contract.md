@@ -61,7 +61,9 @@ Every hook receives a `Context`: the project `root`, the data directory
 helpers, `out`/`err`, and `now()`. Write through the public helpers
 (`createItem`, `saveMeta`, `setFields`, `addLink`, `moveItem`, `writeJson`) so
 that ids and validation stay consistent: every write through them is seen by
-the next read of `repo`, with no reload to remember.
+the next read of `repo`, with no reload to remember. The `registry` and the
+`config` are frozen once the project is loaded: a plugin reads another's
+contributions and cannot change them.
 
 ## Cooperation without imports
 

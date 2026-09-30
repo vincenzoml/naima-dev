@@ -1,6 +1,7 @@
 // The object every command, check and view receives.
 
 import { posixRelative } from "./config.ts"
+import { deepFreeze } from "./collections.ts"
 import { writes } from "./item.ts"
 import { loadRepo } from "./repo.ts"
 import type { Config, Context, Registry, Repo } from "./types.ts"
@@ -33,7 +34,7 @@ export function createContext(place: Place, config: Config, registry: Registry, 
     trackerRoot,
     trackerDir: posixRelative(place.root, trackerRoot),
     program: place.program,
-    config,
+    config: deepFreeze(config),
     registry,
     get repo() {
       // Every write through the core's helpers moves `writes()`: the next read sees it.

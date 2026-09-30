@@ -211,19 +211,20 @@ export interface Config {
   plugins: PluginEntry[]
 }
 
+/** Every loaded contribution, merged. Read-only: frozen once built, so no plugin can change another's. */
 export interface Registry {
-  plugins: Plugin[]
-  types: Map<string, TypeDef>
-  fields: Map<string, FieldDef>
-  relations: Map<string, RelationDef>
-  dirs: Set<string>
-  checks: Check[]
-  commands: Map<string, Command>
-  views: Map<string, View>
-  summary: SummarySection[]
-  rank: RankTerm[]
-  gates: Map<string, GateDef>
-  verifiers: Map<string, Verifier>
+  readonly plugins: readonly Plugin[]
+  readonly types: ReadonlyMap<string, TypeDef>
+  readonly fields: ReadonlyMap<string, FieldDef>
+  readonly relations: ReadonlyMap<string, RelationDef>
+  readonly dirs: ReadonlySet<string>
+  readonly checks: readonly Check[]
+  readonly commands: ReadonlyMap<string, Command>
+  readonly views: ReadonlyMap<string, View>
+  readonly summary: readonly SummarySection[]
+  readonly rank: readonly RankTerm[]
+  readonly gates: ReadonlyMap<string, GateDef>
+  readonly verifiers: ReadonlyMap<string, Verifier>
 }
 
 export interface Repo {
@@ -247,8 +248,9 @@ export interface Context {
   trackerDir: string
   /** Absolute program directory: the Naima that runs. Never part of the project's own files. */
   program: string
-  config: Config
-  registry: Registry
+  /** Frozen, like the registry. */
+  readonly config: Config
+  readonly registry: Registry
   /** The items, read on first access, again after any write through the core's helpers, and after `reload()`. */
   readonly repo: Repo
   /** Forget the items read, for a change made on disk without the helpers (by hand, by git). */
