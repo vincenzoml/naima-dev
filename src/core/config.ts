@@ -18,7 +18,7 @@ import type { Carry, Config, PluginConfig, PluginOptions, Severity } from "./typ
 
 export const CARRY_MODES: readonly Carry[] = ["clone", "vendored", "submodule"]
 
-const KEYS = new Set(["format", "formats", "source", "commit", "carry", "program", "plugins"])
+const KEYS = new Set(["format", "formats", "source", "commit", "carry", "program", "plugins", "rename"])
 const COMMIT = /^[0-9a-f]{40}$/
 
 const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v)
@@ -79,7 +79,18 @@ export function parseConfig(raw: unknown, opts: { lenient?: boolean } = {}): Con
     }
   }
   const lock = parseLock(raw)
-  return { format: FORMAT, formats: formatsOf(raw), ...lock, plugins: parsePlugins(raw["plugins"]) }
+  return { format: FORMAT, formats: formatsOf(raw), ...lock, plugins: parsePlugins(raw["plugins"]), rename: parseRename(raw["rename"]) }
+}
+
+/** The `rename` table: kind → qualified id → new short name. Which ids exist is the registry's to say. */
+function parseRename(value: unknown): Record<string, Record<string, string>> {
+  if (value === undefined) return {}
+  const shape = `${DATA_FILE}: rename maps a kind to { "<plugin>/<name>": "<new name>" }`
+  if (!isObject(value)) throw new Error(shape)
+  for (const table of Object.values(value)) {
+    if (!isObject(table) || !Object.values(table).every((v) => typeof v === "string")) throw new Error(shape)
+  }
+  return value as Record<string, Record<string, string>>
 }
 
 const ENTRY_KEYS = new Set(["enabled", "options", "source", "replacedBy", "checks"])

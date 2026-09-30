@@ -71,7 +71,18 @@ async function load(raw: Json, opts: OpenOptions, io: IO): Promise<{ config: Con
 /** Load a project into a context: its config in this Naima's formats, every plugin, the registry. */
 export async function openProject(place: Place, opts: OpenOptions, io: IO = consoleIO): Promise<Context> {
   const { config, plugins } = await load(readRaw(place.data), opts, io)
-  return createContext(place, config, buildRegistry([corePlugin, ...plugins], { reserved: [...RESERVED], severities: severitiesOf(config) }), io)
+  return createContext(
+    place,
+    config,
+    buildRegistry([corePlugin, ...plugins], {
+      reserved: [...RESERVED],
+      severities: severitiesOf(config),
+      rename: config.rename,
+      // The core and the first-party plugins read their own names as declared: only a third-party plugin's can be renamed.
+      fixedNames: [corePlugin.name, ...opts.firstParty.map((p) => p.name)],
+    }),
+    io,
+  )
 }
 
 /** The formats a new project starts at: every plugin's own that has moved past format 1. */

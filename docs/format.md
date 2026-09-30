@@ -61,6 +61,7 @@ the one whose `naima.json` carries `format`.
 | `carry` | no, `clone` | how the program is carried: `clone`, `vendored` or `submodule` (below) |
 | `program` | no, `../naima` | the program directory, relative to the data directory |
 | `plugins` | no, `{}` | plugin name → `{ "options", "enabled", "replacedBy", "source", "checks" }`, first-party plugins included: their options (the project's gates are the `gates` plugin's), switched off, replaced, added, their checks weighed ([configuration](config.md#the-plugins-table)) |
+| `rename` | no, `{}` | kind → `{ "<plugin>/<name>": "<short name>" }`: the name a third-party plugin's contribution goes by, when two plugins would store the same one ([names](plugin-contract.md#names)) |
 
 Any other key is an error. `source`, `commit`, `carry` and `program` are the
 lock: they keep these names and meanings in every format, so that any Naima

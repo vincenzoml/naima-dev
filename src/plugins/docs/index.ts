@@ -167,7 +167,7 @@ export function renderReference(ctx: Context): string {
     GENERATED + " Do not edit: change the manifest, then run `naima docs --write`. -->",
     "",
     "Everything the loaded plugins contribute, generated from their manifests so it cannot drift from the code.",
-    "Names are global: no two plugins may declare the same command, type, field, relation, view, gate, verifier, check, summary section or rank term, and no plugin command may take a name the entry point answers.",
+    "Every contribution below has a qualified id, `<plugin>/<name>`, and goes by its short name while no other loaded plugin's contribution of its kind takes it. A name stored in the data — a type, field, relation, directory, gate or verifier — is never declared twice; a project that loads two plugins declaring one renames one of them in naima.json. No plugin command may take a name the entry point answers.",
     "",
     "## Contents",
     "",
@@ -181,7 +181,7 @@ export function renderReference(ctx: Context): string {
     ...r.plugins.flatMap((p) => (p.commands ?? []).map((c) => `| [${code(c.name)}](#${anchor("naima " + c.name)}) | ${p.name} | ${cell(c.says)} |`)),
   ]
   for (const p of r.plugins) {
-    L.push("", `## ${p.name}`, "", sentence(p.says))
+    L.push("", `## ${p.name}`, "", sentence(p.says), "", `Its contributions' qualified ids are ${code(`${p.name}/<name>`)}.`)
     if (p.about) L.push("", p.about)
     if (p.options?.length) L.push("", "Options, each with the default it takes when nothing sets it:", ...optionsTable(p.options, "Option"))
     if (p.name === "core") { for (const c of cliCommands) L.push(...commandSection(c)) }

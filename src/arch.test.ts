@@ -108,7 +108,7 @@ const CONTRACT = ["types", "fields", "relations", "dirs", "checks", "commands", 
 function pluginVocabulary(): Set<string> {
   const core = new Set<string>([...CONTRACT, ...(corePlugin.fields ?? []).map((f) => f.name), ...(corePlugin.relations ?? []).map((r) => r.name)])
   const names = new Set<string>()
-  for (const p of firstParty.map((f) => f.factory({}))) {
+  for (const p of firstParty.map((f) => f.factory({}, { plugin: f.name, name: (_kind, n) => n }))) {
     for (
       const n of [
         p.name,

@@ -7,7 +7,7 @@
 import { isAbsolute, relative, resolve } from "node:path"
 import { pathToFileURL } from "node:url"
 import { DATA_FILE } from "./layout.ts"
-import type { Config, FirstParty, Plugin, PluginConfig, PluginFactory, Severity } from "./types.ts"
+import type { Config, FirstParty, Plugin, PluginConfig, PluginFactory, PluginScope, Severity } from "./types.ts"
 
 /** The core's own entry in the table: it cannot be switched off or replaced, only its checks weighed. */
 export const CORE = "core"
@@ -27,17 +27,21 @@ async function factoryAt(program: string, source: string, name: string): Promise
 }
 
 /** The plugin a factory makes for `entry`, under the name the project gives it: its contributions are that name's. */
-function make(name: string, factory: PluginFactory, entry: PluginConfig | undefined): Plugin {
-  const manifest = factory(entry?.options ?? {})
+function make(name: string, factory: PluginFactory, entry: PluginConfig | undefined, config: Pick<Config, "rename">): Plugin {
+  const manifest = factory(entry?.options ?? {}, scopeOf(name, config))
   return manifest.name === name ? manifest : { ...manifest, name }
 }
+
+/** What the factory of the plugin named `plugin` is told: its name, and the names its contributions go by. */
+export const scopeOf = (plugin: string, config: Pick<Config, "rename">): PluginScope =>
+  Object.freeze({ plugin, name: (kind: string, declared: string) => config.rename[kind]?.[`${plugin}/${declared}`] ?? declared })
 
 /**
  * Every plugin `config` loads, in load order: the first-party ones in their
  * order — each as it is, switched off, or replaced by the module its
  * `replacedBy` names — then the third-party ones in the table's order.
  */
-export async function composePlugins(program: string, config: Pick<Config, "plugins">, firstParty: readonly FirstParty[]): Promise<Plugin[]> {
+export async function composePlugins(program: string, config: Pick<Config, "plugins" | "rename">, firstParty: readonly FirstParty[]): Promise<Plugin[]> {
   const out: Plugin[] = []
   const known = new Set(firstParty.map((p) => p.name))
   for (const { name, factory } of firstParty) {
@@ -48,7 +52,7 @@ export async function composePlugins(program: string, config: Pick<Config, "plug
       )
     }
     if (entry?.enabled === false) continue
-    out.push(make(name, entry?.replacedBy ? await factoryAt(program, entry.replacedBy, name) : factory, entry))
+    out.push(make(name, entry?.replacedBy ? await factoryAt(program, entry.replacedBy, name) : factory, entry, config))
   }
   for (const [name, entry] of Object.entries(config.plugins)) {
     if (known.has(name)) continue
@@ -65,7 +69,7 @@ export async function composePlugins(program: string, config: Pick<Config, "plug
       throw new Error(`${DATA_FILE}: plugins.${name} is no first-party plugin and names no source — first-party: ${[...known].join(", ")}`)
     }
     if (!entry.enabled) continue
-    out.push(make(name, await factoryAt(program, entry.source, name), entry))
+    out.push(make(name, await factoryAt(program, entry.source, name), entry, config))
   }
   return out
 }

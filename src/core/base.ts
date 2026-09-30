@@ -10,7 +10,8 @@ import { groupBy } from "./collections.ts"
 import { appliesTo, fieldValue, parseFieldValue } from "./fields.ts"
 import { ATTACHMENTS, createItem, readReadme, saveMeta } from "./item.ts"
 import { byUrgency, isOpen, label } from "./lifecycle.ts"
-import type { Command, Context, Item, Plugin, TypeDef } from "./types.ts"
+import { shortOrId } from "./names.ts"
+import type { Command, Context, Item, Plugin, SummarySection, TypeDef, View } from "./types.ts"
 
 export function typeOrThrow(ctx: Context, id: string | undefined): TypeDef {
   const type = id ? ctx.registry.types.get(id) : undefined
@@ -244,12 +245,13 @@ const view: Command = {
   examples: ["view", "view next 10"],
   run(args, ctx) {
     const [name, ...rest] = args
+    const views = ctx.registry.contributions("views")
     if (!name) {
-      for (const v of ctx.registry.views.values()) ctx.out(`  ${v.name.padEnd(16)} ${v.says}`)
+      for (const c of views) ctx.out(`  ${shortOrId(ctx, "views", c).padEnd(16)} ${(c.value as View).says}`)
       return 0
     }
-    const v = ctx.registry.views.get(name)
-    if (!v) throw new Error(`no view "${name}" — views: ${[...ctx.registry.views.keys()].join(", ")}`)
+    const v = ctx.registry.find<View>("views", name)?.value
+    if (!v) throw new Error(`no view "${name}" — views: ${views.map((c) => shortOrId(ctx, "views", c)).join(", ")}`)
     for (const l of v.render(rest, ctx)) ctx.out(l)
     return 0
   },
@@ -263,7 +265,7 @@ const summary: Command = {
   examples: ["summary", "summary --json"],
   run(args, ctx) {
     const p = parse(args, { json: { type: "boolean" } })
-    const sections = ctx.registry.summary.map((s) => ({ name: s.name, lines: s.render(ctx) }))
+    const sections = ctx.registry.contributions("summary").map((c) => ({ name: shortOrId(ctx, "summary", c), lines: (c.value as SummarySection).render(ctx) }))
     if (bool(p, "json")) {
       ctx.out(JSON.stringify(Object.fromEntries(sections.map((s) => [s.name, s.lines])), null, 2))
       return 0
@@ -280,23 +282,18 @@ const summary: Command = {
 
 const plugins: Command = {
   name: "plugins",
-  says: "list loaded plugins and what each contributes",
+  says: "list loaded plugins and what each contributes; a contribution's qualified id is <plugin>/<name>, shown when its short name is shared or renamed",
   usage: "plugins",
   examples: ["plugins"],
   run(_args, ctx) {
     for (const p of ctx.registry.plugins) {
       ctx.out(`${p.name} — ${p.says}`)
-      const parts: [string, string[]][] = [
-        ["types", (p.types ?? []).map((t) => t.id)],
-        ["fields", (p.fields ?? []).map((f) => f.name)],
-        ["relations", (p.relations ?? []).map((r) => r.name)],
-        ["checks", (p.checks ?? []).map((c) => c.name)],
-        ["commands", (p.commands ?? []).map((c) => c.name)],
-        ["views", (p.views ?? []).map((v) => v.name)],
-        ["gates", (p.gates ?? []).map((g) => g.name)],
-        ["verifiers", (p.verifiers ?? []).map((v) => v.id)],
-      ]
-      for (const [what, names] of parts) if (names.length) ctx.out(`  ${what.padEnd(10)} ${names.join(", ")}`)
+      for (const kind of ["types", "fields", "relations", "checks", "commands", "views", "gates", "verifiers"]) {
+        const mine = ctx.registry.contributions(kind).filter((c) => c.plugin === p.name)
+        // The short name a person types, and the qualified id when it differs from <plugin>/<name> or the short name is shared.
+        const said = mine.map((c) => (shortOrId(ctx, kind, c) === c.name && c.id === `${p.name}/${c.name}` ? c.name : `${c.name} (${c.id})`))
+        if (said.length) ctx.out(`  ${kind.padEnd(10)} ${said.join(", ")}`)
+      }
     }
     return 0
   },

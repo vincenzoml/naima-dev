@@ -10,7 +10,8 @@ src/
     item.ts        an item on disk: create, move, save
     repo.ts        reading the tracker; ids, reference resolution, inverse links
     fields.ts      field validation and parsing
-    registry.ts    merging plugin manifests; conflicts are errors
+    registry.ts    merging plugin manifests: qualified ids, short names, renames; a stored name declared twice is an error
+    names.ts       how a contribution is called where a person reads it
     check.ts       the core invariants, and running every plugin's
     lifecycle.ts   questions answered from type declarations: open, proves, urgency
     errors.ts      how Naima fails: NaimaError, message(e), the exit codes

@@ -205,7 +205,19 @@ export interface Migration {
 }
 
 export type PluginOptions = Record<string, unknown>
-export type PluginFactory = (options: PluginOptions) => Plugin
+/** What a plugin's factory is told of the project it runs in: the name the project gives it, and the names its contributions go by. */
+export interface PluginScope {
+  readonly plugin: string
+  /**
+   * The short name this plugin's contribution of `kind`, declared as
+   * `declared`, goes by: the project's rename of it, else `declared`. A plugin
+   * whose names may be renamed reads its own fields, types and relations by
+   * these names, never by the literal it declared.
+   */
+  name(kind: string, declared: string): string
+}
+
+export type PluginFactory = (options: PluginOptions, scope: PluginScope) => Plugin
 
 /** A first-party plugin: its name and its factory, loaded unless the project switches it off or replaces it. */
 export interface FirstParty {
@@ -248,9 +260,26 @@ export interface Config {
   program: string
   /** Every plugin the project configures, first-party or third-party, by name. A first-party plugin it does not name is loaded as it is. */
   plugins: Record<string, PluginConfig>
+  /** The project's renames: kind → qualified id → the short name that contribution goes by, for names two plugins would both store. */
+  rename: Record<string, Record<string, string>>
 }
 
-/** Every loaded contribution, merged. Read-only: frozen once built, so no plugin can change another's. */
+/** One contribution as the registry holds it: whose it is, the name it goes by, and its qualified id. */
+export interface Contribution<T = unknown> {
+  /** `<plugin>/<declared name>`: unique among its kind, whatever other plugins declare. */
+  readonly id: string
+  /** The short name it goes by: its declared name, or the project's rename of it. */
+  readonly name: string
+  readonly plugin: string
+  readonly value: T
+}
+
+/**
+ * Every loaded contribution, merged. Read-only: frozen once built, so no
+ * plugin can change another's. A kind whose names are stored in the data is a
+ * map by name; commands and views, which only run, may share a short name,
+ * and are then keyed by qualified id — `find` takes either.
+ */
 export interface Registry {
   readonly plugins: readonly Plugin[]
   readonly types: ReadonlyMap<string, TypeDef>
@@ -258,12 +287,18 @@ export interface Registry {
   readonly relations: ReadonlyMap<string, RelationDef>
   readonly dirs: ReadonlySet<string>
   readonly checks: readonly Check[]
+  /** By the name it is invoked by: its short name, or its qualified id while another plugin's command shares the short name. */
   readonly commands: ReadonlyMap<string, Command>
+  /** By the name it is invoked by, as commands are. */
   readonly views: ReadonlyMap<string, View>
   readonly summary: readonly SummarySection[]
   readonly rank: readonly RankTerm[]
   readonly gates: ReadonlyMap<string, GateDef>
   readonly verifiers: ReadonlyMap<string, Verifier>
+  /** Every contribution of a kind (`types`, `fields`, `commands`, …), in load order, with its qualified id. */
+  contributions(kind: string): readonly Contribution[]
+  /** The contribution of `kind` that `ref` names — its qualified id, or its short name while no other shares it; undefined when none does. Throws when `ref` is ambiguous, naming each qualified id. */
+  find<T = unknown>(kind: string, ref: string): Contribution<T> | undefined
 }
 
 export interface Repo {

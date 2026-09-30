@@ -10,8 +10,8 @@ import { FORMAT } from "./format.ts"
 import { mustGit } from "./git.ts"
 import { writeJson } from "./item.ts"
 import { DATA_FILE, DEFAULT_DATA, DEFAULT_PROGRAM } from "./layout.ts"
-import { buildRegistry } from "./registry.ts"
-import type { Context, Plugin } from "./types.ts"
+import { buildRegistry, type RegistryOptions } from "./registry.ts"
+import type { Command, Context, Plugin } from "./types.ts"
 
 export interface TempProject {
   root: string
@@ -37,16 +37,16 @@ export const removeTemp = (dir: string): void => {
 
 export const FIXED_NOW = new Date("2026-01-15T10:00:00.000Z")
 
-export function tempProject(plugins: Plugin[], opts: { git?: boolean; now?: Date } = {}): TempProject {
+export function tempProject(plugins: Plugin[], opts: { git?: boolean; now?: Date } & RegistryOptions = {}): TempProject {
   const root = mkdtempSync(join(tmpdir(), "naima-"))
   const data = join(root, DEFAULT_DATA)
   const lock = { source: "https://example.invalid/naima.git", commit: "0".repeat(40), carry: "clone" as const, program: DEFAULT_PROGRAM }
-  const config = { format: FORMAT, formats: {}, ...lock, plugins: {} }
+  const config = { format: FORMAT, formats: {}, ...lock, plugins: {}, rename: opts.rename ?? {} }
   writeJson(join(data, DATA_FILE), { format: FORMAT, source: lock.source, commit: lock.commit, carry: lock.carry })
   const output: string[] = []
   const errors: string[] = []
   const now = opts.now ?? FIXED_NOW
-  const ctx = createContext({ root, data, program: join(data, DEFAULT_PROGRAM) }, config, buildRegistry([corePlugin, ...plugins]), {
+  const ctx = createContext({ root, data, program: join(data, DEFAULT_PROGRAM) }, config, buildRegistry([corePlugin, ...plugins], opts), {
     out: (line = "") => void output.push(line),
     err: (line) => void errors.push(line),
     now: () => now,
@@ -68,7 +68,7 @@ export function tempProject(plugins: Plugin[], opts: { git?: boolean; now?: Date
     run(command, ...args) {
       // A promise either way: a command that throws before it returns is a rejection, as it is to runCli.
       return new Promise<number>((done) => {
-        const cmd = ctx.registry.commands.get(command)
+        const cmd = ctx.registry.find<Command>("commands", command)?.value
         if (!cmd) throw new Error(`no command ${command}`)
         ctx.reload()
         done(cmd.run(args, ctx))

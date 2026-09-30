@@ -29,7 +29,9 @@ import {
 } from "./layout.ts"
 import { align, carry, ignoreProgram, localWork, refuseLocalWork, remoteHead, short, stage, type Target, vendor } from "./program.ts"
 import { EXIT, isInternal, message } from "./errors.ts"
-import type { Carry, Context } from "./types.ts"
+import type { Carry, Command, Context } from "./types.ts"
+import { shortOrId } from "./names.ts"
+import { scopeOf } from "./plugins.ts"
 
 export interface CliOptions extends OpenOptions {
   cwd: string
@@ -131,7 +133,7 @@ async function init(args: string[], opts: CliOptions, io: IO): Promise<number> {
   mkdirSync(data, { recursive: true })
   const readme = join(tracker, "README.md")
   if (!existsSync(readme)) writeFileSync(readme, TRACKER_README)
-  const formats = formatsFor(opts.firstParty.map((p) => p.factory({})))
+  const formats = formatsFor(opts.firstParty.map((p) => p.factory({}, scopeOf(p.name, { rename: {} }))))
   writeRaw(data, { format: FORMAT, ...(Object.keys(formats).length ? { formats } : {}), source, commit, carry: "clone" })
   ignoreProgram({ root, tracker, program, source, commit, carry: "clone" }, true)
   io.out(`wrote ${TRACKER_DIR}/: README.md, .gitignore, ${DATA_DIR}/${DATA_FILE} — locked to ${source} at ${short(commit)}`)
@@ -220,7 +222,11 @@ function help(ctx: Context | null, io: IO): number {
     io.out(`\nno ${DEFAULT_DATA}/${DATA_FILE} found here or above — run naima init`)
     return 0
   }
-  for (const c of ctx.registry.commands.values()) io.out(`  ${c.name.padEnd(10)} ${c.says}\n  ${"".padEnd(10)} naima ${c.usage}`)
+  for (const c of ctx.registry.contributions("commands")) {
+    const cmd = c.value as Command
+    const name = shortOrId(ctx, "commands", c)
+    io.out(`  ${name.padEnd(10)} ${cmd.says}\n  ${"".padEnd(10)} naima ${name === c.name ? cmd.usage : cmd.usage.replace(c.name, name)}`)
+  }
   return 0
 }
 
@@ -253,7 +259,7 @@ export async function runCli(argv: string[], opts: CliOptions): Promise<number> 
     }
     const ctx = await openProject(place, opts, io)
     if (isHelp(command)) return help(ctx, io)
-    const cmd = ctx.registry.commands.get(command as string)
+    const cmd = ctx.registry.find<Command>("commands", command as string)?.value
     if (!cmd) throw new Error(`unknown command "${command}" — naima help`)
     const code = await cmd.run(args, ctx)
     if (code !== RELAUNCH) return code

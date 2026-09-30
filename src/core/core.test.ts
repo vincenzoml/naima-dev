@@ -58,7 +58,15 @@ test("the registry refuses a name declared twice", () => {
 const LOCK = { source: "https://example.invalid/naima.git", commit: "a".repeat(40) }
 
 test("naima.json: the formats, the lock, and the plugins table — options, enabled, source, replacedBy, check severities", () => {
-  assert.deepEqual(parseConfig({ format: FORMAT, ...LOCK }), { format: FORMAT, formats: {}, ...LOCK, carry: "clone", program: "../naima", plugins: {} })
+  assert.deepEqual(parseConfig({ format: FORMAT, ...LOCK }), {
+    format: FORMAT,
+    formats: {},
+    ...LOCK,
+    carry: "clone",
+    program: "../naima",
+    plugins: {},
+    rename: {},
+  })
   const c = parseConfig({
     format: FORMAT,
     ...LOCK,
@@ -399,7 +407,7 @@ test("a write is seen by the next read in the same run, with no reload", async (
   }
 })
 
-test("a plugin cannot take a name the entry point answers, nor a check, summary or rank name another declared", () => {
+test("a plugin cannot take a name the entry point answers; a check, summary or rank name another plugin declared is shared, by qualified id", () => {
   const cmd = (name: string) => ({ name, says: "x", usage: name, run: () => 0 })
   const reserved = ["init", "update", "carry", "guide", "help"]
   for (const name of reserved) {
@@ -409,16 +417,18 @@ test("a plugin cannot take a name the entry point answers, nor a check, summary 
     )
   }
   const check = { name: "links", says: "x", run: () => [] }
-  assert.throws(() => buildRegistry([corePlugin, { name: "p", says: "", checks: [check] }]), /check "links" is declared by both "core" and "p"/)
-  assert.throws(
-    () => buildRegistry([corePlugin, { name: "p", says: "", summary: [{ name: "items", render: () => [] }] }]),
-    /summary section "items" is declared by both "core" and "p"/,
-  )
   const term = { name: "t", score: () => 0 }
-  assert.throws(
-    () => buildRegistry([corePlugin, { name: "p", says: "", rank: [term] }, { name: "q", says: "", rank: [term] }]),
-    /rank term "t" is declared by both "p" and "q"/,
-  )
+  const r = buildRegistry([corePlugin, { name: "p", says: "", checks: [check], summary: [{ name: "items", render: () => [] }], rank: [term] }, {
+    name: "q",
+    says: "",
+    rank: [term],
+  }])
+  assert.deepEqual(r.contributions("checks").filter((c) => c.name === "links").map((c) => c.id), ["core/links", "p/links"])
+  assert.deepEqual(r.contributions("summary").filter((c) => c.name === "items").map((c) => c.id), ["core/items", "p/items"])
+  assert.equal(r.rank.length, 2, "both terms count")
+  assert.throws(() => r.find("checks", "links"), /check "links" is ambiguous: core\/links, p\/links — name one by its qualified id/)
+  assert.equal(r.find("checks", "p/links")?.value, check)
+  assert.throws(() => buildRegistry([{ name: "p", says: "", checks: [check, check] }]), /check "links" is declared twice by "p"/)
 })
 
 test("the registry and the config cannot be changed once the project is loaded", () => {

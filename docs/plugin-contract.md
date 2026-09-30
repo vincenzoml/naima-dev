@@ -6,10 +6,10 @@ says what each part is for.
 ## Shape
 
 ```ts
-import type { Plugin } from "../src/core/index.ts"   // a path inside the program
+import type { Plugin, PluginScope } from "../src/core/index.ts"   // a path inside the program
 
-export default function myPlugin(options: Record<string, unknown>): Plugin {
-  return { name: "my-plugin", says: "one line", /* contributions */ }
+export default function myPlugin(options: Record<string, unknown>, scope: PluginScope): Plugin {
+  return { name: scope.plugin, says: "one line", /* contributions */ }
 }
 ```
 
@@ -48,11 +48,42 @@ to collect them.
 | `verifiers` | an adapter to a formal-methods tool: `verify({ model, property, options }) → { verdict, output, counterexample? }` |
 | `migrations` | its own data migrations, in order from its format 1: `from`, `says`, and pure `config(raw)`, `item(meta)`, `stale(meta)`; its format is 1 + their number ([migrations](format.md#migrations)) |
 
-Every name — type, directory, field, relation, command, view, gate, verifier,
-check, summary section, rank term — is global. Declaring one twice is an
-error when the project loads. So is a command named after one the entry point
-answers before any plugin loads (`init`, `update`, `carry`, `guide`, `help`):
-it could never run.
+## Names
+
+Every contribution has a **qualified id**, `<plugin>/<name>` — `trackers/fixedOn`,
+`triage/next` — unique among its kind whatever other plugins declare, and a
+**short name** it goes by: the name it declares, or the one the project's
+`rename` gives it. Stored data keeps short names: a `meta.json` holds
+`fixedOn`, never `trackers/fixedOn`.
+
+- **A name that only runs** — a command, a view, a check, a summary section,
+  a rank term — may be declared by several plugins. Each still runs, and
+  `naima plugins` shows its qualified id; its short name stops resolving the
+  moment a second plugin declares it, with an error naming both qualified ids
+  (`naima ops/list`, `naima view ops/next`).
+- **A name stored in the data** — a type (and its directory), a field, a
+  relation, a directory, a gate, a verifier — cannot be declared twice, since
+  both would be written under it. Loading refuses, naming both qualified ids
+  and the rename that resolves it:
+
+```json
+{ "rename": { "fields": { "ops/priority": "severity" } } }
+```
+
+`rename` maps a kind (`types`, `fields`, `relations`, `dirs`, `gates`,
+`verifiers`, `commands`, `views`, `checks`, `summary`, `rank`) to qualified
+ids and the short name each goes by instead. A renamed type's directory
+follows its new name, and a relation's inverse follows its relation. A plugin
+reads its own names through the `scope` its factory receives —
+`scope.name("fields", "priority")` is `severity` in the project above — so a
+rename never hides its own data from it. The core and the first-party
+plugins read their names as declared, so only a third-party plugin's
+contributions can be renamed; a rename naming anything no loaded plugin
+declares is refused.
+
+A command named after one the entry point answers before any plugin loads
+(`init`, `update`, `carry`, `guide`, `help`) is refused too: it could never
+run.
 
 **Documentation is part of the manifest.** Every `says`, every example and
 every option entry is what `naima docs` turns into the reference, and with the
