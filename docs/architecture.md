@@ -78,7 +78,13 @@ records count.
   that `proves`, a gate, a verifier).
 - `builtins.ts` and `cli.ts` compose the two.
 
-`src/arch.test.ts` enforces the rule on every test run.
+- The core names no plugin's type, field, relation or plugin in its code: it
+  works with any set of plugins.
+
+`src/arch.test.ts` enforces the rule on every test run, on every way one
+module reaches another — static, side-effect and dynamic imports, re-exports,
+`require` — for the first-party plugins and for a fork's own under `plugins/`.
+The one computed import allowed is the core loading a third-party plugin.
 
 ## Checks
 
