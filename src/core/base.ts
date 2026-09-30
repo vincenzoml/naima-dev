@@ -11,7 +11,8 @@ import { appliesTo, fieldValue, parseFieldValue } from "./fields.ts"
 import { ATTACHMENTS, createItem, readReadme, saveMeta, type WriteOptions } from "./item.ts"
 import { byUrgency, isOpen, label } from "./lifecycle.ts"
 import { shortOrId } from "./names.ts"
-import type { Command, Context, Contribution, Item, Plugin, SummarySection, TypeDef, View } from "./types.ts"
+import { flagsOf } from "./vocabulary.ts"
+import type { Command, Context, Contribution, Item, Plugin, SummarySection, TypeDef, View, WriteHook } from "./types.ts"
 
 export function typeOrThrow(ctx: Context, id: string | undefined): TypeDef {
   const type = id ? ctx.registry.types.get(id) : undefined
@@ -344,7 +345,7 @@ const types: Command = {
     for (const t of ctx.registry.types.values()) {
       ctx.out(`${t.id} (${ctx.trackerDir}/${t.dir}/) — ${t.says}`)
       for (const [name, s] of Object.entries(t.statuses)) {
-        ctx.out(`  ${name.padEnd(10)} ${s.category}${s.proves ? ", proves" : ""}${s.refutes ? ", refutes" : ""} — ${s.says}`)
+        ctx.out(`  ${name.padEnd(10)} ${[s.category, ...flagsOf(s)].join(", ")} — ${s.says}`)
       }
       const fields = [...ctx.registry.fields.values()].filter((f) => appliesTo(f, t.id)).map((f) => f.name)
       ctx.out(`  fields: ${fields.join(", ")}`)
@@ -361,6 +362,21 @@ const counts = {
       const open = mine.filter((i) => isOpen(ctx, i)).length
       return mine.length ? [`  ${t.id.padEnd(12)} ${String(open).padStart(4)} open  ${String(mine.length - open).padStart(4)} done`] : []
     })
+  },
+}
+
+/** A type's transitions, held on every write: a status moves only to one its type allows from where it is. */
+const statusMoves: WriteHook = {
+  name: "status-moves",
+  says:
+    "a status moves only to one its type's transitions allow from the status it has; a status the transitions do not name moves to any, and --force takes the move on",
+  beforeWrite(write, ctx) {
+    const { item, before } = write
+    if (write.kind !== "update" || !before || before.status === item.meta.status || write.force) return
+    const allowed = ctx.registry.types.get(item.type)?.transitions
+    const to = allowed && Object.hasOwn(allowed, before.status) ? allowed[before.status] : undefined
+    if (!to || to.includes(item.meta.status)) return
+    return `${label(item)}: from ${before.status} its status moves to ${to.join(", ") || "nothing"}, not ${item.meta.status}`
   },
 }
 
@@ -387,4 +403,5 @@ export const corePlugin: Plugin = {
   checks: coreChecks,
   commands: [newCommand, show, list, set, link, unlink, check, board, view, summary, plugins, types, runs],
   summary: [counts],
+  hooks: [statusMoves],
 }

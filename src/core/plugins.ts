@@ -7,7 +7,7 @@
 import { isAbsolute, relative, resolve } from "node:path"
 import { pathToFileURL } from "node:url"
 import { DATA_FILE } from "./layout.ts"
-import type { Config, FirstParty, Plugin, PluginConfig, PluginFactory, PluginScope, Severity } from "./types.ts"
+import type { Config, Extension, FirstParty, Plugin, PluginConfig, PluginFactory, PluginScope, Severity } from "./types.ts"
 
 /** The core's own entry in the table: it cannot be switched off or replaced, only its checks weighed. */
 export const CORE = "core"
@@ -41,7 +41,11 @@ export const scopeOf = (plugin: string, config: Pick<Config, "rename">): PluginS
  * order — each as it is, switched off, or replaced by the module its
  * `replacedBy` names — then the third-party ones in the table's order.
  */
-export async function composePlugins(program: string, config: Pick<Config, "plugins" | "rename">, firstParty: readonly FirstParty[]): Promise<Plugin[]> {
+export async function composePlugins(
+  program: string,
+  config: Pick<Config, "plugins" | "rename" | "extends">,
+  firstParty: readonly FirstParty[],
+): Promise<Plugin[]> {
   const out: Plugin[] = []
   const known = new Set(firstParty.map((p) => p.name))
   for (const { name, factory } of firstParty) {
@@ -71,8 +75,19 @@ export async function composePlugins(program: string, config: Pick<Config, "plug
     if (!entry.enabled) continue
     out.push(make(name, await factoryAt(program, entry.source, name), entry, config))
   }
+  if (config.extends.length) out.push(projectExtensions(config.extends))
   return out
 }
+
+/** The name the project's own extensions go by, as if a plugin had contributed them. */
+export const PROJECT = "project"
+
+/** naima.json's `extends`, contributed as a plugin named `project` contributes: additive, validated, documented like any. */
+const projectExtensions = (extensions: Extension[]): Plugin => ({
+  name: PROJECT,
+  says: `the project's own extensions of the loaded plugins' types and fields, from ${DATA_FILE}`,
+  extends: extensions,
+})
 
 /** The severity the project gives each plugin's checks: plugin name → check name → severity. */
 export const severitiesOf = (config: Pick<Config, "plugins">): Record<string, Record<string, Severity>> =>

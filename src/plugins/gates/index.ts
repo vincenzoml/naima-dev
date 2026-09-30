@@ -27,6 +27,7 @@ import {
   DEFAULT_DATA,
   type ExtensionPoint,
   fieldValue,
+  fieldValues,
   type Finding,
   groupBy,
   isEvidenceType,
@@ -110,6 +111,9 @@ function readOptions(options: Record<string, unknown>): Record<string, GateConfi
 
 // The fields gates reads: its own, and the trackers' it cooperates through by name.
 const GATE = { name: "gate", kind: "enum" } as const
+
+/** The gates an item is on: one, several, or none. */
+const onGates = (item: Item): string[] => fieldValues(item, GATE)
 const FIXED_ON = { name: "fixedOn", kind: "date" } as const
 const RUN_BY = { name: "runBy", kind: "enum" } as const
 const HUMAN_BECAUSE = { name: "humanBecause", kind: "enum" } as const
@@ -136,7 +140,7 @@ const refuted = (ctx: Context, item: Item): boolean => refutes(ctx, item) || lin
 const owesOnlyProof = (ctx: Context, item: Item): boolean => !refuted(ctx, item) && (fieldValue(item, FIXED_ON) !== undefined || isEvidenceType(ctx, item.type))
 
 export function evaluateGate(ctx: Context, name: string, holdsOn: "code" | "proof"): GateResult {
-  const open = ctx.repo.items.filter((i) => fieldValue(i, GATE) === name && isOpen(ctx, i))
+  const open = ctx.repo.items.filter((i) => onGates(i).includes(name) && isOpen(ctx, i))
   const blocking = holdsOn === "proof" ? open : open.filter((i) => !owesOnlyProof(ctx, i))
   const owed = open.filter((i) => !blocking.includes(i))
   return { holds: blocking.length === 0, blocking, owed }
@@ -186,7 +190,7 @@ const queue: Command = {
   run(args, ctx) {
     const p = parse(args, { human: { type: "boolean" } })
     const gate = p.positionals[0]
-    const open = ctx.repo.items.filter((i) => isOpen(ctx, i) && (gate ? fieldValue(i, GATE) === gate : fieldValue(i, GATE) !== undefined))
+    const open = ctx.repo.items.filter((i) => isOpen(ctx, i) && (gate ? onGates(i).includes(gate) : onGates(i).length > 0))
     const by = groupBy(open, (i) => {
       const who = runByOf(ctx, i)
       return who === "agent" || who === "agent-hands" ? "agent" : who || "unclassified"
@@ -212,10 +216,10 @@ const gatedProofIsGated: Check = {
   run(ctx) {
     const out: Finding[] = []
     for (const item of ctx.repo.items) {
-      if (fieldValue(item, GATE) !== undefined || !isOpen(ctx, item)) continue
+      if (onGates(item).length || !isOpen(ctx, item)) continue
       for (const target of linked(ctx, item, "verifies")) {
-        if (fieldValue(target, GATE) !== undefined && isOpen(ctx, target)) {
-          out.push({ level: "problem", message: `${label(item)} verifies ${label(target)} (gate ${String(fieldValue(target, GATE))}) but has no gate`, item })
+        if (onGates(target).length && isOpen(ctx, target)) {
+          out.push({ level: "problem", message: `${label(item)} verifies ${label(target)} (gate ${onGates(target).join(", ")}) but has no gate`, item })
         }
       }
     }
@@ -261,15 +265,16 @@ export default function gates(options: Record<string, unknown> = {}): Plugin {
       {
         name: "gate",
         kind: "enum",
-        says: "the gate this item is what is waited for: one of the gates the project configures",
-        configured: true,
-        values: Object.fromEntries(Object.entries(configured).map(([n, c]) => [n, c.title])),
+        says: "the gates this item is what is waited for: any gate a loaded plugin contributes — the project's own, or a plugin's — one, or a list of several",
+        // Its values are every gate any loaded plugin contributes, configured or not; an item may be on several.
+        valuesFrom: "gates",
+        multiple: true,
       },
     ],
     points: [gatesPoint],
     contributes: { gates: defs },
     migrations: [moveGates],
-    rank: [{ name: "gate", score: (i) => (fieldValue(i, GATE) !== undefined ? 0 : 4) }],
+    rank: [{ name: "gate", score: (i) => (onGates(i).length ? 0 : 4) }],
     checks: [gatedProofIsGated],
     commands: [gatesCommand, queue],
     summary: [status],

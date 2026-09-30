@@ -41,7 +41,7 @@ export function tempProject(plugins: Plugin[], opts: { git?: boolean; now?: Date
   const root = mkdtempSync(join(tmpdir(), "naima-"))
   const data = join(root, DEFAULT_DATA)
   const lock = { source: "https://example.invalid/naima.git", commit: "0".repeat(40), carry: "clone" as const, program: DEFAULT_PROGRAM }
-  const config = { format: FORMAT, formats: {}, ...lock, plugins: {}, rename: opts.rename ?? {} }
+  const config = { format: FORMAT, formats: {}, ...lock, plugins: {}, rename: opts.rename ?? {}, extends: [] }
   writeJson(join(data, DATA_FILE), { format: FORMAT, source: lock.source, commit: lock.commit, carry: lock.carry })
   const output: string[] = []
   const errors: string[] = []

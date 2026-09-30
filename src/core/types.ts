@@ -33,10 +33,16 @@ export type StatusCategory = "open" | "done"
 
 export interface StatusDef {
   category: StatusCategory
-  /** A status that counts as evidence for whatever this item `verifies`. */
+  /** A status that counts as evidence for whatever this item `verifies`: the flag `proves`, said as a key. */
   proves?: boolean
-  /** A status that counts as evidence against it — a failed test, a violated property: it blocks a gate and a close. */
+  /** A status that counts as evidence against it — a failed test, a violated property: it blocks a gate and a close. The flag `refutes`, said as a key. */
   refutes?: boolean
+  /**
+   * Plain tags on the status, open-ended: any plugin may give one meaning and
+   * any plugin may read it (`hasFlag`). `proves` and `refutes` are two, which
+   * the keys above say too.
+   */
+  flags?: string[]
   says: string
 }
 
@@ -52,6 +58,10 @@ export interface TypeDef {
   creatable?: boolean
   /** The README a new item starts with. */
   template?: (title: string) => string
+  /** Plain tags, no hierarchy: a field declared for a tag (`fixable`, say) applies to every type that carries it. */
+  traits?: string[]
+  /** The statuses each status may move to; a status it does not name may move to any. Absent: every move is allowed. */
+  transitions?: Record<string, string[]>
 }
 
 export type FieldKind = "string" | "strings" | "date" | "enum" | "boolean" | "number" | "object"
@@ -62,10 +72,34 @@ export interface FieldDef {
   says: string
   /** For `enum`: value -> meaning. Declaration order is rank order. */
   values?: Record<string, string>
-  /** Type ids the field belongs to; omitted means every type. */
+  /** Type ids the field belongs to. With `traits`, the field belongs to both; with neither, to every type. */
   appliesTo?: string[]
+  /** Traits the field belongs to: every type carrying one of them, whoever declares the type. */
+  traits?: string[]
   /** Its enum `values` come from the project's configuration, not the program: the program's reference does not list them. */
   configured?: boolean
+  /** For `enum`: its values are the names of every contribution to this extension point (`gates`, say), each meaning its title or says. */
+  valuesFrom?: string
+  /** For `enum`: an item may hold several of its values — one as a string, several as a list. */
+  multiple?: boolean
+}
+
+/**
+ * An additive change to another plugin's type or field — never a
+ * redefinition of what it is. On a type: new statuses (an existing one only
+ * with the category it has), traits, allowed transitions. On a field: new enum
+ * values, and more types or traits it applies to.
+ */
+export interface Extension {
+  /** The type it extends: a short name or a qualified id. */
+  type?: string
+  /** The field it extends: a short name or a qualified id. */
+  field?: string
+  statuses?: Record<string, StatusDef>
+  traits?: string[]
+  transitions?: Record<string, string[]>
+  values?: Record<string, string>
+  appliesTo?: string[]
 }
 
 export interface RelationDef {
@@ -206,6 +240,8 @@ export interface Plugin {
   rank?: RankTerm[]
   /** Hooks on every item write, in load order. */
   hooks?: WriteHook[]
+  /** Additive changes to other plugins' types and fields. */
+  extends?: Extension[]
   /** Its own data migrations, in order from its format 1: its format is 1 + their number (docs/format.md#migrations). */
   migrations?: Migration[]
   /** Extension points it declares: new kinds of contribution any plugin can make. */
@@ -291,6 +327,8 @@ export interface Config {
   plugins: Record<string, PluginConfig>
   /** The project's renames: kind → qualified id → the short name that contribution goes by, for names two plugins would both store. */
   rename: Record<string, Record<string, string>>
+  /** The project's own additive changes to the loaded plugins' types and fields. */
+  extends: Extension[]
 }
 
 /** One contribution as the registry holds it: whose it is, the name it goes by, and its qualified id. */

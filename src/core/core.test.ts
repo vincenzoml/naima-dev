@@ -70,6 +70,7 @@ test("naima.json: the formats, the lock, and the plugins table — options, enab
     program: "../naima",
     plugins: {},
     rename: {},
+    extends: [],
   })
   const c = parseConfig({
     format: FORMAT,

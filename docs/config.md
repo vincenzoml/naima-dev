@@ -18,6 +18,10 @@ committed. A project that needs nothing else configures nothing.
   options (the project's gates are the `gates` plugin's), a plugin switched
   off or replaced, a third-party plugin added, a check weighed differently.
 
+- the project's own **extensions** of the loaded plugins' types and fields,
+  under `extends`: a status added to a type, a type made `fixable`, an enum
+  value added ([extending](plugin-contract.md#extending-another-plugins-types-and-fields)).
+
 `naima init` writes the formats and the lock; nothing else is needed. Every
 key, with its default: [the format](format.md#naimajson).
 

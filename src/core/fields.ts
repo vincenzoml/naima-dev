@@ -39,7 +39,9 @@ export function fieldError(def: FieldDef, value: unknown): string | null {
       return typeof value === "object" && !Array.isArray(value) ? null : "is not a JSON object"
     case "enum": {
       const values = Object.keys(def.values ?? {})
-      return typeof value === "string" && values.includes(value) ? null : `is not one of: ${values.join(", ")}`
+      const one = (v: unknown) => typeof v === "string" && values.includes(v)
+      if (def.multiple && Array.isArray(value)) return value.length && value.every(one) ? null : `is not a list of: ${values.join(", ")}`
+      return one(value) ? null : `is not one of: ${values.join(", ")}${def.multiple ? ", or a list of them" : ""}`
     }
   }
 }
@@ -48,6 +50,8 @@ export function fieldError(def: FieldDef, value: unknown): string | null {
 export function parseFieldValue(def: FieldDef, raw: string): unknown {
   let value: unknown = raw
   if (def.kind === "strings") value = raw.split(",").map((s) => s.trim()).filter(Boolean)
+  // Several values of a field that takes several are a list; one stays a string, as it is stored.
+  if (def.kind === "enum" && def.multiple && raw.includes(",")) value = raw.split(",").map((s) => s.trim()).filter(Boolean)
   if (def.kind === "boolean") value = raw === "true" ? true : raw === "false" ? false : raw
   if (def.kind === "number") value = raw.trim() === "" ? raw : Number(raw)
   if (def.kind === "object") {
@@ -113,6 +117,13 @@ const isKind = (kind: FieldKind, v: unknown): boolean => {
 export function fieldValue<K extends FieldKind>(item: Item, ref: FieldRef<K>): ValueOf<K> | undefined {
   const v = item.meta[ref.name]
   return isKind(ref.kind, v) ? (v as ValueOf<K>) : undefined
+}
+
+/** Every value an item holds of an enum field that may take several — one stored as a string, several as a list; none when unset. */
+export function fieldValues(item: Item, ref: FieldRef<"enum">): string[] {
+  const v = item.meta[ref.name]
+  if (typeof v === "string") return [v]
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []
 }
 
 /** Set an item's value of a field in memory (undefined removes it); saveMeta writes it. */

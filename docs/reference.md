@@ -68,7 +68,8 @@ Every kind of contribution is an extension point: the core's own, and any a plug
 | `dirs` | core | directories under the tracker root a plugin owns that are not item types | coordination |
 | `summary` | core | a block of `naima summary` | core, trackers, coordination, triage, gates, beta-markers |
 | `rank` | core | an additive term of every item's urgency; lower is more urgent | triage, gates |
-| `hooks` | core | hooks on every item write: `beforeWrite(write, ctx)` may change or refuse it, `afterWrite(write, ctx)` sees it done | coordination, triage, verifier |
+| `extends` | core | additive changes to another plugin's type — statuses (an existing one only with its category), traits, transitions — or field — enum values, more types or traits it applies to |  |
+| `hooks` | core | hooks on every item write: `beforeWrite(write, ctx)` may change or refuse it, `afterWrite(write, ctx)` sees it done | core, coordination, triage, verifier |
 | `migrations` | core | a plugin's own data migrations, in order from its format 1, run by `naima update` after the core's | gates |
 | `gates` | gates | a named release or merge condition, backed by items: `title`, `says`, `decides`, `evaluate(ctx) → { holds, blocking, owed }` | verifier |
 | `verifiers` | verifier | an adapter to a formal-methods tool: `verify({ model, property, options }, ctx) → { verdict, output, counterexample? }` | verifier |
@@ -408,6 +409,12 @@ naima runs --json
 
 **Summary sections**: `items`.
 
+**Write hooks**, run on every item write
+
+| Hook | What it does |
+|---|---|
+| `status-moves` | a status moves only to one its type's transitions allow from the status it has; a status the transitions do not name moves to any, and --force takes the move on |
+
 ## trackers
 
 Bugs, todos, features, tests, and the archive of closed bugs.
@@ -421,6 +428,8 @@ Three words that are not synonyms:
 - **closed** — resolved, and moved to `closed/` by `naima close`, carrying its proof.
 
 "How many bugs are left" means the unfixed count; `naima bugs` never adds the three together.
+
+`fixedOn` applies to every type tagged `fixable` — bugs, todos, features and the archive here, and any other plugin's or project's type that carries the tag.
 
 An item whose proof needs a person says why in `humanBecause`. Only a judgement, a reserved decision, a credential or a physical act makes something a person's: needing the running software makes it `agent-hands`, not `human`.
 
@@ -461,7 +470,9 @@ naima bugs
 
 Bugs: something that is broken. Items live in `naima-tracker/naima-data/bugs/`; a new one starts as `open`.
 
-| Status | Category | Proves | Meaning |
+Traits: `fixable`.
+
+| Status | Category | Flags | Meaning |
 |---|---|---|---|
 | `open` | open |  | nothing on the page has been done |
 | `partial` | open |  | some of it has, and the page says what is left |
@@ -471,7 +482,9 @@ Bugs: something that is broken. Items live in `naima-tracker/naima-data/bugs/`; 
 
 Todos: work that is not a defect: a task, a decision, a tidy-up. Items live in `naima-tracker/naima-data/todos/`; a new one starts as `open`.
 
-| Status | Category | Proves | Meaning |
+Traits: `fixable`.
+
+| Status | Category | Flags | Meaning |
 |---|---|---|---|
 | `open` | open |  | not started |
 | `partial` | open |  | started; the page says what is left |
@@ -482,7 +495,9 @@ Todos: work that is not a defect: a task, a decision, a tidy-up. Items live in `
 
 Features: what the software does, or is asked to do. Items live in `naima-tracker/naima-data/features/`; a new one starts as `requested`.
 
-| Status | Category | Proves | Meaning |
+Traits: `fixable`.
+
+| Status | Category | Flags | Meaning |
 |---|---|---|---|
 | `requested` | open |  | asked for; no code exists |
 | `planned` | open |  | agreed and scheduled |
@@ -493,19 +508,21 @@ Features: what the software does, or is asked to do. Items live in `naima-tracke
 
 Tests: a gesture that proves something, and its result. Items live in `naima-tracker/naima-data/tests/`; a new one starts as `open`.
 
-| Status | Category | Proves | Meaning |
+| Status | Category | Flags | Meaning |
 |---|---|---|---|
 | `open` | open |  | not yet performed |
 | `partial` | open |  | performed in part |
-| `failed` | open |  | performed, and what it proves does not hold |
-| `passed` | done | yes | performed, and it holds; the page carries the measurement |
+| `failed` | open | refutes | performed, and what it proves does not hold |
+| `passed` | done | proves | performed, and it holds; the page carries the measurement |
 | `withdrawn` | done |  | no longer applies: what it would prove was reversed; the page says by what |
 
 ### type: closed
 
 Closed: the archive: resolved items, each with its proof. Items live in `naima-tracker/naima-data/closed/`; a new one starts as `closed`; it is an archive: items arrive by being moved there, never by being opened.
 
-| Status | Category | Proves | Meaning |
+Traits: `fixable`.
+
+| Status | Category | Flags | Meaning |
 |---|---|---|---|
 | `closed` | done |  | fixed, proven, archived |
 
@@ -513,7 +530,7 @@ Closed: the archive: resolved items, each with its proof. Items live in `naima-t
 
 | Field | Kind | Applies to | Meaning | Values |
 |---|---|---|---|---|
-| `fixedOn` | date | bugs, todos, closed | when the code landed; absent means unfixed |  |
+| `fixedOn` | date | any type tagged `fixable` | when the code landed; absent means unfixed |  |
 | `closedOn` | date | closed | when the item was archived |  |
 | `closedFrom` | string | closed | the type the item was archived from |  |
 | `runBy` | enum | tests, bugs, todos | who can perform the proving gesture — the instrument, not the effort | `agent` settled by a command: a unit test, a grep, an API call; `agent-hands` settled by an agent driving the running software; `human` needs a person: a judgement of how it looks, a physical act, a reserved decision; `build` needs an artefact nobody here makes: a signed build, a second machine |
@@ -774,7 +791,7 @@ naima queue first-public --human
 
 | Field | Kind | Applies to | Meaning | Values |
 |---|---|---|---|---|
-| `gate` | enum | every type | the gate this item is what is waited for: one of the gates the project configures | set by the project's configuration |
+| `gate` | enum | every type | the gates this item is what is waited for: any gate a loaded plugin contributes — the project's own, or a plugin's — one, or a list of several | the name of any contribution to `gates`; one, or a list of several |
 
 **Checks**, run by `naima check`
 
@@ -881,11 +898,11 @@ naima verifiers
 
 Properties: a property of the software, proven or refuted by a verifier. Items live in `naima-tracker/naima-data/properties/`; a new one starts as `open`.
 
-| Status | Category | Proves | Meaning |
+| Status | Category | Flags | Meaning |
 |---|---|---|---|
 | `open` | open |  | not yet verified |
-| `holds` | done | yes | the last run on the current model holds |
-| `violated` | open |  | the last run found a counterexample |
+| `holds` | done | proves | the last run on the current model holds |
+| `violated` | open | refutes | the last run found a counterexample |
 | `error` | open |  | the last run could not reach a verdict |
 
 **Fields**

@@ -4,9 +4,11 @@
 
 import { code, sentence, table } from "./markdown.ts"
 import { DEFAULT_DATA } from "./layout.ts"
+import { flagsOf } from "./vocabulary.ts"
 import type {
   Check,
   Command,
+  Extension,
   ExtensionPoint,
   FieldDef,
   FieldKind,
@@ -74,6 +76,20 @@ export function commandSection(c: Pick<Command, "name" | "says" | "usage" | "opt
 
 export const FIELD_KINDS: readonly FieldKind[] = ["string", "strings", "date", "enum", "boolean", "number", "object"]
 
+/** Which types a field applies to, in words. */
+const appliesSaid = (types: readonly string[] | undefined, traits: readonly string[] | undefined): string =>
+  !types && !traits ? "every type" : [...(types ?? []), ...(traits ?? []).map((t) => `any type tagged ${code(t)}`)].join(", ")
+
+const transitionsLines = (transitions: Record<string, string[]> | undefined): string[] =>
+  transitions && Object.keys(transitions).length
+    ? [
+      "",
+      `Moves allowed: ${
+        Object.entries(transitions).map(([from, to]) => `${code(from)} → ${to.map(code).join(", ")}`).join("; ")
+      }; a status not named moves to any.`,
+    ]
+    : []
+
 export const typesPoint: ExtensionPoint<TypeDef> = {
   id: "types",
   says: "item types: a directory of items, their statuses, and the status a new one starts in",
@@ -88,10 +104,6 @@ export const typesPoint: ExtensionPoint<TypeDef> = {
       (t) => text(t, "dir"),
       (t) => text(t, "title"),
       (t) => (isObject((t as TypeDef).statuses) ? null : "has no statuses"),
-      (t) => {
-        const both = Object.entries((t as TypeDef).statuses).find(([, s]) => s.proves && s.refutes)
-        return both ? `"${(t as TypeDef).id}" has status "${both[0]}", which both proves and refutes` : null
-      },
     ),
   gaps: (
     t,
@@ -104,10 +116,12 @@ export const typesPoint: ExtensionPoint<TypeDef> = {
       `${t.title}: ${t.says}. Items live in ${code(`${DEFAULT_DATA}/${t.dir}/`)}; a new one starts as ${code(t.initialStatus)}${
         t.creatable === false ? "; it is an archive: items arrive by being moved there, never by being opened" : ""
       }.`,
+      ...(t.traits?.length ? ["", `Traits: ${t.traits.map(code).join(", ")}.`] : []),
       ...table(
-        ["Status", "Category", "Proves", "Meaning"],
-        Object.entries(t.statuses).map(([name, s]) => [code(name), s.category, s.proves ? "yes" : "", s.says]),
+        ["Status", "Category", "Flags", "Meaning"],
+        Object.entries(t.statuses).map(([name, s]) => [code(name), s.category, flagsOf(s).join(", "), s.says]),
       ),
+      ...transitionsLines(t.transitions),
     ]),
 }
 
@@ -136,9 +150,18 @@ export const fieldsPoint: ExtensionPoint<FieldDef> = {
       fields.map((f) => [
         code(f.name),
         f.kind,
-        f.appliesTo ? f.appliesTo.join(", ") : "every type",
+        appliesSaid(f.appliesTo, f.traits),
         f.says,
-        f.configured ? "set by the project's configuration" : f.values ? Object.entries(f.values).map(([v, s]) => `${code(v)} ${s}`).join("; ") : "",
+        [
+          f.valuesFrom
+            ? `the name of any contribution to ${code(f.valuesFrom)}`
+            : f.configured
+            ? "set by the project's configuration"
+            : f.values
+            ? Object.entries(f.values).map(([v, s]) => `${code(v)} ${s}`).join("; ")
+            : "",
+          f.multiple ? "one, or a list of several" : "",
+        ].filter(Boolean).join("; "),
       ]),
     ),
   ],
@@ -255,6 +278,39 @@ export const hooksPoint: ExtensionPoint<WriteHook> = {
   document: (hooks) => ["", "**Write hooks**, run on every item write", ...table(["Hook", "What it does"], hooks.map((h) => [code(h.name), h.says]))],
 }
 
+export const extendsPoint: ExtensionPoint<Extension> = {
+  id: "extends",
+  says:
+    "additive changes to another plugin's type — statuses (an existing one only with its category), traits, transitions — or field — enum values, more types or traits it applies to",
+  noun: "extension",
+  key: (e) => (e.type !== undefined ? `type:${e.type}` : `field:${e.field}`),
+  validate: (v) => {
+    if (!isObject(v)) return "is not an object"
+    const e = v as Extension
+    if ((e.type === undefined) === (e.field === undefined)) return "names neither a type nor a field, or both: an extension extends one"
+    const own = e.type !== undefined ? ["type", "statuses", "traits", "transitions"] : ["field", "values", "appliesTo", "traits"]
+    const other = Object.keys(e).find((k) => !own.includes(k))
+    return other ? `extends a ${e.type !== undefined ? "type" : "field"}, which takes no "${other}"` : null
+  },
+  gaps: (e) => Object.entries(e.statuses ?? {}).flatMap(([name, s]) => (blank(s.says) ? [`: status "${name}" does not say what it means`] : [])),
+  document: (es) => ["", "**Extensions** of other plugins' types and fields", "", ...es.map(extensionLine)],
+}
+
+function extensionLine(e: Extension): string {
+  const moves = (t: Record<string, string[]>) => Object.entries(t).map(([f, to]) => `${code(f)} → ${to.map(code).join(", ")}`).join("; ")
+  const parts = e.type !== undefined
+    ? [
+      ...Object.entries(e.statuses ?? {}).map(([n, s]) => `status ${code(n)} (${[s.category, ...flagsOf(s)].join(", ")}): ${s.says}`),
+      ...(e.traits?.length ? [`traits ${e.traits.map(code).join(", ")}`] : []),
+      ...(e.transitions ? [`moves ${moves(e.transitions)}`] : []),
+    ]
+    : [
+      ...(e.values ? [`values ${Object.entries(e.values).map(([v, s]) => `${code(v)} ${s}`).join("; ")}`] : []),
+      ...(e.appliesTo || e.traits ? [`applies to ${appliesSaid(e.appliesTo, e.traits)}`] : []),
+    ]
+  return `- ${e.type !== undefined ? `type ${code(e.type)}` : `field ${code(e.field ?? "")}`}: ${parts.join("; ")}`
+}
+
 /** The core's points, in the order the reference documents a plugin's contributions. */
 export const CORE_POINTS: readonly ExtensionPoint[] = [
   commandsPoint,
@@ -266,6 +322,7 @@ export const CORE_POINTS: readonly ExtensionPoint[] = [
   dirsPoint,
   summaryPoint,
   rankPoint,
+  extendsPoint,
   hooksPoint,
   migrationsPoint,
 ]

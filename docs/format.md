@@ -63,6 +63,7 @@ the one whose `naima.json` carries `format`.
 | `program` | no, `../naima` | the program directory, relative to the data directory |
 | `plugins` | no, `{}` | plugin name → `{ "options", "enabled", "replacedBy", "source", "checks" }`, first-party plugins included: their options (the project's gates are the `gates` plugin's), switched off, replaced, added, their checks weighed ([configuration](config.md#the-plugins-table)) |
 | `rename` | no, `{}` | kind → `{ "<plugin>/<name>": "<short name>" }`: the name a third-party plugin's contribution goes by, when two plugins would store the same one ([names](plugin-contract.md#names)) |
+| `extends` | no, `[]` | the project's own additive changes to the loaded plugins' types and fields: `{ "type", "statuses", "traits", "transitions" }` or `{ "field", "values", "appliesTo", "traits" }` ([extending](plugin-contract.md#extending-another-plugins-types-and-fields)) |
 
 Any other key is an error. `source`, `commit`, `carry`, `verify` and `program` are the
 lock: they keep these names and meanings in every format, so that any Naima
@@ -113,7 +114,8 @@ An item is a directory, `<type>/<slug>/`, under the data directory, where
 
 Every other field is declared by a plugin with a kind — `string`, `strings`,
 `date` (`YYYY`, `YYYY-MM` or `YYYY-MM-DD`), `enum`, `boolean`, `number` — and
-is checked against it. A field no loaded plugin declares is kept and not
+is checked against it. An `enum` that takes several values holds one as a
+string and several as a list: `"gate": "v1"`, `"gate": ["v1", "v2"]`. A field no loaded plugin declares is kept and not
 checked. The slug is the directory's name and may change; the id may not.
 Only one direction of a link is stored; its inverse is derived when read.
 Boards, queues and gate states are derived and never stored.

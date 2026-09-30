@@ -38,9 +38,14 @@ const ABOUT = `Three words that are not synonyms:
 
 "How many bugs are left" means the unfixed count; \`naima bugs\` never adds the three together.
 
+\`fixedOn\` applies to every type tagged \`fixable\` — bugs, todos, features and the archive here, and any other plugin's or project's type that carries the tag.
+
 An item whose proof needs a person says why in \`humanBecause\`. Only a judgement, a reserved decision, a credential or a physical act makes something a person's: needing the running software makes it \`agent-hands\`, not \`human\`.`
 
 const FIXED_ON = { name: "fixedOn", kind: "date" } as const
+
+/** The trait of a type whose items are fixed, then proven, then closed: `fixedOn` applies to every type that carries it, whoever declares the type. */
+export const FIXABLE = "fixable"
 const CLOSED_FROM = { name: "closedFrom", kind: "string" } as const
 const CLOSED_ON = { name: "closedOn", kind: "date" } as const
 const RUN_BY = { name: "runBy", kind: "enum" } as const
@@ -204,6 +209,7 @@ export default function trackers(): Plugin {
         },
         initialStatus: "open",
         template: report,
+        traits: [FIXABLE],
       },
       {
         id: "todos",
@@ -218,6 +224,7 @@ export default function trackers(): Plugin {
         },
         initialStatus: "open",
         template: work,
+        traits: [FIXABLE],
       },
       {
         id: "features",
@@ -231,6 +238,7 @@ export default function trackers(): Plugin {
           withdrawn: { category: "done", says: "decided against" },
         },
         initialStatus: "requested",
+        traits: [FIXABLE],
       },
       {
         id: "tests",
@@ -255,10 +263,11 @@ export default function trackers(): Plugin {
         statuses: { closed: { category: "done", says: "fixed, proven, archived" } },
         initialStatus: "closed",
         creatable: false,
+        traits: [FIXABLE],
       },
     ],
     fields: [
-      { name: "fixedOn", kind: "date", says: "when the code landed; absent means unfixed", appliesTo: ["bugs", "todos", "closed"] },
+      { name: "fixedOn", kind: "date", says: "when the code landed; absent means unfixed", traits: [FIXABLE] },
       { name: "closedOn", kind: "date", says: "when the item was archived", appliesTo: ["closed"] },
       { name: "closedFrom", kind: "string", says: "the type the item was archived from", appliesTo: ["closed"] },
       {

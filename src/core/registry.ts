@@ -19,22 +19,8 @@ import { FrozenMap, FrozenSet } from "./collections.ts"
 import { inOrder } from "./format.ts"
 import { contributionsOf, migrationsOf } from "./manifest.ts"
 import { CORE_POINTS, MANIFEST_KEYS } from "./points.ts"
-import type {
-  Check,
-  Command,
-  Contribution,
-  ExtensionPoint,
-  FieldDef,
-  Plugin,
-  RankTerm,
-  Registry,
-  RelationDef,
-  Severity,
-  SummarySection,
-  TypeDef,
-  View,
-  WriteHook,
-} from "./types.ts"
+import { vocabulary } from "./vocabulary.ts"
+import type { Check, Command, Contribution, ExtensionPoint, Plugin, RankTerm, Registry, Severity, SummarySection, View, WriteHook } from "./types.ts"
 
 export interface RegistryOptions {
   /** Command names the entry point answers before any plugin is loaded: a plugin command by one of them could never run. */
@@ -160,43 +146,12 @@ export function buildRegistry(plugins: Plugin[], opts: RegistryOptions = {}): Re
   const of = <T>(id: string): Contribution<T>[] => (all.get(id) ?? []) as Contribution<T>[]
   const ownName = (point: string, plugin: string, declared: string): string => rename[point]?.[`${plugin}/${declared}`] ?? declared
 
-  // A type's directory is a stored name like any other: a type's and a plugin's directory may not coincide.
-  const dirs = new Map<string, string>()
-  const claim = (dir: string, by: string): void => {
-    const previous = dirs.get(dir)
-    if (previous !== undefined) throw new Error(`directory "${dir}" is claimed by both ${previous} and ${by}`)
-    dirs.set(dir, by)
-  }
-  const types = new Map<string, TypeDef>()
-  for (const { value: t, id } of of<TypeDef>("types")) {
-    if (!Object.hasOwn(t.statuses, t.initialStatus)) throw new Error(`type "${t.id}": initial status "${t.initialStatus}" is not one of its statuses`)
-    types.set(t.id, t)
-    claim(t.dir, `type ${id}`)
-  }
-  for (const { name, id } of of<string>("dirs")) claim(name, id)
-
-  /** A type another contribution names: its own plugin's by declared name, a qualified id, or a short name. */
-  const typeRef = (plugin: string, ref: string): string | undefined => {
-    const own = of<TypeDef>("types").find((c) => c.id === `${plugin}/${ref}`)
-    return own ? own.name : lookup(of<TypeDef>("types"), "type", ref)?.name
-  }
-  const fields = new Map<string, FieldDef>()
-  for (const { value: f, plugin } of of<FieldDef>("fields")) {
-    const appliesTo = f.appliesTo?.map((t) => {
-      const id = typeRef(plugin, t)
-      if (id === undefined) throw new Error(`field "${f.name}" applies to type "${t}", which no plugin declares`)
-      return id
-    })
-    fields.set(f.name, appliesTo && appliesTo.some((t, i) => t !== f.appliesTo?.[i]) ? { ...f, appliesTo } : f)
-  }
-  const relations = new Map<string, RelationDef>()
-  for (const { value: r, plugin } of of<RelationDef>("relations")) {
-    const inverse = ownName("relations", plugin, r.inverse)
-    relations.set(r.name, inverse === r.inverse ? r : { ...r, inverse })
-  }
-  for (const r of relations.values()) {
-    if (!relations.has(r.inverse)) throw new Error(`relation "${r.name}" names inverse "${r.inverse}", which is not declared`)
-  }
+  const { types, fields, relations, dirs } = vocabulary({
+    of,
+    find: <T>(point: string, ref: string) => lookup(of<T>(point), points.get(point)?.point.noun ?? point, ref),
+    ownName,
+    has: (point) => points.has(point),
+  })
 
   const reserved = new Set(opts.reserved ?? [])
   for (const c of of<Command>("commands")) {
@@ -234,7 +189,7 @@ export function buildRegistry(plugins: Plugin[], opts: RegistryOptions = {}): Re
     types: new FrozenMap(types),
     fields: new FrozenMap(fields),
     relations: new FrozenMap(relations),
-    dirs: new FrozenSet(dirs.keys()),
+    dirs: new FrozenSet(dirs),
     checks: Object.freeze(checks),
     commands: invoked(of<Command>("commands")),
     views: invoked(of<View>("views")),

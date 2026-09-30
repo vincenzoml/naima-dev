@@ -14,11 +14,11 @@ import { message } from "./errors.ts"
 import { writeFileAtomic } from "./files.ts"
 import { DATA_FILE, DEFAULT_PROGRAM } from "./layout.ts"
 import { FORMAT, formatRefusal, formatsOf } from "./format.ts"
-import type { Carry, Config, PluginConfig, PluginOptions, Severity } from "./types.ts"
+import type { Carry, Config, Extension, PluginConfig, PluginOptions, Severity } from "./types.ts"
 
 export const CARRY_MODES: readonly Carry[] = ["clone", "vendored", "submodule"]
 
-const KEYS = new Set(["format", "formats", "source", "commit", "carry", "verify", "program", "plugins", "rename"])
+const KEYS = new Set(["format", "formats", "source", "commit", "carry", "verify", "program", "plugins", "rename", "extends"])
 const COMMIT = /^[0-9a-f]{40}$/
 
 const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v)
@@ -81,7 +81,20 @@ export function parseConfig(raw: unknown, opts: { lenient?: boolean } = {}): Con
     }
   }
   const lock = parseLock(raw)
-  return { format: FORMAT, formats: formatsOf(raw), ...lock, plugins: parsePlugins(raw["plugins"]), rename: parseRename(raw["rename"]) }
+  const extensions = raw["extends"] ?? []
+  if (!Array.isArray(extensions) || !extensions.every(isObject)) {
+    throw new Error(
+      `${DATA_FILE}: extends is a list of extensions: { "type", "statuses", "traits", "transitions" } or { "field", "values", "appliesTo", "traits" }`,
+    )
+  }
+  return {
+    format: FORMAT,
+    formats: formatsOf(raw),
+    ...lock,
+    plugins: parsePlugins(raw["plugins"]),
+    rename: parseRename(raw["rename"]),
+    extends: extensions as Extension[],
+  }
 }
 
 /** The `rename` table: kind → qualified id → new short name. Which ids exist is the registry's to say. */

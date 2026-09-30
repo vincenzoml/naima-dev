@@ -1,6 +1,7 @@
 // Questions about an item that depend only on what its type declares.
 
 import type { Context, Item, StatusDef } from "./types.ts"
+import { flagsOf } from "./vocabulary.ts"
 
 /** The definition of an item's status; undefined for one its type does not declare, never an Object.prototype key. */
 export function statusDef(ctx: Context, item: Item): StatusDef | undefined {
@@ -10,15 +11,24 @@ export function statusDef(ctx: Context, item: Item): StatusDef | undefined {
 
 export const isOpen = (ctx: Context, item: Item): boolean => statusDef(ctx, item)?.category !== "done"
 
+/** Does this item's status carry `flag` — one a plugin gave meaning to, or `proves` or `refutes`? */
+export const hasFlag = (ctx: Context, item: Item, flag: string): boolean => {
+  const s = statusDef(ctx, item)
+  return s !== undefined && flagsOf(s).includes(flag)
+}
+
 /** Does this item's status count as evidence for what it verifies? */
-export const proves = (ctx: Context, item: Item): boolean => statusDef(ctx, item)?.proves === true
+export const proves = (ctx: Context, item: Item): boolean => hasFlag(ctx, item, "proves")
 
 /** Does this item's status count as evidence against what it verifies? */
-export const refutes = (ctx: Context, item: Item): boolean => statusDef(ctx, item)?.refutes === true
+export const refutes = (ctx: Context, item: Item): boolean => hasFlag(ctx, item, "refutes")
 
 /** Can items of this type ever count as evidence? */
 export const isEvidenceType = (ctx: Context, type: string): boolean =>
-  Object.values(ctx.registry.types.get(type)?.statuses ?? {}).some((s) => s.proves === true)
+  Object.values(ctx.registry.types.get(type)?.statuses ?? {}).some((s) => flagsOf(s).includes("proves"))
+
+/** Does this item's type carry `trait`? */
+export const hasTrait = (ctx: Context, item: Item, trait: string): boolean => ctx.registry.types.get(item.type)?.traits?.includes(trait) === true
 
 /** Items linked to `item` by `rel`, in either stored direction. */
 export function linked(ctx: Context, item: Item, rel: string): Item[] {

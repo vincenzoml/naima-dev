@@ -50,8 +50,9 @@ The core's points, each also a typed key of the manifest:
 | Point | What a contribution is |
 |---|---|
 | `commands` | `naima <name>`: `says`, `usage`, `options` (one per `--flag` in the usage), `examples` (invocations without the leading `naima`); `run(args, ctx)` returns an exit code (may be async) |
-| `types` | item types: `id`, `dir`, `statuses` (each `open` or `done`, optionally `proves` — evidence for what the item verifies — or `refutes` — evidence against it, which blocks a gate and a close), `initialStatus`, a README `template`, `creatable: false` for archives |
-| `fields` | fields with a kind (`string`, `strings`, `date`, `enum`, `boolean`, `number`, `object`), enum values in rank order, and the types they apply to; `configured: true` when the values come from the project's configuration, so the program's reference does not list them |
+| `types` | item types: `id`, `dir`, `statuses` (each `open` or `done`, with open-ended `flags`; `proves` — evidence for what the item verifies — and `refutes` — evidence against it, which blocks a gate and a close — are two, also said as keys), `initialStatus`, a README `template`, `creatable: false` for archives, plain `traits`, an optional `transitions` map ([extending](#extending-another-plugins-types-and-fields)) |
+| `fields` | fields with a kind (`string`, `strings`, `date`, `enum`, `boolean`, `number`, `object`), enum values in rank order — or `valuesFrom` a point, and `multiple` for several — and the types they apply to, by name (`appliesTo`) or by trait (`traits`); `configured: true` when the values come from the project's configuration, so the program's reference does not list them |
+| `extends` | additive changes to another plugin's types and fields ([extending](#extending-another-plugins-types-and-fields)) |
 | `relations` | link relations; each names its inverse, which must also be declared |
 | `checks` | `run(ctx) → Finding[]`; `problem` fails `naima check`, `note` does not; the project may weigh each one `off`, `note` or `problem` ([check severity](config.md#check-severity)) |
 | `views` | `naima view <name>`: a named rendering of derived state |
@@ -102,6 +103,42 @@ points are declared exactly this way (`src/core/points.ts`): adding a kind
 of contribution never takes a change to the core. The on-disk layout is not
 a point: `<type>/<slug>/{README.md,meta.json,attachments/}` is the
 compatibility boundary between forks ([the format](format.md)).
+
+## Extending another plugin's types and fields
+
+Data only: no type derives from another, and nothing is overridden. Three
+mechanisms, used together:
+
+- **Traits.** A type carries plain tags, `traits: ["fixable"]`, and a field
+  declared with `traits: ["fixable"]` applies to every type that carries one,
+  whoever declares it. `fixedOn` applies to every `fixable` type: the
+  `trackers` plugin's bugs, todos, features and archive, and a third-party
+  `incidents` type that says it is fixable. `appliesTo` still names types
+  exactly; a field with both applies to both.
+- **Extensions.** A plugin — or the project, under `extends` in
+  [`naima.json`](format.md#naimajson) — adds to a type it does not own:
+  statuses, traits, transitions; or to a field: enum values, more types or
+  traits it applies to. It never redefines: a status it names that exists
+  keeps its category (open stays open), its flags only grow, and a field
+  keeps its kind. Refused otherwise, when the project loads.
+
+  ```ts
+  extends: [
+    { type: "bugs", statuses: { blocked: { category: "open", flags: ["waiting"], says: "waiting on another team" } } },
+    { field: "runBy", values: { pager: "settled by whoever holds the pager" }, appliesTo: ["incidents"] },
+  ]
+  ```
+- **Flags and transitions.** A status's `flags` are open-ended tags any
+  plugin may give meaning to and any plugin may read (`hasFlag(ctx, item,
+  "waiting")`); `proves` and `refutes` are the two the first-party plugins
+  read. A type's optional `transitions` maps a status to those it may move
+  to; a status it does not name moves to any. The core's `status-moves` write
+  hook holds it on every write, and a forced write takes the move on.
+
+A field whose enum values are the names of a point's contributions says
+`valuesFrom`: the `gate` field takes its values from every gate contributed
+to the `gates` point, and with `multiple: true` an item may hold one value as
+a string or several as a list (`naima set <item> gate=v1,v2`).
 
 ## Names
 
