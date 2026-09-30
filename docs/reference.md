@@ -754,7 +754,7 @@ naima beta --check
 
 Properties checked by formal-methods tools, with each run attached as evidence.
 
-A `properties` item names a `verifier` (an adapter any plugin can contribute), a `model` file (a path from the project root) and a `property` in the verifier's own language. `naima verify` runs the adapter and attaches the run — verdict, output, the model's sha256 — and the counterexample as its own file, then sets the status from the verdict. A property that holds is evidence exactly as a passed test is: it can `verify` a bug and close it. A verdict is only as good as the model it was reached on, so `naima check` fails when a property claims to hold and its model has changed since the run. The shipped adapter, `example-regex`, is a stand-in that shows the shape of a real one.
+A `properties` item names a `verifier` (an adapter any plugin can contribute), a `model` file (a path from the project root) and a `property` in the verifier's own language. `naima verify` runs the adapter and attaches the run — verdict, output, the model's sha256 — and the counterexample as its own file, then sets the status from the verdict. A property that holds is evidence exactly as a passed test is: it can `verify` a bug and close it. A verdict is only as good as what it was reached on, so `naima check` fails when a property claims to hold and its property, verifier, model path, `verifierOptions` or model contents have changed since the run. The shipped adapter, `example-regex`, is a stand-in that shows the shape of a real one.
 
 ### naima verify
 
@@ -814,7 +814,7 @@ Properties: a property of the software, proven or refuted by a verifier. Items l
 
 | Check | What it holds |
 |---|---|
-| `property-evidence` | a property names a known verifier and an existing model; one that holds carries a run on the current model |
+| `property-evidence` | a property names a known verifier and an existing model; one that holds carries a run of its current property, verifier, model and options, on the model as it is now |
 
 **Gates**, listed by `naima gates`
 

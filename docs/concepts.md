@@ -48,7 +48,8 @@ unproven is a different number, and the two are never added.
 Evidence travels with the claim, in the item's `attachments/`. A property
 checked by a formal-methods tool is evidence exactly as a passed test is:
 `naima verify` attaches the run and the hash of the model it ran on, and
-`naima check` fails when the model has changed since.
+`naima check` fails when the model, or the property, verifier or options it
+was run with, has changed since.
 
 ## Derived, never stored
 

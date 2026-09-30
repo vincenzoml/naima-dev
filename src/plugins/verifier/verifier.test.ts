@@ -109,3 +109,32 @@ test("an adapter outside the contract gives a property in error with a readable 
     p.cleanup()
   }
 })
+
+test("a property holds only for what was run: a changed property, verifier, model path or options is reported", async () => {
+  const other: Verifier = { id: "other", says: "", verify: async () => ({ verdict: "holds", output: "ok" }) }
+  const p = tempProject([verifier(), { name: "extra", says: "", verifiers: [other] }])
+  try {
+    const { ctx } = p
+    writeFileSync(join(p.root, "model.txt"), "alpha\nbeta\n")
+    writeFileSync(join(p.root, "copy.txt"), "alpha\nbeta\n")
+    const prop = createItem(ctx, ctx.registry.types.get("properties")!, "has beta", { verifier: "example-regex", model: "model.txt", property: "some beta", verifierOptions: { depth: 1 } })
+    assert.equal(await p.run("verify", prop.slug), 0)
+    const problems = () => runChecks(ctx).problems.map((f) => f.message).join("\n")
+    assert.equal(problems(), "")
+    const path = join(prop.dir, "meta.json")
+    const held = JSON.parse(readFileSync(path, "utf8"))
+    for (const [change, why] of [
+      [{ property: "some gamma" }, /holds for property "some beta", not "some gamma"/],
+      [{ verifier: "other" }, /holds by verifier "example-regex", not "other"/],
+      [{ model: "copy.txt" }, /holds on model model\.txt, not copy\.txt/],
+      [{ verifierOptions: { depth: 2 } }, /holds with other verifierOptions/],
+    ] as const) {
+      writeFileSync(path, JSON.stringify({ ...held, ...change }))
+      p.ctx.reload()
+      assert.match(problems(), why)
+      assert.match(problems(), /run naima verify again/)
+    }
+  } finally {
+    p.cleanup()
+  }
+})

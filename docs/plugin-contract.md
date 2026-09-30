@@ -108,9 +108,10 @@ a run that did not complete.
 
 A `properties` item names `verifier`, `model` (a path from the project root)
 and `property`. `naima verify` runs the adapter and attaches the run —
-verdict, output, the model's sha256 — plus the counterexample as its own file.
-`naima check` fails when a property claims to hold and its model has changed
-since the run. The shipped adapter, `example-regex`, is a stand-in; real
+verdict, output, the model's sha256 and the options' — plus the
+counterexample as its own file. `naima check` fails when a property claims to
+hold and its property, verifier, model path, options or model contents have
+changed since the run. The shipped adapter, `example-regex`, is a stand-in; real
 adapters are separate plugins.
 
 ## Testing a plugin

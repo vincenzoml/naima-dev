@@ -38,6 +38,8 @@ export interface RunRecord {
   model: string
   modelSha256: string
   property: string
+  /** The sha256 of the item's `verifierOptions`, keys sorted; absent in runs recorded before it was kept, meaning none. */
+  optionsSha256?: string
   verdict: Verdict
   output: string
   counterexample?: string
@@ -60,6 +62,17 @@ export function inContract(id: string, result: unknown): VerifyResult {
 }
 
 const sha256 = (path: string): string => createHash("sha256").update(readFileSync(path)).digest("hex")
+
+/** JSON with every object's keys sorted: the same options always hash the same. */
+const canonical = (v: unknown): string =>
+  Array.isArray(v) ? `[${v.map(canonical).join(",")}]` : v && typeof v === "object" ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${canonical((v as Record<string, unknown>)[k])}`).join(",")}}` : JSON.stringify(v) ?? "null"
+
+/** The options a property is verified with: its `verifierOptions` object, or none. */
+const optionsOf = (item: Item): Record<string, unknown> => {
+  const raw = item.meta.verifierOptions
+  return raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {}
+}
+const optionsHash = (options: Record<string, unknown>): string => createHash("sha256").update(canonical(options)).digest("hex")
 
 const template = (title: string): string =>
   `# ${title}\n\nThe property in words, and why it matters.\n\nSet \`verifier\`, \`model\` (a path from the project root) and \`property\` in meta.json, then \`naima verify\`.\n`
@@ -86,8 +99,7 @@ export async function verifyItem(ctx: Context, item: Item): Promise<Verdict> {
   if (!verifier) throw new Error(`${label(item)}: no verifier "${id}" — verifiers: ${[...ctx.registry.verifiers.keys()].join(", ")}`)
   const modelPath = join(ctx.root, model)
   if (!existsSync(modelPath)) throw new Error(`${label(item)}: model ${model} does not exist`)
-  const raw = item.meta.verifierOptions
-  const options = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {}
+  const options = optionsOf(item)
   const hash = sha256(modelPath)
   let result: VerifyResult
   try {
@@ -97,7 +109,7 @@ export async function verifyItem(ctx: Context, item: Item): Promise<Verdict> {
   }
   const at = ctx.now().toISOString()
   const stamp = at.replace(/[:.]/g, "-")
-  const record: RunRecord = { verifier: id, model, modelSha256: hash, property, verdict: result.verdict, output: result.output, at, ...(result.counterexample !== undefined ? { counterexample: result.counterexample } : {}) }
+  const record: RunRecord = { verifier: id, model, modelSha256: hash, property, optionsSha256: optionsHash(options), verdict: result.verdict, output: result.output, at, ...(result.counterexample !== undefined ? { counterexample: result.counterexample } : {}) }
   const name = `run-${stamp}.json`
   writeFileSync(join(item.dir, ATTACHMENTS, name), JSON.stringify(record, null, 2) + "\n")
   if (result.counterexample !== undefined) writeFileSync(join(item.dir, ATTACHMENTS, `counterexample-${stamp}.txt`), result.counterexample + "\n")
@@ -143,7 +155,7 @@ const verifiers: Command = {
 
 const evidence: Check = {
   name: "property-evidence",
-  says: "a property names a known verifier and an existing model; one that holds carries a run on the current model",
+  says: "a property names a known verifier and an existing model; one that holds carries a run of its current property, verifier, model and options, on the model as it is now",
   run(ctx) {
     const out: Finding[] = []
     const problem = (item: Item, message: string) => out.push({ level: "problem", message: `${label(item)}: ${message}`, item })
@@ -155,8 +167,17 @@ const evidence: Check = {
       const run = readRun(item)
       if (!run) problem(item, "holds, but carries no run")
       else if (run.verdict !== "holds") problem(item, `holds, but its last run says ${run.verdict}`)
-      else if (typeof model === "string" && existsSync(join(ctx.root, model)) && run.modelSha256 !== sha256(join(ctx.root, model))) {
-        problem(item, "holds on a model that has changed since — run naima verify again")
+      else {
+        // The verdict is evidence only for exactly what was run: the property, the adapter, the model and its options.
+        const again = " — run naima verify again"
+        const { property } = item.meta
+        if (run.property !== property) problem(item, `holds for property ${JSON.stringify(run.property)}, not ${JSON.stringify(property)}${again}`)
+        if (run.verifier !== verifier) problem(item, `holds by verifier ${JSON.stringify(run.verifier)}, not ${JSON.stringify(verifier)}${again}`)
+        if (run.model !== model) problem(item, `holds on model ${run.model}, not ${String(model)}${again}`)
+        else if (typeof model === "string" && existsSync(join(ctx.root, model)) && run.modelSha256 !== sha256(join(ctx.root, model))) {
+          problem(item, `holds on a model that has changed since${again}`)
+        }
+        if ((run.optionsSha256 ?? optionsHash({})) !== optionsHash(optionsOf(item))) problem(item, `holds with other verifierOptions than it has now${again}`)
       }
     }
     return out
@@ -181,7 +202,7 @@ export default function verifier(): Plugin {
     about:
       "A `properties` item names a `verifier` (an adapter any plugin can contribute), a `model` file (a path from the project root) and a `property` in the verifier's own language. " +
       "`naima verify` runs the adapter and attaches the run — verdict, output, the model's sha256 — and the counterexample as its own file, then sets the status from the verdict. " +
-      "A property that holds is evidence exactly as a passed test is: it can `verify` a bug and close it. A verdict is only as good as the model it was reached on, so `naima check` fails when a property claims to hold and its model has changed since the run. " +
+      "A property that holds is evidence exactly as a passed test is: it can `verify` a bug and close it. A verdict is only as good as what it was reached on, so `naima check` fails when a property claims to hold and its property, verifier, model path, `verifierOptions` or model contents have changed since the run. " +
       "The shipped adapter, `example-regex`, is a stand-in that shows the shape of a real one.",
     types: [
       {
