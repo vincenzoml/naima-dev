@@ -1,0 +1,52 @@
+{
+  "branch": "claude/host-dist",
+  "claimedAt": "2026-09-30",
+  "items": [
+    {
+      "id": "6eb94426-09df-4a11-a0dd-36fce97a398b",
+      "ref": "features/host-leakage-installed-program-directory-holds-only",
+      "title": "Host leakage: the installed program directory holds only what runs Naima"
+    },
+    {
+      "id": "f13285f3-0718-4a4a-80fc-16d297e11533",
+      "ref": "bugs/git-option-injection-through-source-naima-json",
+      "title": "Git option injection through `source` in naima.json"
+    },
+    {
+      "id": "872a5b0c-1250-4199-82ea-ab23da1b0e13",
+      "ref": "bugs/naima-init-can-lock-commit-source-lacks",
+      "title": "`naima init` can lock a commit the source lacks, and may commit a credential token"
+    },
+    {
+      "id": "0020a5d3-bd97-4dc7-89d2-44bc74c9ad72",
+      "ref": "bugs/launcher-permissions-break-when-project-path-contains",
+      "title": "Launcher permissions break when a project path contains a comma"
+    },
+    {
+      "id": "08cef7da-7fae-45bc-b006-ff580fa4ab9a",
+      "ref": "todos/ci-not-reproducible-runs-ubuntu-only",
+      "title": "CI is not reproducible, and runs on Ubuntu only"
+    },
+    {
+      "id": "c44c2dcc-368d-4064-a967-6ea55e608c3f",
+      "ref": "bugs/launcher-grants-unrestricted-allow-env",
+      "title": "The launcher grants unrestricted `--allow-env`"
+    },
+    {
+      "id": "32f4928c-2fb6-4ec0-a3f1-d8b2a0674a69",
+      "ref": "bugs/naima-init-prints-hint-naming-plugin-type",
+      "title": "`naima init` prints a hint naming a plugin type instead of a real command"
+    },
+    {
+      "id": "046a1e8a-3168-4165-b793-e9a36a49f925",
+      "ref": "bugs/relative-source-path-naima-json-accepted",
+      "title": "A relative `source` path in naima.json is accepted"
+    },
+    {
+      "id": "364d8aba-1c40-4209-bbe4-6cf2082d7940",
+      "ref": "todos/helper-functions-duplicated-between-launcher-cli",
+      "title": "Helper functions are duplicated between the launcher and the CLI"
+    }
+  ],
+  "note": "host-dist: runtime-only dist branch, plus the review fixes located in program.ts, launcher.ts, init and .github/"
+}
