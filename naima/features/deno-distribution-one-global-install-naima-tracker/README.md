@@ -106,6 +106,25 @@ implementation until the owner says go (owner rule 3).*
     markdown files in the clone, read directly as files; `naima guide` only
     prints the index and paths.
 
+20. **How the program is carried is a switch, available from day one.**
+    Owner, 2026-09-30: "in the future we could reconsider whether to carry
+    full subtree without gitignore, and / or as a submodule, and users should
+    be able to just re-enable it easily by asking an agent already now".
+    `naima.json` has `carry`, with three modes:
+    - `clone` (the default): the gitignored clone, locked by `commit`;
+    - `vendored`: the program committed into the project as plain files. The
+      lock is the committed tree itself, and `naima update` replaces the
+      directory in one commit;
+    - `submodule`: a git submodule. The lock is the submodule pointer.
+
+    `naima carry <mode>` switches between them in one commit, rewriting only
+    what is under `naima-tracker/`. It adds or removes the `.gitignore` line,
+    and adds or removes the submodule and `.gitmodules`. The last is the one
+    file outside `naima-tracker/` that git itself requires for submodules,
+    and it is touched only in that mode. The flow tells an agent how to do it
+    when a person asks. The lock semantics (3) and the explicit update (4)
+    hold in every mode.
+
 ## Risk review (2026-09-30) and the mitigations now part of the behaviour
 
 13. **Local changes in the clone are never overwritten.** Alignment (3) and
@@ -221,6 +240,8 @@ Naima's own repository uses exactly the same model, with no special case:
   outside `naima-tracker/` or run anything but `git`: Deno's permission error
   is asserted.
 - A test shows that a fork `source` is honoured.
+- A test shows `naima carry` round-tripping clone → vendored → submodule →
+  clone, with the checks passing and the same commit running in each mode.
 - The suite passes on Deno, Node and Bun.
 - Naima's own repository uses this layout for its own tracker.
 - `verify` passes.
