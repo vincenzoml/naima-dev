@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node
 import { tmpdir } from "node:os"
 import { join, relative } from "node:path"
 import { test } from "node:test"
-import { projectFiles, readAcrossBranches, refsWorthReading, walkFiles } from "./index.ts"
+import { gitPath, projectFiles, readAcrossBranches, refsWorthReading, walkFiles } from "./index.ts"
 import { tempProject } from "./testing.ts"
 
 test("records are recombined from every unmerged branch, with the working tree winning", () => {
@@ -59,5 +59,19 @@ test("a project's files are regular files: never a submodule's directory, never 
   } finally {
     p.cleanup()
     rmSync(outside, { recursive: true, force: true })
+  }
+})
+
+test("paths meet git in posix form, whatever the platform's separator", () => {
+  assert.equal(gitPath("naima-tracker\\naima-data\\claims", "\\"), "naima-tracker/naima-data/claims")
+  assert.equal(gitPath("naima-tracker/naima-data/claims", "/"), "naima-tracker/naima-data/claims")
+  const p = tempProject([], { git: true })
+  try {
+    mkdirSync(join(p.root, "src", "deep"), { recursive: true })
+    writeFileSync(join(p.root, "src", "deep", "a.ts"), "x\n")
+    rmSync(join(p.root, ".git"), { recursive: true, force: true })
+    assert.ok(projectFiles(p.root).includes("src/deep/a.ts"), "outside git too, a project file is a posix path")
+  } finally {
+    p.cleanup()
   }
 })

@@ -19,6 +19,9 @@ export function git(root: string, ...args: string[]): string | null {
   }
 }
 
+/** A path as git reads and writes it: forward slashes, whatever the platform's separator. */
+export const gitPath = (path: string, separator: string = sep): string => path.split(separator).join("/")
+
 export function isGitRepo(root: string): boolean {
   return git(root, "rev-parse", "--is-inside-work-tree") === "true"
 }
@@ -29,7 +32,8 @@ export function toplevel(dir: string): string | null {
 }
 
 /**
- * The project's own files, relative to the root: every regular file git tracks
+ * The project's own files, relative to the root and with forward slashes on
+ * every platform: every regular file git tracks
  * or would track (not ignored) — never a submodule's directory, never a
  * symbolic link — or, outside git, every regular file under the root but
  * hidden directories, node_modules, dist and build. Never a file under
@@ -38,12 +42,12 @@ export function toplevel(dir: string): string | null {
  * for it to be covered.
  */
 export function projectFiles(root: string, program?: string): string[] {
-  const skip = program ? relative(root, program).split(sep).join("/") + "/" : null
-  const mine = (f: string): boolean => !skip || !f.split(sep).join("/").startsWith(skip)
+  const skip = program ? gitPath(relative(root, program)) + "/" : null
+  const mine = (f: string): boolean => !skip || !f.startsWith(skip)
   const listed = isGitRepo(root) ? git(root, "ls-files", "-z", "--cached", "--others", "--exclude-standard") : null
   if (listed !== null) return [...new Set(listed.split("\0").filter((f) => f && mine(f) && isRegularFile(join(root, f))))].sort()
   return walkFiles(root, { skipHidden: true })
-    .map((path) => relative(root, path))
+    .map((path) => gitPath(relative(root, path)))
     .filter(mine)
 }
 
@@ -127,11 +131,12 @@ export function filesHere(root: string, dir: string, ext: string, ref: string): 
  */
 export function readAcrossBranches(root: string, dir: string, ext: string): BranchFile[] {
   const seen = new Map<string, BranchFile>()
+  const inGit = gitPath(dir) // a ref's tree is read with forward slashes: a Windows path would name nothing
   const here = currentBranch(root)
   if (isGitRepo(root)) {
     for (const ref of refsWorthReading(root)) {
       if (ref === here) continue
-      for (const f of filesOn(root, ref, dir, ext)) if (!seen.has(f.name)) seen.set(f.name, f)
+      for (const f of filesOn(root, ref, inGit, ext)) if (!seen.has(f.name)) seen.set(f.name, f)
     }
   }
   for (const f of filesHere(root, dir, ext, here)) seen.set(f.name, f)

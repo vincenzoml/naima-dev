@@ -59,8 +59,8 @@ export interface Pass {
   local: boolean
 }
 
-/** A coordination directory, from the project root. */
-const rel = (ctx: Context, dir: string): string => join(ctx.trackerDir, dir)
+/** A coordination directory, from the project root, with forward slashes: it is also a path in git. */
+const rel = (ctx: Context, dir: string): string => `${ctx.trackerDir}/${dir}`
 
 function parseClaim(f: BranchFile): Claim | null {
   try {
