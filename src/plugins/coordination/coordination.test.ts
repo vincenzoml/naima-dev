@@ -153,3 +153,28 @@ test("a branch's own claim is read from its branch, not from a stale copy the re
     p.cleanup()
   }
 })
+
+test("a released claim stays released: the trunk's copy does not bring it back, and a new claim reuses the file", async () => {
+  const p = tempProject([things, coordination()], { git: true })
+  const w = worktree(p, "w")
+  try {
+    createItem(p.ctx, p.ctx.registry.types.get("things")!, "Alpha")
+    p.git("add", "-A")
+    p.git("commit", "-q", "-m", "items")
+    w.git("merge", "-q", "--ff-only", "main")
+    await w.run("claim", "alpha")
+    w.git("add", "-A")
+    w.git("commit", "-q", "-m", "claim alpha")
+    p.git("merge", "-q", "--ff-only", "w")
+    const [file] = readdirSync(join(w.ctx.trackerRoot, "claims"))
+    assert.equal(await w.run("release", "alpha"), 0) // the deletion is not committed yet
+    assert.deepEqual(readClaims(w.ctx), [])
+    await assert.rejects(Promise.resolve().then(() => w.run("release", "alpha")), /holds no claim/)
+    assert.equal(await w.run("claim", "alpha"), 0)
+    assert.deepEqual(readdirSync(join(w.ctx.trackerRoot, "claims")), [file])
+    assert.deepEqual(readClaims(w.ctx).map((c) => [c.branch, c.items.length]), [["w", 1]])
+  } finally {
+    w.cleanup()
+    p.cleanup()
+  }
+})

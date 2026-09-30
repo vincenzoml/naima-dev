@@ -22,6 +22,7 @@ import {
   allRefNames,
   bool,
   currentBranch,
+  filesAt,
   label,
   parse,
   positiveInt,
@@ -117,8 +118,19 @@ function writeClaim(ctx: Context, claim: Claim): string {
   return join(rel(ctx, CLAIMS), file)
 }
 
-function myClaim(ctx: Context, branch: string): Claim | undefined {
-  return readClaims(ctx).find((c) => c.local && c.branch === branch)
+/** This branch's claim: the one on this worktree's disk, else one another ref carries for it. */
+function myClaim(ctx: Context, branch: string, all: Claim[] = readClaims(ctx)): Claim | undefined {
+  return all.find((c) => c.local && c.branch === branch) ?? all.find((c) => c.branch === branch)
+}
+
+/**
+ * A new claim for this branch. When the branch committed a claim file and has
+ * since deleted it (every item released, the deletion not yet committed), the
+ * same file is written again rather than a second one beside it.
+ */
+function freshClaim(ctx: Context, branch: string): Claim {
+  const committed = filesAt(ctx.root, "HEAD", rel(ctx, CLAIMS), ".json").map(parseClaim).find((c) => c?.branch === branch)
+  return { branch, claimedAt: today(ctx), items: [], file: committed?.file ?? `${randomUUID()}.json`, local: true }
 }
 
 const claim: Command = {
@@ -134,7 +146,7 @@ const claim: Command = {
     const branch = currentBranch(ctx.root)
     if (branch === "HEAD") throw new Error("HEAD is detached: a claim belongs to a branch — git switch -c <branch>, then claim")
     const all = readClaims(ctx)
-    const mine = all.find((c) => c.local && c.branch === branch) ?? { branch, claimedAt: today(ctx), items: [], file: `${randomUUID()}.json`, local: true }
+    const mine = myClaim(ctx, branch, all) ?? freshClaim(ctx, branch)
     const note = str(p, "note")
     if (note) mine.note = note
     for (const item of items) {
@@ -167,10 +179,11 @@ const release: Command = {
     const kept = mine.items.filter((e) => !ids.has(e.id))
     if (kept.length === mine.items.length) throw new Error(`none of ${refs.join(", ")} is claimed on ${branch}; nothing changed`)
     ctx.out(`released ${mine.items.length - kept.length} on ${branch}`)
-    if (kept.length === 0) {
+    if (kept.length === 0 && mine.local) {
       unlinkSync(join(ctx.root, rel(ctx, CLAIMS), mine.file))
       ctx.out(`removed ${join(rel(ctx, CLAIMS), mine.file)} — commit the deletion on ${branch}`)
     } else {
+      // A claim read from another ref cannot be deleted from here: an emptied copy on this branch overrides it.
       mine.items = kept
       ctx.out(`wrote ${writeClaim(ctx, mine)}`)
     }

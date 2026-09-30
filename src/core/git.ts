@@ -208,6 +208,11 @@ export function filesHere(root: string, dir: string, ext: string, ref: string): 
     .map((name) => ({ ref, name, text: readFileSync(join(abs, name), "utf8"), local: true }))
 }
 
+/** Every `ext` file directly under `dir` on one ref (`HEAD` included), as committed there. */
+export function filesAt(root: string, ref: string, dir: string, ext: string): BranchFile[] {
+  return isGitRepo(root) ? (filesOnRefs(root, [ref], gitPath(dir), ext).onRefs[0] ?? []) : []
+}
+
 export interface AcrossOptions {
   /**
    * The branch a record says it belongs to. A copy on this worktree's disk of
@@ -221,8 +226,8 @@ export interface AcrossOptions {
  * Every file under `dir` (relative to `root`) on every ref worth reading, one
  * entry per file name. The branch this worktree stands on is read from disk,
  * not from its ref: the working tree is the newer truth, so a record written
- * and not yet committed is seen. A record another branch owns is read from
- * that branch.
+ * and not yet committed is seen, and one deleted and not yet committed is not
+ * — on any ref. A record another branch owns is read from that branch.
  */
 export function readAcrossBranches(root: string, dir: string, ext: string, opts: AcrossOptions = {}): BranchFile[] {
   const seen = new Map<string, BranchFile>()
@@ -230,11 +235,13 @@ export function readAcrossBranches(root: string, dir: string, ext: string, opts:
   const inGit = gitPath(dir) // a ref's tree is read with forward slashes: a Windows path would name nothing
   const here = currentBranch(root)
   const local = filesHere(root, dir, ext, here)
+  const onDisk = new Set(local.map((f) => f.name))
   if (isGitRepo(root)) {
     const refs = refsWorthReading(root).filter((ref) => ref !== here)
-    const { onRefs } = filesOnRefs(root, refs, inGit, ext)
+    const { onRefs, onHead } = filesOnRefs(root, refs, inGit, ext)
     for (const files of onRefs) {
       for (const f of files) {
+        if (onHead.has(f.name) && !onDisk.has(f.name)) continue // deleted here, not yet committed: gone everywhere
         if (!seen.has(f.name)) seen.set(f.name, f)
         const mine = byRef.get(f.ref) ?? new Map<string, BranchFile>()
         byRef.set(f.ref, mine.set(f.name, f))
