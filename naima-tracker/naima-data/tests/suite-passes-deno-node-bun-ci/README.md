@@ -8,4 +8,8 @@ Pass: the three jobs succeed.
 
 ## Result
 
-Not yet performed: the workflow runs on the first push of `.github/workflows/ci.yml`. The same commands pass locally — see the feature's attachments.
+2026-09-30, GitHub Actions, run https://github.com/vincenzoml/naima/actions/runs/36683772145
+on `068ace6`: the `deno`, `node` and `bun` jobs succeed —
+`attachments/ci-run-2026-09-30.json`. The `deno` job's `verify` includes
+`check` through the launcher, which cloned the program from the checkout's own
+objects, without the network.

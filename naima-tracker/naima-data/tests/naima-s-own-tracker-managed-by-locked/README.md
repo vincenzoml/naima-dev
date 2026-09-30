@@ -9,3 +9,8 @@ Pass: verify passes — typecheck, tests, `check` with the working tree, the ref
 ## Result
 
 2026-09-30, the author (agent), in the worktree of branch `distribution`: `deno task verify` passes, and the launcher cloned `naima-tracker/naima/` from the repository's own objects at the locked commit — `attachments/verify-2026-09-30.txt`. Not yet performed in a fresh clone by someone other than the author.
+
+Then, after the merge and the push, `naima update` moved the lock from
+`7a5ef46` to `068ace6`, the new `main`: the first update of Naima's own
+tracker, by the same command every project uses. CI (`tests/suite-passes-deno-node-bun-ci`)
+ran the same `verify` in a fresh checkout.
