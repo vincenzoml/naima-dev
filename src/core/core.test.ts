@@ -1,13 +1,16 @@
 import assert from "node:assert/strict"
 import { spawn } from "node:child_process"
-import { existsSync, mkdirSync, readdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { test } from "node:test"
 import { fileURLToPath } from "node:url"
 import {
   addLink,
   buildRegistry,
+  createContext,
   createItem,
+  DEFAULT_DATA,
+  DEFAULT_PROGRAM,
   fieldError,
   findData,
   FORMAT,
@@ -21,7 +24,7 @@ import {
   uniqueSlug,
 } from "./index.ts"
 import { corePlugin } from "./base.ts"
-import { tempProject } from "./testing.ts"
+import { gitIn, tempProject } from "./testing.ts"
 
 const notes: Plugin = {
   name: "notes",
@@ -562,4 +565,52 @@ test("a write hook's name is declared once", () => {
     () => buildRegistry([{ name: "a", says: "a", hooks: [hook] }, { name: "b", says: "b", hooks: [hook] }]),
     /write hook "same" is declared by both "a" and "b"/,
   )
+})
+
+test("two branches that open an item with one title take two slugs, and merge without a conflict", () => {
+  const p = tempProject([notes], { git: true })
+  const wb = `${p.root}-b`
+  try {
+    const type = p.ctx.registry.types.get("notes")!
+    p.git("worktree", "add", "-q", "-b", "b", wb)
+    p.git("checkout", "-q", "-b", "a")
+    assert.equal(createItem(p.ctx, type, "Same title").slug, "same-title")
+    p.git("add", "-A")
+    p.git("commit", "-q", "-m", "a")
+    const onB = createContext({ root: wb, data: join(wb, DEFAULT_DATA), program: join(wb, DEFAULT_DATA, DEFAULT_PROGRAM) }, p.ctx.config, p.ctx.registry)
+    assert.equal(createItem(onB, type, "Same title").slug, "same-title-2", "a is not merged, and its slug is seen from b")
+    // Not yet committed on b: seen from a third branch through b's worktree.
+    p.git("checkout", "-q", "-b", "c", "main")
+    assert.equal(createItem(p.ctx, type, "Same title").slug, "same-title-3")
+    gitIn(wb, "add", "-A")
+    gitIn(wb, "commit", "-q", "-m", "b")
+    p.git("add", "-A")
+    p.git("commit", "-q", "-m", "c")
+    p.git("checkout", "-q", "main")
+    p.git("merge", "-q", "--no-edit", "a", "b", "c")
+    assert.deepEqual(readdirSync(join(p.ctx.trackerRoot, "NOTES")).sort(), ["same-title", "same-title-2", "same-title-3"])
+  } finally {
+    p.cleanup()
+    rmSync(wb, { recursive: true, force: true })
+  }
+})
+
+test("when the other branches cannot be read — a shallow clone — a new slug ends in its uuid's first eight characters", () => {
+  const p = tempProject([notes], { git: true })
+  const shallow = `${p.root}-shallow`
+  try {
+    p.git("commit", "-q", "--allow-empty", "-m", "two")
+    gitIn(p.root, "clone", "-q", "--depth", "1", `file://${p.root}`, shallow)
+    const ctx = createContext(
+      { root: shallow, data: join(shallow, DEFAULT_DATA), program: join(shallow, DEFAULT_DATA, DEFAULT_PROGRAM) },
+      p.ctx.config,
+      p.ctx.registry,
+    )
+    const item = createItem(ctx, p.ctx.registry.types.get("notes")!, "Same title")
+    assert.equal(item.slug, `same-title-${item.meta.id.slice(0, 8)}`)
+    assert.equal(createItem(p.ctx, p.ctx.registry.types.get("notes")!, "Same title").slug, "same-title", "a full clone reads its branches")
+  } finally {
+    p.cleanup()
+    rmSync(shallow, { recursive: true, force: true })
+  }
 })

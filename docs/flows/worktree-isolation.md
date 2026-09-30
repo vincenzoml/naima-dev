@@ -75,6 +75,21 @@ view. A branch no worktree stands on is read from its ref, as committed.
 Remote-tracking refs are not read: a branch that exists only on another
 machine is seen once it is fetched and checked out, or merged.
 
+#### Item slugs across branches
+
+Items are directories, `<type>/<slug>/`, so two branches that open an item
+with the same title would both write `<type>/<slug>/meta.json` and meet in an
+add/add conflict. `naima new` prevents it: before it writes, it reads the
+slugs every other local branch holds under that type — from each worktree's
+disk, uncommitted items included, or from the branch's ref — and takes the
+next free one (`<slug>-2`, …). When the branches cannot all be read (git
+fails, or the clone is shallow), the new slug ends in the first eight
+characters of the item's uuid instead, which no other branch can pick.
+
+This reduces collisions; it does not remove them. A branch that exists only
+on another machine, not yet fetched, is not seen: two such branches can still
+pick one slug. Outside git there are no other branches, and nothing is added.
+
 ### 5. The smell
 
 > You are about to append a line to a file another session also appends to.

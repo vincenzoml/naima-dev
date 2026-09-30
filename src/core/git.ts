@@ -299,6 +299,44 @@ export function filesAt(root: string, ref: string, dir: string, ext: string): Br
   return isGitRepo(root) ? (filesOnRefs(root, [ref], gitPath(dir), ext)[0] ?? []) : []
 }
 
+/**
+ * The names of the directories directly under `dir` (relative to `root`) on
+ * every other local branch worth reading — from the disk of the worktree that
+ * stands on it, else from its ref — so that a name taken on a branch not yet
+ * merged is known before it is taken again here. Empty outside git: there is
+ * no other branch. Null when the branches cannot all be read — git fails, or
+ * the clone is shallow — so the caller can fall back to a name nobody else
+ * can pick.
+ */
+export function dirsAcrossBranches(root: string, dir: string): Set<string> | null {
+  const probe = runGit(root, ["rev-parse", "--is-inside-work-tree", "--is-shallow-repository"])
+  if (!probe.ok) return existsSync(join(root, ".git")) ? null : new Set()
+  if (probe.out.split("\n")[1]?.trim() === "true") return null
+  const here = currentBranch(root)
+  const trees = worktrees(root)
+  const refs = refsWorthReading(root, trees).filter((ref) => ref !== here)
+  const out = new Set<string>()
+  const fromRef: string[] = []
+  for (const ref of refs) {
+    const w = trees.find((t) => !t.self && (t.branch ?? t.head) === ref)
+    let names: string[] | null = null
+    if (w) {
+      try {
+        names = existsSync(join(w.path, dir)) ? readdirSync(join(w.path, dir), { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name) : []
+      } catch {
+        names = null // a disk this run may not read: its ref instead
+      }
+    }
+    if (names) names.forEach((n) => out.add(n))
+    else fromRef.push(ref)
+  }
+  const inGit = gitPath(dir)
+  for (const t of objects(root, fromRef.map((ref) => `${ref}:${inGit}`))) {
+    if (t?.type === "tree") { for (const e of treeEntries(t.data)) if (e.mode === "40000") out.add(e.name) }
+  }
+  return out
+}
+
 export interface AcrossOptions {
   /**
    * The branch a record says it belongs to. A copy on this worktree's disk of

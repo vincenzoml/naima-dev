@@ -2,9 +2,10 @@
 
 import { randomUUID } from "node:crypto"
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs"
-import { join } from "node:path"
+import { join, relative } from "node:path"
 import { NaimaError } from "./errors.ts"
 import { writeFileAtomic } from "./files.ts"
+import { dirsAcrossBranches } from "./git.ts"
 import type { Context, Item, Meta, TypeDef, Write } from "./types.ts"
 
 export const META = "meta.json"
@@ -49,9 +50,9 @@ export function uniqueSlug(slug: string, taken: Set<string>): string {
  * concurrent run between the listing and the write — and the next suffix is
  * tried instead of writing into someone else's item.
  */
-function claimDir(base: string, slug: string): string {
+function claimDir(base: string, slug: string, elsewhere: Set<string> = new Set()): string {
   mkdirSync(base, { recursive: true })
-  const taken = new Set(listDirs(base))
+  const taken = new Set([...listDirs(base), ...elsewhere])
   for (;;) {
     const name = uniqueSlug(slug, taken)
     try {
@@ -141,14 +142,29 @@ export function listDirs(path: string): string[] {
 
 const defaultTemplate = (title: string): string => `# ${title}\n\nDescribe it here.\n`
 
+/**
+ * The slug a new item takes, and the names it must not: a slug another local
+ * branch already holds under the same type is taken too, so two branches that
+ * open an item with one title do not both write `<type>/<slug>/` and meet in
+ * an add/add conflict. When the other branches cannot be read, the slug ends
+ * in the first eight characters of the item's uuid, which no other branch can
+ * pick. Only the local branches: a branch not yet fetched is not seen.
+ */
+function slugFor(ctx: Context, base: string, title: string, id: string): { wanted: string; elsewhere: Set<string> } {
+  const slug = slugify(title)
+  const elsewhere = dirsAcrossBranches(ctx.root, relative(ctx.root, base))
+  return elsewhere ? { wanted: slug, elsewhere } : { wanted: `${slug}-${id.slice(0, 8)}`, elsewhere: new Set() }
+}
+
 /** Open a new item, through every plugin's write hooks. Writes only inside its own new directory, and nothing when a hook refuses. */
 export function createItem(ctx: Context, type: TypeDef, title: string, fields: Record<string, unknown> = {}, opts: WriteOptions = {}): Item {
   const base = join(ctx.trackerRoot, type.dir)
-  const wanted = slugify(title)
-  const meta: Meta = { id: randomUUID(), title, status: type.initialStatus, created: today(ctx), ...fields }
+  const id = randomUUID()
+  const { wanted, elsewhere } = slugFor(ctx, base, title, id)
+  const meta: Meta = { id, title, status: type.initialStatus, created: today(ctx), ...fields }
   const write: Write = { kind: "create", item: { type: type.id, slug: wanted, dir: join(base, wanted), meta }, before: null, force: opts.force === true }
   beforeWrite(ctx, write)
-  const slug = claimDir(base, wanted)
+  const slug = claimDir(base, wanted, elsewhere)
   const dir = join(base, slug)
   mkdirSync(join(dir, ATTACHMENTS))
   writeFileSync(join(dir, ATTACHMENTS, ".gitkeep"), "")
