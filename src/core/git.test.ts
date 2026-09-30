@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node
 import { tmpdir } from "node:os"
 import { join, relative } from "node:path"
 import { test } from "node:test"
-import { gitCalls } from "./git.ts"
+import { gitCalls, gitOrNull, gitReason, mustGit, runGit } from "./git.ts"
 import { gitPath, projectFiles, readAcrossBranches, refsWorthReading, trunk, walkFiles } from "./index.ts"
 import { tempProject } from "./testing.ts"
 
@@ -139,6 +139,23 @@ test("the trunk is origin's HEAD, main or master — and without any, every loca
     p.git("commit", "-q", "-m", "detached")
     rmSync(join(p.root, "rec", "d.txt"))
     assert.deepEqual(names(), ["f.txt@feature"])
+  } finally {
+    p.cleanup()
+  }
+})
+
+test("one git wrapper: a missing ref and a missing git binary are told apart", () => {
+  const p = tempProject([], { git: true })
+  try {
+    const noRef = runGit(p.root, ["rev-parse", "--verify", "no-such-branch"])
+    assert.deepEqual([noRef.ok, noRef.notInstalled], [false, false])
+    assert.match(gitReason(noRef), /needed a single revision|unknown revision|no-such-branch/i)
+    const noGit = runGit(p.root, ["status"], { env: { PATH: join(p.root, "nowhere") } })
+    assert.deepEqual([noGit.ok, noGit.notInstalled], [false, true])
+    assert.match(gitReason(noGit), /git is not installed, or not on PATH/)
+    assert.equal(gitOrNull(p.root, "rev-parse", "--verify", "no-such-branch"), null)
+    assert.equal(gitOrNull(p.root, "rev-parse", "--abbrev-ref", "HEAD"), "main")
+    assert.throws(() => mustGit(p.root, "rev-parse", "--verify", "no-such-branch"), /^Error: git rev-parse: /)
   } finally {
     p.cleanup()
   }

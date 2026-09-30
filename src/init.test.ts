@@ -4,7 +4,6 @@
 // cli.test.ts; the launcher's side of --write-excludes is in launcher.test.ts.
 
 import assert from "node:assert/strict"
-import { execFileSync } from "node:child_process"
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
@@ -12,10 +11,9 @@ import { test } from "node:test"
 import { fileURLToPath } from "node:url"
 import { firstParty } from "./builtins.ts"
 import { type Plugin, runCli } from "./core/index.ts"
+import { gitIn as git } from "./core/testing.ts"
 
 const NAIMA = dirname(dirname(fileURLToPath(import.meta.url)))
-const IDENTITY = ["-c", "user.email=test@example.invalid", "-c", "user.name=test", "-c", "commit.gpgsign=false"]
-const git = (cwd: string, ...args: string[]) => execFileSync("git", [...IDENTITY, ...args], { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim()
 
 /** A host project, and a Naima cloned into its naima-tracker/naima/ whose origin holds its HEAD. */
 function world() {

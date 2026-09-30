@@ -6,10 +6,10 @@
 // have, is refused, never reset. None ever pulls on its own: only `naima
 // update` asks the source where its main is.
 
-import { spawnSync } from "node:child_process"
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs"
 import { dirname, join, resolve } from "node:path"
 import { isLocalSource, posixRelative } from "./config.ts"
+import { gitReason, mustGit, runGit } from "./git.ts"
 import { DIST_BRANCH } from "./layout.ts"
 import type { Carry } from "./types.ts"
 
@@ -25,36 +25,16 @@ export interface Target {
   carry: Carry
 }
 
-interface Run {
-  ok: boolean
-  out: string
-  err: string
-}
-
-function git(cwd: string, args: string[]): Run {
-  const r = spawnSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 1 << 26 })
-  return { ok: r.status === 0, out: (r.stdout ?? "").trim(), err: (r.stderr ?? "").trim() }
-}
-
-/** Git's own reason, in one line. */
-const reason = (r: Run): string => r.err.split("\n").find((l) => l.trim())?.replace(/^(fatal|error): /, "") ?? "git failed"
-
-function must(cwd: string, ...args: string[]): string {
-  const r = git(cwd, args)
-  if (!r.ok) throw new Error(`git ${args[0]}: ${reason(r)}`)
-  return r.out
-}
-
-const has = (repo: string, commit: string): boolean => git(repo, ["cat-file", "-e", `${commit}^{commit}`]).ok
+const has = (repo: string, commit: string): boolean => runGit(repo, ["cat-file", "-e", `${commit}^{commit}`]).ok
 const isRepo = (dir: string): boolean => existsSync(join(dir, ".git"))
 export const short = (commit: string): string => commit.slice(0, 12)
 const where = (t: Target): string => posixRelative(t.root, t.program)
 
 /** Why the program directory holds work that moving it would destroy, or null. */
 export function localWork(t: Target): string | null {
-  if (t.carry === "vendored") return git(t.root, ["status", "--porcelain", "--", where(t)]).out ? "uncommitted changes" : null
-  if (git(t.program, ["status", "--porcelain"]).out) return "uncommitted changes"
-  if (git(t.program, ["rev-list", "-n", "1", "HEAD", "--branches", "--not", "--remotes"]).out) return "commits its source does not have"
+  if (t.carry === "vendored") return runGit(t.root, ["status", "--porcelain", "--", where(t)]).out ? "uncommitted changes" : null
+  if (runGit(t.program, ["status", "--porcelain"]).out) return "uncommitted changes"
+  if (runGit(t.program, ["rev-list", "-n", "1", "HEAD", "--branches", "--not", "--remotes"]).out) return "commits its source does not have"
   return null
 }
 
@@ -71,14 +51,14 @@ export function refuseLocalWork(t: Target): void {
  */
 function seeds(t: Target): string[] {
   const out: string[] = []
-  const common = git(t.root, ["rev-parse", "--path-format=absolute", "--git-common-dir"])
+  const common = runGit(t.root, ["rev-parse", "--path-format=absolute", "--git-common-dir"])
   if (common.ok) {
     // Asked of git, not of the file system: the main worktree is outside what Naima may read.
     const twin = join(dirname(common.out), posixRelative(t.root, t.program))
-    if (resolve(twin) !== resolve(t.program) && git(t.root, ["-C", twin, "rev-parse", "--show-toplevel"]).out === twin) out.push(twin)
+    if (resolve(twin) !== resolve(t.program) && runGit(t.root, ["-C", twin, "rev-parse", "--show-toplevel"]).out === twin) out.push(twin)
   }
   out.push(t.root)
-  return out.filter((s) => git(t.root, ["-C", s, "cat-file", "-e", `${t.commit}^{commit}`]).ok)
+  return out.filter((s) => runGit(t.root, ["-C", s, "cat-file", "-e", `${t.commit}^{commit}`]).ok)
 }
 
 /**
@@ -91,15 +71,15 @@ const lockedRefspec = (commit: string): string => `+${commit}:refs/remotes/origi
 function cloneProgram(t: Target): void {
   const [seed] = seeds(t)
   mkdirSync(dirname(t.program), { recursive: true })
-  const r = git(t.root, ["clone", "--quiet", "--no-checkout", "--", seed ?? t.source, t.program])
+  const r = runGit(t.root, ["clone", "--quiet", "--no-checkout", "--", seed ?? t.source, t.program])
   if (!r.ok) {
     rmSync(t.program, { recursive: true, force: true })
-    throw new Error(`cannot clone ${t.source} into ${where(t)}: ${reason(r)} — the first run needs git and the network`)
+    throw new Error(`cannot clone ${t.source} into ${where(t)}: ${gitReason(r)} — the first run needs git and the network`)
   }
   if (!seed) return
   // A clone names the seed's branches, not its remote-tracking refs, and a dist commit may be only there.
-  git(t.program, ["fetch", "--quiet", "--", seed, lockedRefspec(t.commit)])
-  must(t.program, "remote", "set-url", "origin", t.source)
+  runGit(t.program, ["fetch", "--quiet", "--", seed, lockedRefspec(t.commit)])
+  mustGit(t.program, "remote", "set-url", "origin", t.source)
 }
 
 /**
@@ -118,17 +98,17 @@ export function align(t: Target): boolean {
     cloneProgram(t)
   } else {
     refuseLocalWork(t)
-    if (git(t.program, ["remote", "get-url", "origin"]).out !== t.source) must(t.program, "remote", "set-url", "origin", t.source)
-    if (git(t.program, ["rev-parse", "HEAD"]).out === t.commit) return false
+    if (runGit(t.program, ["remote", "get-url", "origin"]).out !== t.source) mustGit(t.program, "remote", "set-url", "origin", t.source)
+    if (runGit(t.program, ["rev-parse", "HEAD"]).out === t.commit) return false
   }
   if (!has(t.program, t.commit)) {
-    git(t.program, ["fetch", "--quiet", "origin"])
-    if (!has(t.program, t.commit)) git(t.program, ["fetch", "--quiet", "origin", lockedRefspec(t.commit)])
+    runGit(t.program, ["fetch", "--quiet", "origin"])
+    if (!has(t.program, t.commit)) runGit(t.program, ["fetch", "--quiet", "origin", lockedRefspec(t.commit)])
     if (!has(t.program, t.commit)) {
       throw new Error(`commit ${short(t.commit)} cannot be fetched from ${t.source} — its history was rewritten or the source is gone; record a commit it has`)
     }
   }
-  must(t.program, "checkout", "--quiet", "--detach", t.commit)
+  mustGit(t.program, "checkout", "--quiet", "--detach", t.commit)
   return true
 }
 
@@ -145,8 +125,8 @@ export interface Head {
  * Reads the source; changes nothing.
  */
 export function remoteHead(t: Target): Head {
-  const r = git(t.root, ["ls-remote", "--", t.source, `refs/heads/${DIST_BRANCH}`, "refs/heads/main"])
-  if (!r.ok) throw new Error(`cannot read ${DIST_BRANCH} or main from ${t.source}: ${reason(r)}`)
+  const r = runGit(t.root, ["ls-remote", "--", t.source, `refs/heads/${DIST_BRANCH}`, "refs/heads/main"])
+  if (!r.ok) throw new Error(`cannot read ${DIST_BRANCH} or main from ${t.source}: ${gitReason(r)}`)
   const heads = new Map(r.out.split("\n").map((l) => l.split(/\s+/)).map(([commit, ref]) => [ref ?? "", commit ?? ""]))
   for (const branch of [DIST_BRANCH, "main"]) {
     const commit = heads.get(`refs/heads/${branch}`)
@@ -160,12 +140,12 @@ export function vendor(t: Target, commit: string): void {
   const scratch = join(t.tracker, ".naima-update")
   rmSync(scratch, { recursive: true, force: true })
   try {
-    const r = git(t.root, ["clone", "--quiet", "--no-checkout", "--", t.source, scratch])
-    if (!r.ok) throw new Error(`cannot clone ${t.source}: ${reason(r)}`)
-    if (!has(scratch, commit)) must(scratch, "fetch", "--quiet", "origin", commit)
+    const r = runGit(t.root, ["clone", "--quiet", "--no-checkout", "--", t.source, scratch])
+    if (!r.ok) throw new Error(`cannot clone ${t.source}: ${gitReason(r)}`)
+    if (!has(scratch, commit)) mustGit(scratch, "fetch", "--quiet", "origin", commit)
     rmSync(t.program, { recursive: true, force: true })
     mkdirSync(t.program, { recursive: true })
-    must(scratch, `--work-tree=${t.program}`, "checkout", "--quiet", "--force", commit, "--", ".")
+    mustGit(scratch, `--work-tree=${t.program}`, "checkout", "--quiet", "--force", commit, "--", ".")
   } finally {
     rmSync(scratch, { recursive: true, force: true })
   }
@@ -193,8 +173,8 @@ export function ignoreProgram(t: Target, ignored: boolean): string | null {
 
 /** Stage `paths` (absolute), deletions included; a path that neither exists nor is tracked is skipped. */
 export function stage(root: string, ...paths: string[]): void {
-  const rels = paths.map((p) => posixRelative(root, p)).filter((rel) => existsSync(join(root, rel)) || git(root, ["ls-files", "--error-unmatch", "--", rel]).ok)
-  if (rels.length) must(root, "add", "--all", "--", ...rels)
+  const rels = paths.map((p) => posixRelative(root, p)).filter((rel) => existsSync(join(root, rel)) || runGit(root, ["ls-files", "--error-unmatch", "--", rel]).ok)
+  if (rels.length) mustGit(root, "add", "--all", "--", ...rels)
 }
 
 /** Git refuses local submodule sources by default; the project chose this one. */
@@ -213,14 +193,14 @@ export function carry(t: Target, to: Carry): void {
 
   // Every switch passes through a clone.
   if (t.carry === "vendored") {
-    must(t.root, "rm", "-r", "-q", "--cached", "--", rel)
+    mustGit(t.root, "rm", "-r", "-q", "--cached", "--", rel)
     rmSync(t.program, { recursive: true, force: true })
     align({ ...t, carry: "clone" })
   } else if (t.carry === "submodule") {
-    must(t.root, "rm", "-q", "--cached", "--", rel)
-    git(t.root, ["config", "-f", ".gitmodules", "--remove-section", `submodule.${rel}`])
-    git(t.root, ["config", "--remove-section", `submodule.${rel}`])
-    if (existsSync(gitmodules) && !git(t.root, ["config", "-f", ".gitmodules", "--list"]).out) must(t.root, "rm", "-q", "-f", "--", ".gitmodules")
+    mustGit(t.root, "rm", "-q", "--cached", "--", rel)
+    runGit(t.root, ["config", "-f", ".gitmodules", "--remove-section", `submodule.${rel}`])
+    runGit(t.root, ["config", "--remove-section", `submodule.${rel}`])
+    if (existsSync(gitmodules) && !runGit(t.root, ["config", "-f", ".gitmodules", "--list"]).out) mustGit(t.root, "rm", "-q", "-f", "--", ".gitmodules")
     else if (existsSync(gitmodules)) stage(t.root, gitmodules)
   }
   const ignore = (on: boolean): void => {
@@ -236,7 +216,7 @@ export function carry(t: Target, to: Carry): void {
   }
   if (to === "submodule") {
     ignore(false)
-    must(t.root, ...allowLocal(t), "submodule", "add", "--quiet", "--", t.source, rel)
+    mustGit(t.root, ...allowLocal(t), "submodule", "add", "--quiet", "--", t.source, rel)
     stage(t.root, t.program, gitmodules)
   }
 }

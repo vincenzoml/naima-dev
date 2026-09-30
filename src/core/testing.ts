@@ -1,13 +1,13 @@
 // A throwaway project for tests: a temp directory, a naima.json, a context
 // whose output is captured and whose clock is fixed.
 
-import { execFileSync } from "node:child_process"
 import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { corePlugin } from "./base.ts"
 import { createContext } from "./context.ts"
 import { FORMAT } from "./format.ts"
+import { mustGit } from "./git.ts"
 import { writeJson } from "./item.ts"
 import { DATA_FILE, DEFAULT_DATA, DEFAULT_PROGRAM } from "./layout.ts"
 import { buildRegistry } from "./registry.ts"
@@ -23,6 +23,12 @@ export interface TempProject {
   git(...args: string[]): string
   cleanup(): void
 }
+
+/** An author for commits made by tests, so they never depend on the machine's git configuration. */
+const IDENTITY = ["-c", "user.email=test@example.invalid", "-c", "user.name=test", "-c", "commit.gpgsign=false"]
+
+/** Git in `cwd` for a test, with a fixed author: the output, trimmed; an error with git's reason on failure. */
+export const gitIn = (cwd: string, ...args: string[]): string => mustGit(cwd, ...IDENTITY, ...args)
 
 export const FIXED_NOW = new Date("2026-01-15T10:00:00.000Z")
 
@@ -40,8 +46,7 @@ export function tempProject(plugins: Plugin[], opts: { git?: boolean; now?: Date
     err: (line) => void errors.push(line),
     now: () => now,
   })
-  const git = (...args: string[]): string =>
-    execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim()
+  const git = (...args: string[]): string => gitIn(root, ...args)
   if (opts.git) {
     git("init", "-q", "-b", "main")
     git("config", "user.email", "test@example.invalid")

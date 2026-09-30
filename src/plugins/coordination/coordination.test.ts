@@ -1,10 +1,9 @@
 import assert from "node:assert/strict"
-import { execFileSync } from "node:child_process"
 import { existsSync, readdirSync, rmSync } from "node:fs"
 import { join } from "node:path"
 import { test } from "node:test"
 import { DEFAULT_DATA, DEFAULT_PROGRAM, createContext, createItem, type Plugin } from "../../core/index.ts"
-import { tempProject } from "../../core/testing.ts"
+import { gitIn, tempProject } from "../../core/testing.ts"
 import coordination, { readClaims, readPasses } from "./index.ts"
 
 const things: Plugin = {
@@ -126,7 +125,7 @@ function worktree(p: ReturnType<typeof tempProject>, branch: string) {
     ctx.reload()
     return ctx.registry.commands.get(name)!.run(args, ctx)
   }
-  const git = (...args: string[]) => execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim()
+  const git = (...args: string[]) => gitIn(root, ...args)
   return { root, ctx, output, run, git, cleanup: () => rmSync(root, { recursive: true, force: true }) }
 }
 

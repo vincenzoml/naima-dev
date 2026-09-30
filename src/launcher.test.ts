@@ -3,18 +3,16 @@
 // the host files only `init --write-excludes` may write (docs/install.md#the-permissions).
 
 import assert from "node:assert/strict"
-import { execFileSync, spawnSync } from "node:child_process"
+import { spawnSync } from "node:child_process"
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { test } from "node:test"
 import { fileURLToPath } from "node:url"
 import { allowedEnv } from "./launcher.ts"
+import { gitIn as git } from "./core/testing.ts"
 
 const NAIMA = dirname(dirname(fileURLToPath(import.meta.url)))
-const IDENTITY = ["-c", "user.email=test@example.invalid", "-c", "user.name=test", "-c", "commit.gpgsign=false"]
-const git = (cwd: string, ...args: string[]): string =>
-  execFileSync("git", [...IDENTITY, ...args], { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim()
 const hasDeno = spawnSync("deno", ["--version"]).status === 0
 const skip = !hasDeno && "deno is not on PATH"
 

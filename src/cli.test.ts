@@ -4,13 +4,13 @@
 // carrying, and the permissions — is in distribution.test.ts.
 
 import assert from "node:assert/strict"
-import { execFileSync } from "node:child_process"
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { test } from "node:test"
 import { fileURLToPath } from "node:url"
 import { firstParty } from "./builtins.ts"
+import { gitIn } from "./core/testing.ts"
 import { ABOUT, FORMAT, TRACKER_README, runCli } from "./core/index.ts"
 
 const NAIMA = dirname(dirname(fileURLToPath(import.meta.url)))
@@ -23,8 +23,8 @@ const NAIMA = dirname(dirname(fileURLToPath(import.meta.url)))
  */
 const PROGRAM = (() => {
   const dir = join(mkdtempSync(join(tmpdir(), "naima-program-")), "naima")
-  execFileSync("git", ["clone", "-q", "--", NAIMA, dir], { stdio: "ignore" })
-  execFileSync("git", ["-C", dir, "update-ref", "refs/remotes/origin/pushed", "HEAD"])
+  gitIn(NAIMA, "clone", "-q", "--", NAIMA, dir)
+  gitIn(dir, "update-ref", "refs/remotes/origin/pushed", "HEAD")
   process.on("exit", () => rmSync(dirname(dir), { recursive: true, force: true }))
   return dir
 })()
@@ -34,7 +34,7 @@ function host() {
   const base = mkdtempSync(join(tmpdir(), "naima-host-"))
   const root = join(base, "project")
   mkdirSync(join(root, "src"), { recursive: true })
-  const git = (...args: string[]) => execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim()
+  const git = (...args: string[]) => gitIn(root, ...args)
   git("init", "-q", "-b", "main")
   writeFileSync(join(root, "README.md"), "# A project that is not Naima\n")
   writeFileSync(join(root, "src", "main.py"), "print('hello')\n")
@@ -58,7 +58,7 @@ test("init writes naima-tracker/ and nothing else, locked to the Naima that runs
     assert.equal(init.code, 0, init.err)
     assert.match(init.out, /next: naima new/)
     const data = JSON.parse(readFileSync(join(h.root, "naima-tracker", "naima-data", "naima.json"), "utf8"))
-    const git = (...args: string[]) => execFileSync("git", ["-C", PROGRAM, ...args], { encoding: "utf8" }).trim()
+    const git = (...args: string[]) => gitIn(PROGRAM, ...args)
     assert.deepEqual(data, { format: FORMAT, source: git("remote", "get-url", "origin"), commit: git("rev-parse", "HEAD"), carry: "clone" })
     assert.equal(readFileSync(join(h.root, "naima-tracker", "README.md"), "utf8"), TRACKER_README)
     assert.equal(readFileSync(join(h.root, "naima-tracker", ".gitignore"), "utf8"), "/naima/\n")

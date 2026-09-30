@@ -4,7 +4,7 @@
 // offline — the source is a repository on this disk.
 
 import assert from "node:assert/strict"
-import { execFileSync, spawnSync } from "node:child_process"
+import { spawnSync } from "node:child_process"
 import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, readlinkSync, renameSync, rmSync, symlinkSync, writeFileSync, copyFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join, posix } from "node:path"
@@ -13,11 +13,9 @@ import { fileURLToPath } from "node:url"
 import { GUIDE_PAGES } from "./core/cli.ts"
 import { DIST_BRANCH } from "./core/index.ts"
 import { MANIFEST, TRAILER, buildDist, globRegex, parseManifest, selectRuntime, sourceCommit } from "../scripts/dist.ts"
+import { gitIn as git } from "./core/testing.ts"
 
 const NAIMA = dirname(dirname(fileURLToPath(import.meta.url)))
-const IDENTITY = ["-c", "user.email=test@example.invalid", "-c", "user.name=test", "-c", "commit.gpgsign=false"]
-const git = (cwd: string, ...args: string[]): string =>
-  execFileSync("git", [...IDENTITY, ...args], { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim()
 
 /** Every file of this checkout that git tracks or would track: what a commit of it would hold. */
 const tracked = git(NAIMA, "ls-files", "-z", "--cached", "--others", "--exclude-standard")

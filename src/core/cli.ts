@@ -10,7 +10,7 @@ import { CARRY_MODES, type Lock, loadPlugins, parseLock, posixRelative, programD
 import { type IO, type Place, consoleIO, createContext } from "./context.ts"
 import { FORMAT, formatRefusal, isFormat, migrate } from "./format.ts"
 import { bool, parse } from "./args.ts"
-import { git, toplevel } from "./git.ts"
+import { gitOrNull, toplevel } from "./git.ts"
 import { exclusions } from "./excludes.ts"
 import { DATA_DIR, DATA_FILE, DEFAULT_DATA, DIST_BRANCH, PROGRAM_DIR, RELAUNCH, TRACKER_DIR, TRACKER_README, findData, globalOptions, real, trackerOf } from "./layout.ts"
 import { type Target, align, carry, ignoreProgram, localWork, refuseLocalWork, remoteHead, short, stage, vendor } from "./program.ts"
@@ -78,7 +78,7 @@ const usage = (name: string): string => `usage: naima ${cliCommands.find((c) => 
 
 /** The commit of the running Naima, when it is a clone of its own; null when it is vendored into a project. */
 function runningCommit(programRoot: string): string | null {
-  return toplevel(programRoot) === real(programRoot) ? git(programRoot, "rev-parse", "HEAD") : null
+  return toplevel(programRoot) === real(programRoot) ? gitOrNull(programRoot, "rev-parse", "HEAD") : null
 }
 
 function locate(opts: CliOptions, flag: string | undefined): (Place & { lock: Lock; raw: Record<string, unknown> }) | null {
@@ -137,7 +137,7 @@ async function init(args: string[], opts: CliOptions, io: IO): Promise<number> {
     return 0
   }
   const commit = runningCommit(opts.programRoot)
-  const origin = commit && git(opts.programRoot, "remote", "get-url", "origin")
+  const origin = commit && gitOrNull(opts.programRoot, "remote", "get-url", "origin")
   if (!commit || !origin) {
     throw new Error(`this Naima is not a clone with an origin: naima init records the source and commit of the Naima that runs it — git clone --branch ${DIST_BRANCH} <source> ${TRACKER_DIR}/naima, and run init from there`)
   }

@@ -5,7 +5,7 @@
 // write the same path. The collection is never stored: it is recombined at
 // read time from every ref worth reading. Nothing in this module writes.
 
-import { execFileSync } from "node:child_process"
+import { spawnSync } from "node:child_process"
 import { existsSync, readFileSync, readdirSync, realpathSync } from "node:fs"
 import { join, relative, sep } from "node:path"
 import { isRegularFile, walkFiles } from "./files.ts"
@@ -14,26 +14,71 @@ let calls = 0
 /** How many git processes this module has started: what the cost of a cross-branch read is measured in. */
 export const gitCalls = (): number => calls
 
-/** Git's trimmed output, or null when it fails. */
-export function git(root: string, ...args: string[]): string | null {
+/** One git run: whether it succeeded, what it printed, and whether git could be started at all. */
+export interface GitRun {
+  ok: boolean
+  /** Standard output, its final newline removed. */
+  out: string
+  err: string
+  /** Git itself could not be started: not installed, or not on PATH. */
+  notInstalled: boolean
+}
+
+export interface GitOptions {
+  /** Written to git's standard input. */
+  input?: string
+  /** Added to the environment git runs with. */
+  env?: Record<string, string>
+}
+
+function spawnGit(cwd: string, args: string[], opts: GitOptions, encoding: "utf8" | "buffer") {
   calls++
-  try {
-    return execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 1 << 28 }).trim()
-  } catch {
-    return null
-  }
+  return spawnSync("git", args, {
+    cwd,
+    ...(encoding === "utf8" ? { encoding } : {}), // no encoding: bytes (Node refuses an explicit "buffer")
+    ...(opts.input !== undefined ? { input: opts.input } : {}),
+    ...(opts.env ? { env: { ...process.env, ...opts.env } } : {}),
+    stdio: [opts.input !== undefined ? "pipe" : "ignore", "pipe", "pipe"],
+    maxBuffer: 1 << 28,
+  })
+}
+
+/** The one way the program runs git. Never throws: the result says what happened. */
+export function runGit(cwd: string, args: string[], opts: GitOptions = {}): GitRun {
+  const r = spawnGit(cwd, args, opts, "utf8")
+  const notInstalled = (r.error as { code?: string } | undefined)?.code === "ENOENT"
+  return { ok: r.status === 0, out: String(r.stdout ?? "").replace(/\r?\n$/, ""), err: String(r.stderr ?? "").trim(), notInstalled }
+}
+
+/** Why a run failed, in one line: git's own first line, or that git is not there. */
+export function gitReason(r: GitRun): string {
+  if (r.notInstalled) return "git is not installed, or not on PATH"
+  return r.err.split("\n").find((l) => l.trim())?.replace(/^(fatal|error): /, "") ?? "git failed"
+}
+
+/** Git's trimmed output, or null when it fails: for questions whose failure is an answer ("is this a repository?"). */
+export function gitOrNull(cwd: string, ...args: string[]): string | null {
+  const r = runGit(cwd, args)
+  return r.ok ? r.out.trim() : null
+}
+
+/** Git's trimmed output; an error naming the subcommand and git's reason when it fails. */
+export function mustGit(cwd: string, ...args: string[]): string {
+  const r = runGit(cwd, args)
+  if (!r.ok) throw new Error(`git ${args[0]}: ${gitReason(r)}`)
+  return r.out.trim()
 }
 
 /** A path as git reads and writes it: forward slashes, whatever the platform's separator. */
 export const gitPath = (path: string, separator: string = sep): string => path.split(separator).join("/")
 
 export function isGitRepo(root: string): boolean {
-  return git(root, "rev-parse", "--is-inside-work-tree") === "true"
+  return gitOrNull(root, "rev-parse", "--is-inside-work-tree") === "true"
 }
 
 /** The root of the git working tree holding `dir`, or null outside git. */
 export function toplevel(dir: string): string | null {
-  return git(dir, "rev-parse", "--show-toplevel")
+  return gitOrNull(dir, "rev-parse", "--show-toplevel")
 }
 
 /**
@@ -49,7 +94,7 @@ export function toplevel(dir: string): string | null {
 export function projectFiles(root: string, program?: string): string[] {
   const skip = program ? gitPath(relative(root, program)) + "/" : null
   const mine = (f: string): boolean => !skip || !f.startsWith(skip)
-  const listed = isGitRepo(root) ? git(root, "ls-files", "-z", "--cached", "--others", "--exclude-standard") : null
+  const listed = isGitRepo(root) ? gitOrNull(root, "ls-files", "-z", "--cached", "--others", "--exclude-standard") : null
   if (listed !== null) return [...new Set(listed.split("\0").filter((f) => f && mine(f) && isRegularFile(join(root, f))))].sort()
   return walkFiles(root, { skipHidden: true })
     .map((path) => gitPath(relative(root, path)))
@@ -57,7 +102,7 @@ export function projectFiles(root: string, program?: string): string[] {
 }
 
 export function currentBranch(root: string): string {
-  return git(root, "rev-parse", "--abbrev-ref", "HEAD") ?? "HEAD"
+  return gitOrNull(root, "rev-parse", "--abbrev-ref", "HEAD") ?? "HEAD"
 }
 
 /**
@@ -66,19 +111,19 @@ export function currentBranch(root: string): string {
  */
 export function trunk(root: string): string | null {
   const refs = new Map<string, string>()
-  for (const line of (git(root, "for-each-ref", "--format=%(refname) %(symref)", "refs/remotes/origin/HEAD", "refs/heads/main", "refs/heads/master") ?? "").split("\n")) {
+  for (const line of (gitOrNull(root, "for-each-ref", "--format=%(refname) %(symref)", "refs/remotes/origin/HEAD", "refs/heads/main", "refs/heads/master") ?? "").split("\n")) {
     const [name, target = ""] = line.trim().split(" ")
     if (name) refs.set(name, target)
   }
   const origin = refs.get("refs/remotes/origin/HEAD")?.replace(/^refs\/remotes\/origin\//, "")
-  if (origin && git(root, "rev-parse", "--verify", "--quiet", `refs/heads/${origin}`) !== null) return origin
+  if (origin && gitOrNull(root, "rev-parse", "--verify", "--quiet", `refs/heads/${origin}`) !== null) return origin
   return refs.has("refs/heads/main") ? "main" : refs.has("refs/heads/master") ? "master" : null
 }
 
 /** Every local and remote branch name, with remote prefixes also stripped. Answers "does this branch still exist". */
 export function allRefNames(root: string): Set<string> {
   const out = new Set<string>()
-  for (const line of (git(root, "for-each-ref", "--format=%(refname:short)", "refs/heads", "refs/remotes") ?? "").split("\n")) {
+  for (const line of (gitOrNull(root, "for-each-ref", "--format=%(refname:short)", "refs/heads", "refs/remotes") ?? "").split("\n")) {
     const name = line.trim()
     if (!name || name.endsWith("/HEAD")) continue
     out.add(name)
@@ -107,11 +152,11 @@ export function refsWorthReading(root: string): string[] {
   const main = trunk(root)
   const refs = new Set<string>()
   const branches = main ? ["--no-merged", main, "refs/heads"] : ["refs/heads"]
-  for (const line of (git(root, "for-each-ref", "--format=%(refname:short)", ...branches) ?? "").split("\n")) {
+  for (const line of (gitOrNull(root, "for-each-ref", "--format=%(refname:short)", ...branches) ?? "").split("\n")) {
     if (line.trim()) refs.add(line.trim())
   }
   const self = realOr(root)
-  for (const block of (git(root, "worktree", "list", "--porcelain") ?? "").split("\n\n")) {
+  for (const block of (gitOrNull(root, "worktree", "list", "--porcelain") ?? "").split("\n\n")) {
     const named = block.match(/^branch refs\/heads\/(.+)$/m)?.[1]
     const head = block.match(/^HEAD ([0-9a-f]+)$/m)?.[1]
     const path = block.match(/^worktree (.+)$/m)?.[1]
@@ -140,13 +185,9 @@ export interface BranchFile {
  */
 function objects(root: string, names: string[]): ({ type: string; data: Buffer } | null)[] {
   if (!names.length) return []
-  calls++
-  let out: Buffer
-  try {
-    out = execFileSync("git", ["cat-file", "--batch"], { cwd: root, input: names.join("\n") + "\n", stdio: ["pipe", "pipe", "ignore"], maxBuffer: 1 << 28 })
-  } catch {
-    return names.map(() => null)
-  }
+  const r = spawnGit(root, ["cat-file", "--batch"], { input: names.join("\n") + "\n" }, "buffer")
+  if (r.status !== 0 || !Buffer.isBuffer(r.stdout)) return names.map(() => null)
+  const out = r.stdout
   const found: ({ type: string; data: Buffer } | null)[] = []
   let at = 0
   for (let i = 0; i < names.length; i++) {

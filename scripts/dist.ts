@@ -13,10 +13,10 @@
 //
 // Standard APIs only, like the program: it runs on Deno, Node and Bun.
 
-import { spawnSync } from "node:child_process"
 import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { type GitOptions, gitReason, runGit } from "../src/core/git.ts"
 import { DIST_BRANCH } from "../src/core/layout.ts"
 
 export const MANIFEST = "dist.json"
@@ -36,25 +36,15 @@ export interface Built {
   files: string[]
 }
 
-function git(repo: string, args: string[], opts: { input?: string; env?: Record<string, string> } = {}): string {
-  const r = spawnSync("git", args, {
-    cwd: repo,
-    encoding: "utf8",
-    input: opts.input,
-    env: { ...process.env, ...opts.env },
-    stdio: ["pipe", "pipe", "pipe"],
-    maxBuffer: 1 << 26,
-  })
-  if (r.status !== 0) throw new Error(`git ${args[0]}: ${(r.stderr ?? "").trim() || "failed"}`)
-  return (r.stdout ?? "").replace(/\n$/, "")
+function git(repo: string, args: string[], opts: GitOptions = {}): string {
+  const r = runGit(repo, args, opts)
+  if (!r.ok) throw new Error(`git ${args[0]}: ${gitReason(r)}`)
+  return r.out
 }
 
 const tryGit = (repo: string, args: string[]): string | null => {
-  try {
-    return git(repo, args)
-  } catch {
-    return null
-  }
+  const r = runGit(repo, args)
+  return r.ok ? r.out : null
 }
 
 /** A glob as a regular expression: `**` any path, `*` any name part; nothing else is special. */
