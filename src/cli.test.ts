@@ -163,3 +163,21 @@ test("update and carry move the program, so they run only through the launcher; 
     h.cleanup()
   }
 })
+
+test("the reference is the program's: a project's own gates do not change it", async () => {
+  const h = host()
+  try {
+    assert.equal((await naima(h.root, ["init"])).code, 0)
+    const before = await naima(h.root, ["docs"])
+    const file = join(h.root, "naima-tracker", "naima-data", "naima.json")
+    const lock = JSON.parse(readFileSync(file, "utf8"))
+    writeFileSync(file, JSON.stringify({ ...lock, gates: { "v1-launch": { title: "The launch", says: "what ships first" } } }))
+    const after = await naima(h.root, ["docs"])
+    assert.equal(after.code, 0, after.err)
+    assert.equal(after.out, before.out)
+    assert.doesNotMatch(after.out, /v1-launch|The launch/)
+    assert.match((await naima(h.root, ["gates"])).out, /v1-launch — The launch: HOLDS/)
+  } finally {
+    h.cleanup()
+  }
+})

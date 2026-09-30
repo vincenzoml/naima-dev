@@ -62,6 +62,8 @@ export interface FieldDef {
   values?: Record<string, string>
   /** Type ids the field belongs to; omitted means every type. */
   appliesTo?: string[]
+  /** Its enum `values` come from the project's configuration, not the program: the program's reference does not list them. */
+  configured?: boolean
 }
 
 export interface RelationDef {
@@ -136,6 +138,8 @@ export interface GateDef {
   says: string
   /** How `evaluate` decides: what blocks the gate and what is only owed. */
   decides?: string
+  /** Declared by the project's configuration, not the program: the program's reference leaves it out. */
+  configured?: boolean
   evaluate(ctx: Context): GateResult
 }
 

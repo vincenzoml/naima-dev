@@ -140,6 +140,7 @@ export default function gates(options: Record<string, unknown> = {}): Plugin {
   const configured = readOptions(options)
   const defs: GateDef[] = Object.entries(configured).map(([name, c]) => ({
     name,
+    configured: true,
     title: c.title,
     says: c.says ?? "",
     decides:
@@ -173,7 +174,8 @@ export default function gates(options: Record<string, unknown> = {}): Plugin {
       {
         name: "gate",
         kind: "enum",
-        says: "the gate this item is what is waited for",
+        says: "the gate this item is what is waited for: one of the gates the project configures",
+        configured: true,
         values: Object.fromEntries(Object.entries(configured).map(([n, c]) => [n, c.title])),
       },
     ],

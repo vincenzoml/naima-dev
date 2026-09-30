@@ -697,19 +697,13 @@ naima queue first-public --human
 
 | Field | Kind | Applies to | Meaning | Values |
 |---|---|---|---|---|
-| `gate` | enum | every type | the gate this item is what is waited for | `first-public` First public release |
+| `gate` | enum | every type | the gate this item is what is waited for: one of the gates the project configures | set by the project's configuration |
 
 **Checks**, run by `naima check`
 
 | Check | What it holds |
 |---|---|
 | `gated-proof-is-gated` | an open item that verifies an open gated item carries a gate itself |
-
-**Gates**, listed by `naima gates`
-
-| Gate | Title | What it is for | How it decides |
-|---|---|---|---|
-| `first-public` | First public release | The repository opens to the public: licence chosen, Naima tracking itself through its own lock, the agent flows written. | blocked by every open item with gate=first-public that still owes code: no fixedOn, and not itself a proving gesture. Fixed items and open proving gestures are owed, not blocking. |
 
 **Summary sections**: `gates`.
 

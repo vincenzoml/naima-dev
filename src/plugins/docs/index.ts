@@ -174,7 +174,7 @@ export function renderReference(ctx: Context): string {
     if (p.fields?.length) {
       L.push("", "**Fields**", "", "| Field | Kind | Applies to | Meaning | Values |", "|---|---|---|---|---|")
       for (const f of p.fields) {
-        const values = f.values ? Object.entries(f.values).map(([v, s]) => `${code(v)} ${cell(s)}`).join("; ") : ""
+        const values = f.configured ? "set by the project's configuration" : f.values ? Object.entries(f.values).map(([v, s]) => `${code(v)} ${cell(s)}`).join("; ") : ""
         L.push(`| ${code(f.name)} | ${f.kind} | ${f.appliesTo ? f.appliesTo.join(", ") : "every type"} | ${cell(f.says)} | ${values} |`)
       }
     }
@@ -186,9 +186,11 @@ export function renderReference(ctx: Context): string {
       L.push("", "**Checks**, run by `naima check`", "", "| Check | What it holds |", "|---|---|")
       for (const c of p.checks) L.push(`| ${code(c.name)} | ${cell(c.says)} |`)
     }
-    if (p.gates?.length) {
+    // A gate the project configures is the project's, not the program's: it is not in the program's reference.
+    const gates = (p.gates ?? []).filter((g) => !g.configured)
+    if (gates.length) {
       L.push("", "**Gates**, listed by `naima gates`", "", "| Gate | Title | What it is for | How it decides |", "|---|---|---|---|")
-      for (const g of p.gates) L.push(`| ${code(g.name)} | ${cell(g.title)} | ${cell(g.says)} | ${cell(g.decides)} |`)
+      for (const g of gates) L.push(`| ${code(g.name)} | ${cell(g.title)} | ${cell(g.says)} | ${cell(g.decides)} |`)
     }
     if (p.verifiers?.length) {
       L.push("", "**Verifiers**, used by `naima verify`", "", "| Verifier | What it checks |", "|---|---|")

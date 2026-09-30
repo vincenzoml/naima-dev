@@ -29,7 +29,7 @@ Naima that carries it — with optional `options` ([configuration](config.md)):
 | `about` | longer markdown: the concepts a reader needs before the reference |
 | `options` | the keys the plugin reads from its `options`: `name`, `says`, `default` (a first-party plugin infers each default from the repository) |
 | `types` | item types: `id`, `dir`, `statuses` (each `open` or `done`, optionally `proves`), `initialStatus`, a README `template`, `creatable: false` for archives |
-| `fields` | fields with a kind (`string`, `strings`, `date`, `enum`, `boolean`, `number`), enum values in rank order, and the types they apply to |
+| `fields` | fields with a kind (`string`, `strings`, `date`, `enum`, `boolean`, `number`), enum values in rank order, and the types they apply to; `configured: true` when the values come from the project's configuration, so the program's reference does not list them |
 | `relations` | link relations; each names its inverse, which must also be declared |
 | `dirs` | directories under the tracker root the plugin owns that are not item types |
 | `checks` | `run(ctx) → Finding[]`; `problem` fails `naima check`, `note` does not |
@@ -37,7 +37,7 @@ Naima that carries it — with optional `options` ([configuration](config.md)):
 | `views` | `naima view <name>`: a named rendering of derived state |
 | `summary` | a block of `naima summary` |
 | `rank` | an additive urgency term; lower is more urgent |
-| `gates` | a named condition: `title`, `says`, `decides` (how it decides, in words), `evaluate(ctx) → { holds, blocking, owed }` |
+| `gates` | a named condition: `title`, `says`, `decides` (how it decides, in words), `evaluate(ctx) → { holds, blocking, owed }`; `configured: true` for a gate the project's configuration declares, which the program's reference leaves out |
 | `verifiers` | an adapter to a formal-methods tool: `verify({ model, property, options }) → { verdict, output, counterexample? }` |
 
 Every name — type, directory, field, relation, command, view, gate, verifier,
