@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node
 import { tmpdir } from "node:os"
 import { join, relative } from "node:path"
 import { test } from "node:test"
+import { gitCalls } from "./git.ts"
 import { gitPath, projectFiles, readAcrossBranches, refsWorthReading, walkFiles } from "./index.ts"
 import { tempProject } from "./testing.ts"
 
@@ -71,6 +72,37 @@ test("paths meet git in posix form, whatever the platform's separator", () => {
     writeFileSync(join(p.root, "src", "deep", "a.ts"), "x\n")
     rmSync(join(p.root, ".git"), { recursive: true, force: true })
     assert.ok(projectFiles(p.root).includes("src/deep/a.ts"), "outside git too, a project file is a posix path")
+  } finally {
+    p.cleanup()
+  }
+})
+
+test("reading across branches starts a bounded number of git processes, however many branches and files", () => {
+  const p = tempProject([], { git: true })
+  try {
+    const dir = "naima-tracker/naima-data/claims"
+    const calls = (): number => {
+      const before = gitCalls()
+      readAcrossBranches(p.root, dir, ".json")
+      return gitCalls() - before
+    }
+    const branches = (from: number, to: number): void => {
+      for (let n = from; n < to; n++) {
+        p.git("checkout", "-q", "-b", `b${n}`, "main")
+        mkdirSync(join(p.root, dir), { recursive: true })
+        for (const k of [1, 2, 3]) writeFileSync(join(p.root, dir, `b${n}-${k}.json`), `{"n":${n}}\n`)
+        p.git("add", "-A")
+        p.git("commit", "-q", "-m", `b${n}`)
+      }
+      p.git("checkout", "-q", "main")
+    }
+    branches(0, 2)
+    const few = calls()
+    branches(2, 10)
+    const many = calls()
+    assert.equal(readAcrossBranches(p.root, dir, ".json").length, 30)
+    assert.equal(many, few, `2 branches took ${few} git processes, 10 took ${many}`)
+    assert.ok(many <= 8, `${many} git processes for one read`)
   } finally {
     p.cleanup()
   }

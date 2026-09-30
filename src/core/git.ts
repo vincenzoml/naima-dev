@@ -10,8 +10,13 @@ import { existsSync, readFileSync, readdirSync } from "node:fs"
 import { join, relative, sep } from "node:path"
 import { isRegularFile, walkFiles } from "./files.ts"
 
+let calls = 0
+/** How many git processes this module has started: what the cost of a cross-branch read is measured in. */
+export const gitCalls = (): number => calls
+
 /** Git's trimmed output, or null when it fails. */
 export function git(root: string, ...args: string[]): string | null {
+  calls++
   try {
     return execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 1 << 28 }).trim()
   } catch {
@@ -102,16 +107,64 @@ export interface BranchFile {
   local: boolean
 }
 
-function filesOn(root: string, ref: string, dir: string, ext: string): BranchFile[] {
-  const listing = git(root, "ls-tree", "--name-only", `${ref}:${dir}`)
-  if (!listing) return []
-  const out: BranchFile[] = []
-  for (const name of listing.split("\n")) {
-    if (!name.endsWith(ext)) continue
-    const text = git(root, "show", `${ref}:${dir}/${name}`)
-    if (text !== null) out.push({ ref, name, text, local: false })
+/**
+ * Git objects by name (`<ref>:<path>`, or a sha), all through one
+ * `git cat-file --batch`: each is its type and bytes, or null when git has no
+ * such object. One process for any number of objects.
+ */
+function objects(root: string, names: string[]): ({ type: string; data: Buffer } | null)[] {
+  if (!names.length) return []
+  calls++
+  let out: Buffer
+  try {
+    out = execFileSync("git", ["cat-file", "--batch"], { cwd: root, input: names.join("\n") + "\n", stdio: ["pipe", "pipe", "ignore"], maxBuffer: 1 << 28 })
+  } catch {
+    return names.map(() => null)
+  }
+  const found: ({ type: string; data: Buffer } | null)[] = []
+  let at = 0
+  for (let i = 0; i < names.length; i++) {
+    const eol = out.indexOf(10, at)
+    if (eol === -1) break
+    const header = out.subarray(at, eol).toString("utf8").split(" ") // "<sha> <type> <size>", or "<name> missing"
+    at = eol + 1
+    const size = Number(header[2])
+    if (header.length !== 3 || !Number.isInteger(size)) {
+      found.push(null)
+      continue
+    }
+    found.push({ type: header[1] ?? "", data: out.subarray(at, at + size) })
+    at += size + 1 // the content, then a newline
+  }
+  return found
+}
+
+/** The entries of a tree object: `<mode> <name>\0<20-byte sha>`, repeated. */
+function treeEntries(tree: Buffer): { mode: string; name: string; sha: string }[] {
+  const out: { mode: string; name: string; sha: string }[] = []
+  let at = 0
+  while (at < tree.length) {
+    const space = tree.indexOf(32, at)
+    const nul = tree.indexOf(0, space)
+    if (space === -1 || nul === -1) break
+    out.push({ mode: tree.subarray(at, space).toString("utf8"), name: tree.subarray(space + 1, nul).toString("utf8"), sha: tree.subarray(nul + 1, nul + 21).toString("hex") })
+    at = nul + 21
   }
   return out
+}
+
+/** Every `ext` file directly under `dir` on each ref: one batch lists the trees, one reads the files. */
+function filesOnRefs(root: string, refs: string[], dir: string, ext: string): BranchFile[][] {
+  const trees = objects(root, refs.map((ref) => `${ref}:${dir}`))
+  const listed = trees.map((t) => (t?.type === "tree" ? treeEntries(t.data).filter((e) => e.mode.startsWith("100") && e.name.endsWith(ext)) : []))
+  const blobs = objects(root, listed.flat().map((e) => e.sha))
+  let next = 0
+  return refs.map((ref, i) =>
+    (listed[i] ?? []).flatMap((e) => {
+      const blob = blobs[next++]
+      return blob?.type === "blob" ? [{ ref, name: e.name, text: blob.data.toString("utf8"), local: false }] : []
+    }),
+  )
 }
 
 export function filesHere(root: string, dir: string, ext: string, ref: string): BranchFile[] {
@@ -134,10 +187,8 @@ export function readAcrossBranches(root: string, dir: string, ext: string): Bran
   const inGit = gitPath(dir) // a ref's tree is read with forward slashes: a Windows path would name nothing
   const here = currentBranch(root)
   if (isGitRepo(root)) {
-    for (const ref of refsWorthReading(root)) {
-      if (ref === here) continue
-      for (const f of filesOn(root, ref, inGit, ext)) if (!seen.has(f.name)) seen.set(f.name, f)
-    }
+    const refs = refsWorthReading(root).filter((ref) => ref !== here)
+    for (const files of filesOnRefs(root, refs, inGit, ext)) for (const f of files) if (!seen.has(f.name)) seen.set(f.name, f)
   }
   for (const f of filesHere(root, dir, ext, here)) seen.set(f.name, f)
   return [...seen.values()]
