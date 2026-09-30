@@ -61,6 +61,12 @@ implementation until the owner says go (owner rule 3).*
    records the new commit, all as one reviewable commit in the project. No
    run ever pulls on its own: executing whatever lands on `main` is a supply
    chain risk.
+   "Explicit" means a deliberate command, not a human-only one: agents run
+   it (owner, 2026-09-30: "we assume naima-update can be run from agents").
+   The skill tells them when: `naima update --check` at the start of a
+   session says whether the source's `main` has moved; if it has, the agent
+   runs `naima update`, lets the checks pass, and commits the result like any
+   other change.
 5. **Forward-only migration.** When the data's format is older than the
    checked-out Naima's, `naima update` migrates it deterministically, forward
    only: the same input gives byte-identical output. When it is newer (data
