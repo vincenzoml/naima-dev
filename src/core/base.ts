@@ -61,7 +61,6 @@ export function addLink(ctx: Context, from: Item, rel: string, to: Item): boolea
   const links = from.meta.links ?? []
   from.meta.links = [...links, { rel, id: to.meta.id }]
   saveMeta(from)
-  ctx.reload()
   return true
 }
 

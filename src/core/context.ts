@@ -1,6 +1,7 @@
 // The object every command, check and view receives.
 
 import { posixRelative } from "./config.ts"
+import { writes } from "./item.ts"
 import { loadRepo } from "./repo.ts"
 import type { Config, Context, Registry, Repo } from "./types.ts"
 
@@ -26,6 +27,7 @@ export interface Place {
 export function createContext(place: Place, config: Config, registry: Registry, io: IO = consoleIO): Context {
   const trackerRoot = place.data
   let repo: Repo | null = null
+  let readAt = -1
   return {
     root: place.root,
     trackerRoot,
@@ -34,7 +36,11 @@ export function createContext(place: Place, config: Config, registry: Registry, 
     config,
     registry,
     get repo() {
-      repo ??= loadRepo(trackerRoot, registry)
+      // Every write through the core's helpers moves `writes()`: the next read sees it.
+      if (repo === null || readAt !== writes()) {
+        readAt = writes()
+        repo = loadRepo(trackerRoot, registry)
+      }
       return repo
     },
     reload() {

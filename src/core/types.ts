@@ -249,8 +249,9 @@ export interface Context {
   program: string
   config: Config
   registry: Registry
-  /** The items, read on first access and after `reload()`. */
+  /** The items, read on first access, again after any write through the core's helpers, and after `reload()`. */
   readonly repo: Repo
+  /** Forget the items read, for a change made on disk without the helpers (by hand, by git). */
   reload(): void
   out(line?: string): void
   err(line: string): void

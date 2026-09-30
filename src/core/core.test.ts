@@ -325,3 +325,21 @@ test("a directory check cannot read is a problem: a misspelled type, an _undersc
     p.cleanup()
   }
 })
+
+test("a write is seen by the next read in the same run, with no reload", async () => {
+  const p = tempProject([notes])
+  try {
+    const type = p.ctx.registry.types.get("notes")!
+    createItem(p.ctx, type, "Alpha")
+    createItem(p.ctx, type, "Beta")
+    const cmd = (name: string, ...args: string[]) => p.ctx.registry.commands.get(name)!.run(args, p.ctx) // no reload between runs
+    await cmd("link", "alpha", "blocks", "beta")
+    assert.deepEqual(p.ctx.repo.linksOf(p.ctx.repo.resolve("beta")).map((l) => l.rel), ["blocked-by"])
+    await cmd("unlink", "alpha", "blocks", "beta")
+    assert.deepEqual(p.ctx.repo.linksOf(p.ctx.repo.resolve("beta")), [])
+    await cmd("set", "beta", "size=L")
+    assert.equal(p.ctx.repo.resolve("beta").meta.size, "L")
+  } finally {
+    p.cleanup()
+  }
+})

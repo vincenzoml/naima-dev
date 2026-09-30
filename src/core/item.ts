@@ -67,9 +67,19 @@ export const isUuid = (s: unknown): s is string =>
 
 export const today = (ctx: Context): string => ctx.now().toISOString().slice(0, 10)
 
+let generation = 0
+
+/**
+ * How many writes the helpers of this module have made in this process. A
+ * context's repo is re-read when it moves, so a write is seen by the next read
+ * without anyone having to remember to reload.
+ */
+export const writes = (): number => generation
+
 export function writeJson(path: string, value: unknown): void {
   mkdirSync(dirname(path), { recursive: true })
   writeFileSync(path, JSON.stringify(value, null, 2) + "\n")
+  generation++
 }
 
 export function readReadme(item: Item): string {
@@ -103,7 +113,6 @@ export function createItem(ctx: Context, type: TypeDef, title: string, fields: R
   const meta: Meta = { id: randomUUID(), title, status: type.initialStatus, created: today(ctx), ...fields }
   const item: Item = { type: type.id, slug, dir, meta }
   saveMeta(item)
-  ctx.reload()
   return item
 }
 
@@ -114,7 +123,6 @@ export function moveItem(ctx: Context, item: Item, to: TypeDef): Item {
   const slug = uniqueSlug(item.slug, new Set(listDirs(base)))
   const dir = join(base, slug)
   renameSync(item.dir, dir)
-  const moved: Item = { type: to.id, slug, dir, meta: item.meta }
-  ctx.reload()
-  return moved
+  generation++
+  return { type: to.id, slug, dir, meta: item.meta }
 }

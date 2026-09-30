@@ -111,7 +111,6 @@ const verify: Command = {
       if (verdict !== "holds") failing++
       ctx.out(`${verdict.padEnd(9)} ${label(item)}  ${item.meta.title}`)
     }
-    ctx.reload()
     return failing ? 1 : 0
   },
 }

@@ -54,9 +54,11 @@ Every hook receives a `Context`: the project `root`, the data directory
 `trackerRoot` and its path from the root `trackerDir`, the `program` directory
 (never part of the project's files: pass it to `projectFiles`), the
 `config`, the merged `registry`, the `repo` (items, `byId`, `resolve`,
-`linksOf` with inverses), `reload()` after writing, `out`/`err`, and `now()`.
-Write through the public helpers (`createItem`, `saveMeta`, `setFields`,
-`addLink`, `moveItem`) so that ids, validation and reloading stay consistent.
+`linksOf` with inverses), `reload()` for a change made on disk without the
+helpers, `out`/`err`, and `now()`. Write through the public helpers
+(`createItem`, `saveMeta`, `setFields`, `addLink`, `moveItem`, `writeJson`) so
+that ids and validation stay consistent: every write through them is seen by
+the next read of `repo`, with no reload to remember.
 
 ## Cooperation without imports
 

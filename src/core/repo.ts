@@ -1,5 +1,5 @@
 // Reading the tracker: every registered type directory, every item in it.
-// Nothing here writes, and nothing is cached across `reload()`.
+// Nothing here writes; the context reads it again after every write.
 
 import { existsSync, readFileSync, readdirSync } from "node:fs"
 import { join } from "node:path"
