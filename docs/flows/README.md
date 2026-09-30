@@ -19,12 +19,15 @@ usually `main`.
 
 ## As agent commands
 
-[`.claude/commands/flow/`](../../.claude/commands/flow/) holds one command per
-flow, for agent harnesses that read commands from the repository (Claude Code
-reads that directory as `/flow:<name>`). Each command is a checklist that
-points at its page here; where the two disagree, the page wins. To adopt them
-in another project, copy the directory, and the pages if the project does not
-depend on Naima's docs.
+[`skills/naima/commands/flow/`](../../skills/naima/commands/flow/) holds one
+command per flow, for agent harnesses that read commands from the repository
+(Claude Code reads `.claude/commands/flow/` as `/flow:<name>`). They ship with
+the skill, outside any `.claude/` directory, so a harness never loads them from
+a project's `naima-tracker/naima/` unasked; Naima's own repository links its
+`.claude/commands/flow` to them. Each command is a checklist that points at its
+page here; where the two disagree, the page wins. To adopt them in another
+project, copy the directory into its `.claude/commands/flow/`, and the pages if
+the project does not depend on Naima's docs.
 
 In the commands, `naima` is the CLI: `deno run -A
 naima-tracker/naima/naima.ts` ([installing](../install.md)). In this

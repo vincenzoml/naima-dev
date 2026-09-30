@@ -14,7 +14,11 @@ naima init
 
 It creates the rest of `naima-tracker/`, locked to the Naima that ran it, and
 prints the one next command. It asks nothing and touches no file outside
-`naima-tracker/`; run again, it changes nothing. Then:
+`naima-tracker/`; run again, it changes nothing. When the project configures a
+tool that would read the program's `.ts` files — `deno.json`, `tsconfig.json`,
+prettier — it also prints the line that excludes `naima-tracker/naima/` from
+it, and writes those lines only when asked: `naima init --write-excludes`
+([the host's own tools](install.md#the-host-s-own-tools)). Then:
 
 ```sh
 naima new bugs "Export drops the alpha channel"
@@ -31,7 +35,7 @@ repository: [the automatic principle](config.md#the-automatic-principle).
 naima-tracker/
   README.md            one line: what Naima is, and a link to it
   .gitignore           ignores naima/
-  naima/               the program: a clone of Naima at the locked commit, never committed
+  naima/               the program: a clone of Naima's dist at the locked commit, never committed
   naima-data/
     naima.json         the format, the lock, and the few facts that cannot be inferred
     bugs/<slug>/       one directory per item: README.md, meta.json, attachments/
@@ -40,7 +44,14 @@ naima-tracker/
 ```
 
 `git status` shows `naima-data/`, `README.md` and `.gitignore`, never
-`naima/`. Only the item directories that hold something exist. Commands work
+`naima/`.
+
+**Your material is in `naima-data/`, never in `naima/`.** The program
+directory holds only what runs Naima: no tests, no fixtures, no CI, no agent
+rules, and none of Naima's own items. Everything the project tracks — its
+bugs, its tests, its features, its milestones, the documentation of a
+feature — is an item in its own `naima-data/`, in the directory of its type;
+`naima/` is replaced whole on every update. Only the item directories that hold something exist. Commands work
 from any subdirectory: Naima walks up from the current directory to the first
 `naima-tracker/naima-data/naima.json`. Every file and field is specified in
 [the format](format.md).

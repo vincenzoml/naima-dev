@@ -20,10 +20,10 @@ Names are global: no two plugins may declare the same command, type, field, rela
 
 | Command | Plugin | What it does |
 |---|---|---|
-| [`init`](#naima-init) | core | make this git repository a Naima project: create naima-tracker/ — its README.md, its .gitignore and naima-data/naima.json, locked to the source and commit of the Naima that runs it; nothing outside naima-tracker/ is touched |
-| [`update`](#naima-update) | core | move the lock to the source's main: fetch it, migrate the data forward if its format moved, and record the new commit, as one change to commit; the only command that asks the source anything |
+| [`init`](#naima-init) | core | make this git repository a Naima project: create naima-tracker/ — its README.md, its .gitignore and naima-data/naima.json, locked to the source and commit of the Naima that runs it, which must be committed and pushed; print the line that keeps the program out of each host tool configuration it finds (deno.json, tsconfig.json, .prettierignore); nothing outside naima-tracker/ is touched unless --write-excludes is given |
+| [`update`](#naima-update) | core | move the lock to the head of the source's dist branch — its main, when the source publishes no dist: fetch it, migrate the data forward if its format moved, and record the new commit, as one change to commit; the only command that asks the source anything |
 | [`carry`](#naima-carry) | core | switch how the program is carried — a gitignored clone, vendored as committed files, or a git submodule — staging the switch as one change |
-| [`guide`](#naima-guide) | core | print where the running Naima's documentation is: the skill, the docs index, the flows, the format; read them as files |
+| [`guide`](#naima-guide) | core | print where the running Naima's documentation is: the skill, the docs index, the flows, the format, installing; read them as files |
 | [`help`](#naima-help) | core | list every command the loaded plugins provide, with its usage |
 | [`new`](#naima-new) | core | open an item |
 | [`show`](#naima-show) | core | print one item: fields, links in both directions, attachments, prose |
@@ -60,21 +60,26 @@ An item is a directory under `<tracker>/<TYPE>/<slug>/`: `README.md` for the pro
 
 ### naima init
 
-Make this git repository a Naima project: create naima-tracker/ — its README.md, its .gitignore and naima-data/naima.json, locked to the source and commit of the Naima that runs it; nothing outside naima-tracker/ is touched.
+Make this git repository a Naima project: create naima-tracker/ — its README.md, its .gitignore and naima-data/naima.json, locked to the source and commit of the Naima that runs it, which must be committed and pushed; print the line that keeps the program out of each host tool configuration it finds (deno.json, tsconfig.json, .prettierignore); nothing outside naima-tracker/ is touched unless --write-excludes is given.
 
 ```sh
-naima init
+naima init [--write-excludes]
 ```
+
+| Option | Default | What it does |
+|---|---|---|
+| `--write-excludes` |  | also write those lines into the host's own files: deno.json and tsconfig.json when they are plain JSON, .prettierignore; a file with comments is left to be edited by hand |
 
 Examples:
 
 ```sh
 naima init
+naima init --write-excludes
 ```
 
 ### naima update
 
-Move the lock to the source's main: fetch it, migrate the data forward if its format moved, and record the new commit, as one change to commit; the only command that asks the source anything.
+Move the lock to the head of the source's dist branch — its main, when the source publishes no dist: fetch it, migrate the data forward if its format moved, and record the new commit, as one change to commit; the only command that asks the source anything.
 
 ```sh
 naima update [--check]
@@ -82,7 +87,7 @@ naima update [--check]
 
 | Option | Default | What it does |
 |---|---|---|
-| `--check` |  | only say whether the source's main has moved past the locked commit; exit 1 when it has |
+| `--check` |  | only say whether the source's dist (or main) has moved past the locked commit; exit 1 when it has |
 
 Examples:
 
@@ -108,7 +113,7 @@ naima carry clone
 
 ### naima guide
 
-Print where the running Naima's documentation is: the skill, the docs index, the flows, the format; read them as files.
+Print where the running Naima's documentation is: the skill, the docs index, the flows, the format, installing; read them as files.
 
 ```sh
 naima guide

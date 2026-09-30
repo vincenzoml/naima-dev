@@ -52,8 +52,8 @@ the one whose `naima.json` carries `format`.
 | Key | Required | What it is |
 |---|---|---|
 | `format` | yes | the data format, an integer: this page is format 1 |
-| `source` | yes | the git URL, or absolute path, of the Naima the project runs: Naima's own repository, or a fork |
-| `commit` | yes | the full hash of the `source` commit the project runs: **the lock** |
+| `source` | yes | the git URL, or absolute path, of the Naima the project runs: Naima's own repository, or a fork; never starting with `-`, and a path on this disk is absolute |
+| `commit` | yes | the full hash of the `source` commit the project runs: **the lock**; a commit of its [`dist` branch](install.md#the-dist-branch), or of `main` for a source without one |
 | `carry` | no, `clone` | how the program is carried: `clone`, `vendored` or `submodule` (below) |
 | `program` | no, `../naima` | the program directory, relative to the data directory |
 | `gates` | no, `{}` | gate name → `{ "title", "says", "holdsOn" }`; how a gate decides is in the [reference](reference.md#gates) |
