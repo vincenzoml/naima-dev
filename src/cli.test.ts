@@ -196,3 +196,32 @@ test("the reference is the program's: a project's own gates do not change it", a
     h.cleanup()
   }
 })
+
+test("exit codes tell a usage error (2) from an internal one (70), and a command's own 75 is not a request to relaunch", async () => {
+  const h = host()
+  try {
+    assert.equal((await naima(h.root, ["init"])).code, 0)
+    const program = join(h.base, "fork")
+    mkdirSync(join(program, "plugins"), { recursive: true })
+    writeFileSync(
+      join(program, "plugins", "codes.mjs"),
+      `let runs = 0
+export default () => ({ name: "codes", says: "exit codes", commands: [
+  { name: "seventy-five", says: "x", usage: "seventy-five", examples: ["seventy-five"], run: (_a, ctx) => { runs++; ctx.out("run " + runs); return 75 } },
+  { name: "bug", says: "x", usage: "bug", examples: ["bug"], run: () => { const o = undefined; return o.missing } },
+] })\n`,
+    )
+    const file = join(h.root, "naima-tracker", "naima-data", "naima.json")
+    writeFileSync(file, JSON.stringify({ ...JSON.parse(readFileSync(file, "utf8")), plugins: ["plugins/codes.mjs"] }))
+    const own = await naima(h.root, ["seventy-five"], program)
+    assert.deepEqual([own.code, own.out], [1, "run 1"])
+    assert.match(own.err, /exited 75, the code reserved for asking the launcher to relaunch — reported as 1/)
+    const bug = await naima(h.root, ["bug"], program)
+    assert.equal(bug.code, 70)
+    assert.match(bug.err, /^naima: internal error: TypeError: .*NAIMA_DEBUG=1/)
+    const usage = await naima(h.root, ["show"], program)
+    assert.deepEqual([usage.code, usage.err], [2, "naima: usage: naima show <item>"])
+  } finally {
+    h.cleanup()
+  }
+})

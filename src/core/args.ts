@@ -1,6 +1,7 @@
 // Command-line arguments, on top of node:util's parser.
 
 import { parseArgs } from "node:util"
+import { NaimaError } from "./errors.ts"
 import type { Command } from "./types.ts"
 
 export type Flags = Record<string, { type: "string" | "boolean"; multiple?: boolean; short?: string }>
@@ -39,9 +40,9 @@ export function pairs(list: string[]): [string, string][] {
 /** A count from the command line: `fallback` when absent, else a positive whole number, or a usage error naming `what`. */
 export function positiveInt(raw: string | undefined, fallback: number, what: string): number {
   if (raw === undefined) return fallback
-  if (!/^\d+$/.test(raw) || Number(raw) < 1) throw new Error(`${what}: the count must be a positive whole number, got ${JSON.stringify(raw)}`)
+  if (!/^\d+$/.test(raw) || Number(raw) < 1) throw new NaimaError(`${what}: the count must be a positive whole number, got ${JSON.stringify(raw)}`)
   return Number(raw)
 }
 
 /** The error a command throws when it is misused: its own usage line, the one place that line is spelled. */
-export const usageError = (cmd: Pick<Command, "usage">): Error => new Error(`usage: naima ${cmd.usage}`)
+export const usageError = (cmd: Pick<Command, "usage">): NaimaError => new NaimaError(`usage: naima ${cmd.usage}`, "usage")

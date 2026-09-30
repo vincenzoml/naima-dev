@@ -16,5 +16,6 @@ process.exitCode = await runCli(process.argv.slice(2), {
   programRoot,
   ...(data ? { data } : {}),
   launched: process.env.NAIMA_LAUNCHED === "1",
+  debug: process.env.NAIMA_DEBUG === "1",
   firstParty,
 })

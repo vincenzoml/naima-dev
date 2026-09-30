@@ -8,7 +8,7 @@
 // exit status and output to a verdict, and returns the trace it printed.
 
 import { readFileSync } from "node:fs"
-import type { Verifier, VerifyResult } from "../../../core/index.ts"
+import { type Verifier, type VerifyResult, message } from "../../../core/index.ts"
 
 export const exampleRegex: Verifier = {
   id: "example-regex",
@@ -20,7 +20,7 @@ export const exampleRegex: Verifier = {
     try {
       re = new RegExp(m[2])
     } catch (e) {
-      return { verdict: "error", output: `bad regex: ${(e as Error).message}` }
+      return { verdict: "error", output: `bad regex: ${message(e)}` }
     }
     // One trailing newline ends the last line; it does not start another. CRLF files match as LF ones.
     const lines = readFileSync(model, "utf8").replace(/\r?\n$/, "").split(/\r?\n/)

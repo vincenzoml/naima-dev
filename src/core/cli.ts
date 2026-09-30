@@ -14,6 +14,7 @@ import { gitOrNull, toplevel } from "./git.ts"
 import { exclusions } from "./excludes.ts"
 import { DATA_DIR, DATA_FILE, DEFAULT_DATA, DIST_BRANCH, PROGRAM_DIR, RELAUNCH, TRACKER_DIR, TRACKER_README, findData, globalOptions, real, trackerOf } from "./layout.ts"
 import { type Target, align, carry, ignoreProgram, localWork, refuseLocalWork, remoteHead, short, stage, vendor } from "./program.ts"
+import { EXIT, isInternal, message } from "./errors.ts"
 import { buildRegistry } from "./registry.ts"
 import type { Carry, Command, Config, Context, Plugin } from "./types.ts"
 
@@ -28,6 +29,8 @@ export interface CliOptions {
   /** Every first-party plugin, built from the config. All of them are always loaded. */
   firstParty: (config: Config) => Plugin[]
   io?: IO
+  /** Print the stack of an internal error (NAIMA_DEBUG=1). */
+  debug?: boolean
 }
 
 /** Load a project into a context: config (in this Naima's format), plugins, registry. */
@@ -259,9 +262,19 @@ export async function runCli(argv: string[], opts: CliOptions): Promise<number> 
     if (isHelp(command)) return help(ctx, io)
     const cmd = ctx.registry.commands.get(command as string)
     if (!cmd) throw new Error(`unknown command "${command}" — naima help`)
-    return await cmd.run(args, ctx)
+    const code = await cmd.run(args, ctx)
+    if (code !== RELAUNCH) return code
+    // Only the entry point asks for a relaunch; a command's 75 would make the launcher run it again.
+    io.err(`naima: ${command} exited ${RELAUNCH}, the code reserved for asking the launcher to relaunch — reported as ${EXIT.FAILED}`)
+    return EXIT.FAILED
   } catch (e) {
-    io.err(`naima: ${(e as Error).message}`)
-    return 2
+    if (!isInternal(e)) {
+      io.err(`naima: ${message(e)}`)
+      return EXIT.USAGE
+    }
+    const name = e instanceof Error ? `${e.name}: ` : ""
+    io.err(`naima: internal error: ${name}${message(e)} — a bug in Naima or a plugin; NAIMA_DEBUG=1 prints where`)
+    if (opts.debug && e instanceof Error && e.stack) io.err(e.stack)
+    return EXIT.INTERNAL
   }
 }

@@ -10,6 +10,7 @@
 import { readFileSync, writeFileSync } from "node:fs"
 import { isAbsolute, join, relative, resolve, sep } from "node:path"
 import { pathToFileURL } from "node:url"
+import { message } from "./errors.ts"
 import { DATA_FILE, DEFAULT_PROGRAM } from "./layout.ts"
 import { FORMAT, formatRefusal } from "./format.ts"
 import type { Carry, Config, Plugin, PluginEntry, PluginFactory, PluginOptions } from "./types.ts"
@@ -87,7 +88,7 @@ export function readRaw(data: string): Record<string, unknown> {
   try {
     raw = JSON.parse(readFileSync(join(data, DATA_FILE), "utf8"))
   } catch (e) {
-    throw new Error(`${DATA_FILE}: ${(e as Error).message}`)
+    throw new Error(`${DATA_FILE}: ${message(e)}`)
   }
   if (!isObject(raw)) throw new Error(`${DATA_FILE} must hold a JSON object`)
   return raw

@@ -3,6 +3,7 @@
 
 import { existsSync, readFileSync, readdirSync } from "node:fs"
 import { join } from "node:path"
+import { message } from "./errors.ts"
 import { META, listDirs } from "./item.ts"
 import type { Finding, Item, Link, Meta, Registry, Repo, ResolvedLink } from "./types.ts"
 
@@ -40,7 +41,7 @@ export function loadRepo(trackerRoot: string, registry: Registry): Repo {
         meta = JSON.parse(readFileSync(path, "utf8"))
         if (!meta || typeof meta !== "object" || Array.isArray(meta)) throw new Error("not an object")
       } catch (e) {
-        unreadable.push({ level: "problem", message: `${where}: ${META} is not a JSON object (${(e as Error).message})` })
+        unreadable.push({ level: "problem", message: `${where}: ${META} is not a JSON object (${message(e)})` })
         continue
       }
       // What every item is read by. An item without them is reported, never handed to a command to crash on.

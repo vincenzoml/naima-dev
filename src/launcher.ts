@@ -15,7 +15,7 @@
 import { existsSync } from "node:fs"
 import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
-import { DATA_FILE, EXCLUDE_FILES, PROGRAM_DIR, RELAUNCH, TRACKER_DIR, findData, globalOptions, programOf, real, toplevel, trackerOf } from "./core/index.ts"
+import { DATA_FILE, EXCLUDE_FILES, PROGRAM_DIR, RELAUNCH, TRACKER_DIR, findData, globalOptions, message, programOf, real, toplevel, trackerOf } from "./core/index.ts"
 
 /** Alignment, an update and its migration: at most three hand-overs, and one to spare. */
 const MAX_RUNS = 4
@@ -83,7 +83,7 @@ export async function launch(args: string[], cwd: string): Promise<number> {
     try {
       flags = permissions({ root, tracker, data, program, entry, hostFiles: hostFiles(parsed.rest, root) })
     } catch (e) {
-      console.error(`naima: ${(e as Error).message}`)
+      console.error(`naima: ${message(e)}`)
       return 2
     }
     const child = new Deno.Command(Deno.execPath(), {

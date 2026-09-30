@@ -65,6 +65,22 @@ the next read of `repo`, with no reload to remember. The `registry` and the
 `config` are frozen once the project is loaded: a plugin reads another's
 contributions and cannot change them.
 
+## Exit codes
+
+A command's `run` returns `0` when what it did or checked holds, `1` when it
+does not (a check, a gate, a verdict), and throws to refuse. The entry point
+adds the rest:
+
+| Code | Meaning |
+|---|---|
+| `0` | done; what was checked holds |
+| `1` | done; what was checked does not hold |
+| `2` | refused: bad usage, or a state the user must change first — a plain `Error`, or a `NaimaError` whose `code` says which (`usageError(cmd)` gives one with `code: "usage"`) |
+| `70` | internal error: the engine's own (a `TypeError`, …) or something thrown that is not an `Error` — a bug; `NAIMA_DEBUG=1` prints its stack |
+| `75` | reserved: the program asks the launcher to run it again. A command that returns it is reported as `1`, so it never runs twice |
+
+Render anything caught with `message(e)`, never `(e as Error).message`.
+
 ## Cooperation without imports
 
 Plugins do not import each other. They cooperate through what they declare:

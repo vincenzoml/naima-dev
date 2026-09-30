@@ -4,6 +4,7 @@
 import { existsSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 import { groupBy } from "./collections.ts"
+import { message } from "./errors.ts"
 import { formatCheck } from "./format.ts"
 import { fieldError, fieldsOf } from "./fields.ts"
 import { README, isUuid, titleWords } from "./item.ts"
@@ -137,7 +138,7 @@ export function runChecks(ctx: Context): CheckReport {
     try {
       findings.push(...check.run(ctx))
     } catch (e) {
-      findings.push(problem(`check "${check.name}" failed to run: ${(e as Error).message}`))
+      findings.push(problem(`check "${check.name}" failed to run: ${message(e)}`))
     }
   }
   return { problems: findings.filter((f) => f.level === "problem"), notes: findings.filter((f) => f.level === "note") }

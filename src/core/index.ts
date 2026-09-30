@@ -7,6 +7,7 @@ export { fieldError, parseFieldValue, fieldsOf, appliesTo, enumRank } from "./fi
 export { slugify, uniqueSlug, isUuid, today, writeJson, readReadme, saveMeta, createItem, moveItem, listDirs, META, README, ATTACHMENTS } from "./item.ts"
 export { storedLinks } from "./repo.ts"
 export { groupBy } from "./collections.ts"
+export { EXIT, NaimaError, isInternal, message } from "./errors.ts"
 export { walkFiles, isRegularFile, NEVER_SOURCE } from "./files.ts"
 export { statusDef, isOpen, proves, isEvidenceType, linked, urgency, byUrgency, label } from "./lifecycle.ts"
 export { setFields, addLink, renderBoard, typeOrThrow } from "./base.ts"
