@@ -9,7 +9,8 @@
 import { spawnSync } from "node:child_process"
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs"
 import { dirname, join, resolve } from "node:path"
-import { posixRelative } from "./config.ts"
+import { isLocalSource, posixRelative } from "./config.ts"
+import { DIST_BRANCH } from "./layout.ts"
 import type { Carry } from "./types.ts"
 
 /** Where a project's program is, and what it is locked to. Paths are absolute. */
@@ -46,11 +47,8 @@ function must(cwd: string, ...args: string[]): string {
 
 const has = (repo: string, commit: string): boolean => git(repo, ["cat-file", "-e", `${commit}^{commit}`]).ok
 const isRepo = (dir: string): boolean => existsSync(join(dir, ".git"))
-const short = (commit: string): string => commit.slice(0, 12)
+export const short = (commit: string): string => commit.slice(0, 12)
 const where = (t: Target): string => posixRelative(t.root, t.program)
-
-/** A source on this disk rather than behind a URL. */
-export const isLocalSource = (source: string): boolean => source.startsWith("file:") || !/^([a-z][a-z0-9+.-]*:\/\/|[^/\\\s]+@[^:/\\\s]+:)/i.test(source)
 
 /** Why the program directory holds work that moving it would destroy, or null. */
 export function localWork(t: Target): string | null {
@@ -83,15 +81,25 @@ function seeds(t: Target): string[] {
   return out.filter((s) => git(t.root, ["-C", s, "cat-file", "-e", `${t.commit}^{commit}`]).ok)
 }
 
+/**
+ * A commit fetched by its hash is kept as a remote-tracking ref of origin, so
+ * that it counts as the source's, not as local work (localWork): the lock
+ * says the source has it, and the fetch has just shown it.
+ */
+const lockedRefspec = (commit: string): string => `+${commit}:refs/remotes/origin/naima-locked`
+
 function cloneProgram(t: Target): void {
   const [seed] = seeds(t)
   mkdirSync(dirname(t.program), { recursive: true })
-  const r = git(t.root, ["clone", "--quiet", "--no-checkout", seed ?? t.source, t.program])
+  const r = git(t.root, ["clone", "--quiet", "--no-checkout", "--", seed ?? t.source, t.program])
   if (!r.ok) {
     rmSync(t.program, { recursive: true, force: true })
     throw new Error(`cannot clone ${t.source} into ${where(t)}: ${reason(r)} — the first run needs git and the network`)
   }
-  if (seed) must(t.program, "remote", "set-url", "origin", t.source)
+  if (!seed) return
+  // A clone names the seed's branches, not its remote-tracking refs, and a dist commit may be only there.
+  git(t.program, ["fetch", "--quiet", "--", seed, lockedRefspec(t.commit)])
+  must(t.program, "remote", "set-url", "origin", t.source)
 }
 
 /**
@@ -115,7 +123,7 @@ export function align(t: Target): boolean {
   }
   if (!has(t.program, t.commit)) {
     git(t.program, ["fetch", "--quiet", "origin"])
-    if (!has(t.program, t.commit)) git(t.program, ["fetch", "--quiet", "origin", t.commit])
+    if (!has(t.program, t.commit)) git(t.program, ["fetch", "--quiet", "origin", lockedRefspec(t.commit)])
     if (!has(t.program, t.commit)) {
       throw new Error(`commit ${short(t.commit)} cannot be fetched from ${t.source} — its history was rewritten or the source is gone; record a commit it has`)
     }
@@ -124,12 +132,27 @@ export function align(t: Target): boolean {
   return true
 }
 
-/** The commit the source's main points at. Reads the source; changes nothing. */
-export function remoteMain(t: Target): string {
-  const r = git(t.root, ["ls-remote", t.source, "refs/heads/main"])
-  const commit = r.out.split(/\s/)[0]
-  if (!r.ok || !commit) throw new Error(`cannot read main from ${t.source}: ${r.ok ? "it has no main branch" : reason(r)}`)
-  return commit
+/** What `naima update` follows: the branch it read, and the commit that branch points at. */
+export interface Head {
+  branch: string
+  commit: string
+}
+
+/**
+ * The head `naima update` follows: the source's dist branch when it publishes
+ * one — Naima's runtime files only, built from main (docs/install.md#the-dist-branch) —
+ * and its main otherwise, as a fork or a local source without a dist has.
+ * Reads the source; changes nothing.
+ */
+export function remoteHead(t: Target): Head {
+  const r = git(t.root, ["ls-remote", "--", t.source, `refs/heads/${DIST_BRANCH}`, "refs/heads/main"])
+  if (!r.ok) throw new Error(`cannot read ${DIST_BRANCH} or main from ${t.source}: ${reason(r)}`)
+  const heads = new Map(r.out.split("\n").map((l) => l.split(/\s+/)).map(([commit, ref]) => [ref ?? "", commit ?? ""]))
+  for (const branch of [DIST_BRANCH, "main"]) {
+    const commit = heads.get(`refs/heads/${branch}`)
+    if (commit) return { branch, commit }
+  }
+  throw new Error(`cannot read ${DIST_BRANCH} or main from ${t.source}: it has neither branch`)
 }
 
 /** Vendored: replace the program with the tree of `commit`, fetched from the source into a scratch clone under the tracker folder. */
@@ -137,7 +160,7 @@ export function vendor(t: Target, commit: string): void {
   const scratch = join(t.tracker, ".naima-update")
   rmSync(scratch, { recursive: true, force: true })
   try {
-    const r = git(t.root, ["clone", "--quiet", "--no-checkout", t.source, scratch])
+    const r = git(t.root, ["clone", "--quiet", "--no-checkout", "--", t.source, scratch])
     if (!r.ok) throw new Error(`cannot clone ${t.source}: ${reason(r)}`)
     if (!has(scratch, commit)) must(scratch, "fetch", "--quiet", "origin", commit)
     rmSync(t.program, { recursive: true, force: true })
@@ -213,7 +236,7 @@ export function carry(t: Target, to: Carry): void {
   }
   if (to === "submodule") {
     ignore(false)
-    must(t.root, ...allowLocal(t), "submodule", "add", "--quiet", t.source, rel)
+    must(t.root, ...allowLocal(t), "submodule", "add", "--quiet", "--", t.source, rel)
     stage(t.root, t.program, gitmodules)
   }
 }

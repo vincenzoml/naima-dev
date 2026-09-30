@@ -23,6 +23,21 @@ const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v =
 
 export type Lock = Pick<Config, "source" | "commit" | "carry" | "program">
 
+/** A source on this disk rather than behind a URL. */
+export const isLocalSource = (source: string): boolean => source.startsWith("file:") || !/^([a-z][a-z0-9+.-]*:\/\/|[^/\\\s]+@[^:/\\\s]+:)/i.test(source)
+
+/**
+ * Why `source` cannot be a lock's source, or null. It is handed to git as an
+ * argument, so it never starts with "-" (git would read it as an option); a
+ * path on this disk is absolute, or it would resolve against whatever
+ * directory git happens to run in.
+ */
+export function sourceRefusal(source: string): string | null {
+  if (source.startsWith("-")) return "must not start with \"-\": git would read it as an option"
+  if (isLocalSource(source) && !source.startsWith("file:") && !isAbsolute(source)) return "a path on this disk must be absolute: a relative one resolves against wherever git runs"
+  return null
+}
+
 /**
  * The lock: which Naima runs the project, and where it is. The same keys in
  * every format, so that a Naima can be aligned, and can update, whatever the
@@ -31,6 +46,8 @@ export type Lock = Pick<Config, "source" | "commit" | "carry" | "program">
 export function parseLock(raw: Record<string, unknown>): Lock {
   const { source, commit } = raw
   if (typeof source !== "string" || !source.trim()) throw new Error(`${DATA_FILE}: source must be the git URL (or absolute path) of the Naima this project runs`)
+  const refusal = sourceRefusal(source)
+  if (refusal) throw new Error(`${DATA_FILE}: source ${refusal}`)
   if (typeof commit !== "string" || !COMMIT.test(commit)) throw new Error(`${DATA_FILE}: commit must be the full hash of the Naima commit this project runs`)
   const carry = raw.carry ?? "clone"
   if (!CARRY_MODES.includes(carry as Carry)) throw new Error(`${DATA_FILE}: carry must be one of: ${CARRY_MODES.join(", ")}`)
@@ -81,6 +98,20 @@ export const readConfig = (data: string): Config => parseConfig(readRaw(data))
 /** Write `<data>/naima.json`, keys in the order given. */
 export function writeRaw(data: string, raw: Record<string, unknown>): void {
   writeFileSync(join(data, DATA_FILE), JSON.stringify(raw, null, 2) + "\n")
+}
+
+/**
+ * The program directory `<data>/naima.json` names, or the default one when the
+ * file cannot be read — the program then reports what is wrong with it. For
+ * the launcher, which must know where the program is before anything runs.
+ */
+export function programOf(data: string): string {
+  try {
+    const raw = readRaw(data)
+    return resolve(data, typeof raw.program === "string" ? raw.program : DEFAULT_PROGRAM)
+  } catch {
+    return resolve(data, DEFAULT_PROGRAM)
+  }
 }
 
 /** The absolute program directory of a project whose data is `data`. */

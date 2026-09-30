@@ -15,6 +15,20 @@ import { ABOUT, FORMAT, TRACKER_README, runCli } from "./core/index.ts"
 
 const NAIMA = dirname(dirname(fileURLToPath(import.meta.url)))
 
+/**
+ * The Naima that runs init: a clone of this repository, as a project's
+ * naima-tracker/naima/ is. Not the working tree itself, which has work its
+ * origin lacks, and init refuses to lock that. Its origin holds its HEAD, as
+ * a pushed clone's does, whatever this checkout's branches are.
+ */
+const PROGRAM = (() => {
+  const dir = join(mkdtempSync(join(tmpdir(), "naima-program-")), "naima")
+  execFileSync("git", ["clone", "-q", "--", NAIMA, dir], { stdio: "ignore" })
+  execFileSync("git", ["-C", dir, "update-ref", "refs/remotes/origin/pushed", "HEAD"])
+  process.on("exit", () => rmSync(dirname(dir), { recursive: true, force: true }))
+  return dir
+})()
+
 /** A git repository outside Naima, with one commit. */
 function host() {
   const base = mkdtempSync(join(tmpdir(), "naima-host-"))
@@ -29,7 +43,7 @@ function host() {
   return { base, root, git, cleanup: () => rmSync(base, { recursive: true, force: true }) }
 }
 
-async function naima(cwd: string, argv: string[], programRoot = NAIMA) {
+async function naima(cwd: string, argv: string[], programRoot = PROGRAM) {
   const out: string[] = []
   const err: string[] = []
   const io = { out: (l = "") => void out.push(l), err: (l: string) => void err.push(l), now: () => new Date("2026-01-15T10:00:00Z") }
@@ -44,7 +58,7 @@ test("init writes naima-tracker/ and nothing else, locked to the Naima that runs
     assert.equal(init.code, 0, init.err)
     assert.match(init.out, /next: naima new/)
     const data = JSON.parse(readFileSync(join(h.root, "naima-tracker", "naima-data", "naima.json"), "utf8"))
-    const git = (...args: string[]) => execFileSync("git", ["-C", NAIMA, ...args], { encoding: "utf8" }).trim()
+    const git = (...args: string[]) => execFileSync("git", ["-C", PROGRAM, ...args], { encoding: "utf8" }).trim()
     assert.deepEqual(data, { format: FORMAT, source: git("remote", "get-url", "origin"), commit: git("rev-parse", "HEAD"), carry: "clone" })
     assert.equal(readFileSync(join(h.root, "naima-tracker", "README.md"), "utf8"), TRACKER_README)
     assert.equal(readFileSync(join(h.root, "naima-tracker", ".gitignore"), "utf8"), "/naima/\n")
@@ -157,8 +171,9 @@ test("update and carry move the program, so they run only through the launcher; 
     const guide = await naima(NAIMA, ["guide"])
     assert.equal(guide.code, 0)
     const paths = [...guide.out.matchAll(/^ {2}\S+\s+(\S+)$/gm)].map((m) => m[1] as string)
-    assert.equal(paths.length, 6)
+    assert.equal(paths.length, 5)
     for (const p of paths) assert.ok(existsSync(join(NAIMA, p)), p)
+    assert.doesNotMatch(guide.out, /AGENTS\.md/, "Naima's own development rules are not a host's documentation")
   } finally {
     h.cleanup()
   }

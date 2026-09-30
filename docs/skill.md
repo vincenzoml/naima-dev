@@ -13,7 +13,7 @@ when to use it.
   ([bootstrap a project](install.md#bootstrap-a-project)). In a project with
   one, every run aligns the program itself.
 - **Update at the start of a session.** `naima update --check`; when the
-  source's main has moved, `naima update`, the checks, and one commit
+  source's dist has moved, `naima update`, the checks, and one commit
   ([updating](install.md#updating)). Running it is the agent's job.
 - **Work by the flows.** Change the tracker only through the CLI, run
   `naima check` before a commit, and follow the [flows](flows/README.md).

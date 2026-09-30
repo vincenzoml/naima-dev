@@ -3,16 +3,17 @@
 // program itself — init, update, carry, guide, help — are answered here,
 // before any plugin is loaded.
 
-import { existsSync, mkdirSync, realpathSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, writeFileSync } from "node:fs"
 import { dirname, join, relative, resolve } from "node:path"
 import { corePlugin } from "./base.ts"
-import { CARRY_MODES, type Lock, loadPlugins, parseLock, posixRelative, programDir, readConfig, readRaw, writeRaw } from "./config.ts"
+import { CARRY_MODES, type Lock, loadPlugins, parseLock, posixRelative, programDir, readConfig, readRaw, sourceRefusal, writeRaw } from "./config.ts"
 import { type IO, type Place, consoleIO, createContext } from "./context.ts"
 import { FORMAT, formatRefusal, isFormat, migrate } from "./format.ts"
 import { bool, parse } from "./args.ts"
 import { git, toplevel } from "./git.ts"
-import { DATA_DIR, DATA_FILE, DEFAULT_DATA, RELAUNCH, TRACKER_DIR, TRACKER_README, findData, trackerOf } from "./layout.ts"
-import { type Target, align, carry, ignoreProgram, refuseLocalWork, remoteMain, stage, vendor } from "./program.ts"
+import { exclusions } from "./excludes.ts"
+import { DATA_DIR, DATA_FILE, DEFAULT_DATA, DIST_BRANCH, PROGRAM_DIR, RELAUNCH, TRACKER_DIR, TRACKER_README, findData, globalOptions, real, trackerOf } from "./layout.ts"
+import { type Target, align, carry, ignoreProgram, localWork, refuseLocalWork, remoteHead, short, stage, vendor } from "./program.ts"
 import { buildRegistry } from "./registry.ts"
 import type { Carry, Command, Config, Context, Plugin } from "./types.ts"
 
@@ -41,15 +42,16 @@ export async function openProject(place: Place, opts: Pick<CliOptions, "programR
 export const cliCommands: Omit<Command, "run">[] = [
   {
     name: "init",
-    says: `make this git repository a Naima project: create ${TRACKER_DIR}/ — its README.md, its .gitignore and ${DATA_DIR}/${DATA_FILE}, locked to the source and commit of the Naima that runs it; nothing outside ${TRACKER_DIR}/ is touched`,
-    usage: "init",
-    examples: ["init"],
+    says: `make this git repository a Naima project: create ${TRACKER_DIR}/ — its README.md, its .gitignore and ${DATA_DIR}/${DATA_FILE}, locked to the source and commit of the Naima that runs it, which must be committed and pushed; print the line that keeps the program out of each host tool configuration it finds (deno.json, tsconfig.json, .prettierignore); nothing outside ${TRACKER_DIR}/ is touched unless --write-excludes is given`,
+    usage: "init [--write-excludes]",
+    options: [{ name: "--write-excludes", says: "also write those lines into the host's own files: deno.json and tsconfig.json when they are plain JSON, .prettierignore; a file with comments is left to be edited by hand" }],
+    examples: ["init", "init --write-excludes"],
   },
   {
     name: "update",
-    says: "move the lock to the source's main: fetch it, migrate the data forward if its format moved, and record the new commit, as one change to commit; the only command that asks the source anything",
+    says: `move the lock to the head of the source's ${DIST_BRANCH} branch — its main, when the source publishes no ${DIST_BRANCH}: fetch it, migrate the data forward if its format moved, and record the new commit, as one change to commit; the only command that asks the source anything`,
     usage: "update [--check]",
-    options: [{ name: "--check", says: "only say whether the source's main has moved past the locked commit; exit 1 when it has" }],
+    options: [{ name: "--check", says: `only say whether the source's ${DIST_BRANCH} (or main) has moved past the locked commit; exit 1 when it has` }],
     examples: ["update --check", "update"],
   },
   {
@@ -60,7 +62,7 @@ export const cliCommands: Omit<Command, "run">[] = [
   },
   {
     name: "guide",
-    says: "print where the running Naima's documentation is: the skill, the docs index, the flows, the format; read them as files",
+    says: "print where the running Naima's documentation is: the skill, the docs index, the flows, the format, installing; read them as files",
     usage: "guide",
     examples: ["guide"],
   },
@@ -73,19 +75,6 @@ export const cliCommands: Omit<Command, "run">[] = [
 ]
 
 const usage = (name: string): string => `usage: naima ${cliCommands.find((c) => c.name === name)?.usage ?? name}`
-
-/** `naima [--data <dir>] <command> [args]`: the one global option comes first. */
-function globalOptions(argv: string[]): { data?: string; rest: string[] } {
-  const [first, second, ...rest] = argv
-  if (first === "--data") {
-    if (!second) throw new Error("--data needs a directory")
-    return { data: second, rest }
-  }
-  if (first?.startsWith("--data=")) return { data: first.slice("--data=".length), rest: argv.slice(1) }
-  return { rest: argv }
-}
-
-const real = (path: string): string => (existsSync(path) ? realpathSync(path) : resolve(path))
 
 /** The commit of the running Naima, when it is a clone of its own; null when it is vendored into a project. */
 function runningCommit(programRoot: string): string | null {
@@ -105,40 +94,78 @@ function locate(opts: CliOptions, flag: string | undefined): (Place & { lock: Lo
 
 const targetOf = (place: Place, lock: Lock): Target => ({ root: place.root, tracker: trackerOf(place.data), program: place.program, source: lock.source, commit: lock.commit, carry: lock.carry })
 
-function init(opts: CliOptions, io: IO): number {
+/** A URL with its credentials removed: a token in a clone's origin must never reach a committed naima.json. */
+export function withoutCredentials(source: string): string {
+  return source.replace(/^([a-z][a-z0-9+.-]*:\/\/)([^@/]*)@/i, (all, scheme: string, userinfo: string) => {
+    if (/^https?:\/\/$/i.test(scheme)) return scheme
+    return userinfo.includes(":") ? `${scheme}${userinfo.slice(0, userinfo.indexOf(":"))}@` : all
+  })
+}
+
+/** The command init names as the next step: a type the loaded plugins really let one create. */
+async function nextStep(place: Place, opts: CliOptions, io: IO): Promise<string> {
+  try {
+    const ctx = await openProject(place, opts, io)
+    const type = [...ctx.registry.types.values()].find((t) => t.creatable !== false)
+    return type ? `next: naima new ${type.id} "<the first thing to do>"` : "next: naima help"
+  } catch {
+    return "next: naima check" // it says what is wrong with the project
+  }
+}
+
+/** Print, and with --write-excludes write, the lines that keep the program out of the host's own tools. */
+function excludeHost(root: string, program: string, write: boolean, io: IO): void {
+  for (const x of exclusions(root, posixRelative(root, program))) {
+    if (x.present) continue
+    if (!write) io.out(`exclude from ${x.file}: ${x.line}   (naima init --write-excludes adds it)`)
+    else if (x.write()) io.out(`wrote ${x.file}: ${x.line}`)
+    else io.out(`not written, it is not plain JSON — add by hand to ${x.file}: ${x.line}`)
+  }
+}
+
+async function init(args: string[], opts: CliOptions, io: IO): Promise<number> {
+  const write = bool(parse(args, { "write-excludes": { type: "boolean" } }), "write-excludes")
   const root = toplevel(resolve(opts.cwd))
   if (!root) throw new Error("not a git repository — naima init makes a git repository a Naima project")
   const tracker = join(root, TRACKER_DIR)
   const data = join(tracker, DATA_DIR)
-  const next = `next: naima new todos "<the first thing to do>"`
+  const program = join(tracker, PROGRAM_DIR)
   if (existsSync(join(data, DATA_FILE))) {
     io.out(`${DEFAULT_DATA}/${DATA_FILE} already exists — left as it is`)
-    io.out(next)
+    excludeHost(root, programDir(data, parseLock(readRaw(data))), write, io)
+    io.out(await nextStep({ root, data: real(data), program: programDir(data, parseLock(readRaw(data))) }, opts, io))
     return 0
   }
   const commit = runningCommit(opts.programRoot)
-  const source = commit && git(opts.programRoot, "remote", "get-url", "origin")
-  if (!commit || !source) {
-    throw new Error(`this Naima is not a clone with an origin: naima init records the source and commit of the Naima that runs it — git clone <source> ${TRACKER_DIR}/naima, and run init from there`)
+  const origin = commit && git(opts.programRoot, "remote", "get-url", "origin")
+  if (!commit || !origin) {
+    throw new Error(`this Naima is not a clone with an origin: naima init records the source and commit of the Naima that runs it — git clone --branch ${DIST_BRANCH} <source> ${TRACKER_DIR}/naima, and run init from there`)
   }
+  const source = withoutCredentials(origin)
+  const refusal = sourceRefusal(source)
+  if (refusal) throw new Error(`the origin of ${opts.programRoot} cannot be a lock's source: it ${refusal}`)
+  // Everyone else must be able to fetch what is locked: nothing uncommitted, nothing its origin lacks.
+  const work = localWork({ root, tracker, program: opts.programRoot, source, commit, carry: "clone" })
+  if (work) throw new Error(`the Naima that runs init has ${work}, so nobody else could run the commit it would lock — push it to its origin, or clone a pushed one`)
   mkdirSync(data, { recursive: true })
   const readme = join(tracker, "README.md")
   if (!existsSync(readme)) writeFileSync(readme, TRACKER_README)
   writeRaw(data, { format: FORMAT, source, commit, carry: "clone" })
-  ignoreProgram({ root, tracker, program: join(tracker, "naima"), source, commit, carry: "clone" }, true)
-  io.out(`wrote ${TRACKER_DIR}/: README.md, .gitignore, ${DATA_DIR}/${DATA_FILE} — locked to ${source} at ${commit.slice(0, 12)}`)
-  io.out(next)
+  ignoreProgram({ root, tracker, program, source, commit, carry: "clone" }, true)
+  io.out(`wrote ${TRACKER_DIR}/: README.md, .gitignore, ${DATA_DIR}/${DATA_FILE} — locked to ${source} at ${short(commit)}`)
+  excludeHost(root, program, write, io)
+  io.out(await nextStep({ root, data: real(data), program }, opts, io))
   return 0
 }
 
 function update(args: string[], place: Place, lock: Lock, raw: Record<string, unknown>, io: IO): number {
   const check = bool(parse(args, { check: { type: "boolean" } }), "check")
   const t = targetOf(place, lock)
-  const main = remoteMain(t)
-  const short = (c: string) => c.slice(0, 12)
+  const head = remoteHead(t)
+  const main = head.commit
   if (check) {
-    if (main === lock.commit) io.out(`current: the source's main is the locked commit ${short(main)}`)
-    else io.out(`the source's main moved: ${short(lock.commit)} → ${short(main)} — naima update`)
+    if (main === lock.commit) io.out(`current: the source's ${head.branch} is the locked commit ${short(main)}`)
+    else io.out(`the source's ${head.branch} moved: ${short(lock.commit)} → ${short(main)} — naima update`)
     return main === lock.commit ? 0 : 1
   }
   if (main !== lock.commit) {
@@ -173,20 +200,21 @@ function carryCommand(args: string[], place: Place, lock: Lock, raw: Record<stri
   return 0
 }
 
+/** What `naima guide` points at, from the program root: all of it ships in the dist. */
+export const GUIDE_PAGES: readonly (readonly [string, string])[] = [
+  ["skill", "skills/naima/SKILL.md"],
+  ["index", "docs/README.md"],
+  ["flows", "docs/flows/README.md"],
+  ["format", "docs/format.md"],
+  ["install", "docs/install.md"],
+]
+
 function guide(opts: CliOptions, io: IO): number {
   const at = (path: string): string => relative(opts.cwd, join(opts.programRoot, path)) || "."
   const commit = runningCommit(opts.programRoot)
   io.out(`Naima ${commit ? commit.slice(0, 12) : "(vendored)"}, data format ${FORMAT}, at ${at("")}`)
   io.out("Read these as files; they are the documentation of the Naima that runs:")
-  const pages: [string, string][] = [
-    ["skill", "skills/naima/SKILL.md"],
-    ["index", "docs/README.md"],
-    ["flows", "docs/flows/README.md"],
-    ["format", "docs/format.md"],
-    ["install", "docs/install.md"],
-    ["rules", "AGENTS.md"],
-  ]
-  for (const [name, path] of pages) io.out(`  ${name.padEnd(8)} ${at(path)}`)
+  for (const [name, path] of GUIDE_PAGES) io.out(`  ${name.padEnd(8)} ${at(path)}`)
   return 0
 }
 
@@ -210,8 +238,8 @@ export async function runCli(argv: string[], opts: CliOptions): Promise<number> 
     const { data, rest } = globalOptions(argv)
     const [command, ...args] = rest
     if (command === "init") {
-      if (args.length) throw new Error(usage("init"))
-      return init(opts, io)
+      if (args.some((a) => a !== "--write-excludes")) throw new Error(usage("init"))
+      return await init(args, opts, io)
     }
     if (command === "guide") return guide(opts, io)
     const place = locate(opts, data)

@@ -10,7 +10,7 @@
 // Both directories can move (docs/format.md); the anchor is always a
 // naima.json that carries `format`.
 
-import { existsSync } from "node:fs"
+import { existsSync, realpathSync } from "node:fs"
 import { basename, dirname, join, resolve } from "node:path"
 
 export const TRACKER_DIR = "naima-tracker"
@@ -21,6 +21,13 @@ export const DATA_FILE = "naima.json"
 export const DEFAULT_DATA = `${TRACKER_DIR}/${DATA_DIR}`
 /** The program directory, from the data directory, unless `program` moves it. */
 export const DEFAULT_PROGRAM = `../${PROGRAM_DIR}`
+
+/**
+ * The branch of Naima's repository that holds only what runs Naima, built by
+ * CI from every commit of main: what a project clones and locks, and what
+ * `naima update` follows when the source has it (docs/install.md#the-dist-branch).
+ */
+export const DIST_BRANCH = "dist"
 
 /** Naima's home, linked from every tracker's README. */
 export const HOME = "https://github.com/vincenzoml/naima"
@@ -60,3 +67,24 @@ export function findData(cwd: string, given?: string): string | null {
  * a data directory moved to the project root never widens it to the project.
  */
 export const trackerOf = (data: string): string => (basename(dirname(data)) === TRACKER_DIR ? dirname(data) : data)
+
+/** A path with its symlinks resolved, as git names it; resolved only, when it does not exist yet. */
+export const real = (path: string): string => (existsSync(path) ? realpathSync(path) : resolve(path))
+
+/**
+ * `naima [--data <dir>] <command> [args]`: the one global option, which comes
+ * first. The launcher and the program both read it, through this one parser.
+ */
+export function globalOptions(argv: string[]): { data?: string; rest: string[] } {
+  const [first, second, ...rest] = argv
+  if (first === "--data") {
+    if (!second) throw new Error("--data needs a directory")
+    return { data: second, rest }
+  }
+  if (first?.startsWith("--data=")) {
+    const data = first.slice("--data=".length)
+    if (!data) throw new Error("--data needs a directory")
+    return { data, rest: argv.slice(1) }
+  }
+  return { rest: argv }
+}

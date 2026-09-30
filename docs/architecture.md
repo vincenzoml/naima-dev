@@ -19,6 +19,7 @@ src/
     layout.ts      naima-tracker/ and its names; finding the data directory
     config.ts      naima.json: the lock, gates, third-party plugin loading
     format.ts      the data format, migrations, the one-format check
+    excludes.ts    the host tool configurations init prints, or writes, an exclusion for
     program.ts     the program directory: alignment, update, carry — all through git
     base.ts        the core's own contributions: generic fields, relations, commands
     cli.ts         dispatch, and the commands that move the program
@@ -32,11 +33,20 @@ src/
 
 ```
 naima.ts            the launcher's executable: deno run -A naima.ts <command>
-deno.json           the tasks: naima, dev, typecheck, test, docs, verify
-skills/naima/       the agent skill (skill.md)
+deno.json           the tasks: naima, dev, typecheck, test, docs, verify, dist
+skills/naima/       the agent skill (skill.md), and the flow commands in commands/flow/
 docs/reference.md   generated from the manifests by naima docs; never edited by hand
-.github/workflows/  CI: verify on Deno, the tests on Node and Bun
+dist.json           the runtime allowlist: the files a dist commit, and so a project, holds
+scripts/dist.ts     builds the dist commit of a main commit from dist.json (install.md#the-dist-branch)
+.claude/commands/   a link to skills/naima/commands/, for this repository's own agents
+.github/workflows/  CI: verify on Deno, the tests on Node and Bun, on Linux and macOS; the dist on main
 ```
+
+What ships is only what runs: `naima.ts`, `src/` without its tests and
+`core/testing.ts`, `docs/`, `skills/naima/`, `README.md`, `LICENSE` and
+`NOTICE`. `src/dist.test.ts` holds the allowlist to that: no test, no
+development file, no tracker item, and every import and every relative link
+of what ships resolving inside it.
 
 ## The tracker on disk
 

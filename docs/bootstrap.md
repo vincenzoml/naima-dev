@@ -8,10 +8,15 @@ case for this: Naima's repository uses exactly the model every project uses
 ([installing and updating](install.md)).
 
 1. **The tracker is managed by the locked commit.** `naima-tracker/naima/` is
-   a gitignored clone of Naima itself, locked to a commit of its own `main` by
-   `naima.json`; that commit is the "previous version". `deno task naima
-   <command>` runs it, through the launcher. Alignment clones it from this
-   repository's own objects, so it needs no network.
+   a gitignored clone of Naima itself, locked by `naima.json` to a commit of
+   its own [`dist` branch](install.md#the-dist-branch), exactly as a project
+   is; that commit is the "previous version". `deno task naima <command>` runs
+   it, through the launcher. Alignment clones it from this repository's own
+   objects — the dist commits are here once `origin/dist` is fetched — so it
+   needs no network. A lock on a commit of `main`, as before the dist existed,
+   keeps working; the first `naima update` after the dist is published moves
+   it onto the dist (two updates, when the locked commit predates the dist:
+   the first reaches the main that knows it).
 2. **The working tree is tested against the tracker, never its authority.**
    `deno task dev <command>` runs the working tree on the same data, and
    `deno task verify` runs `check` with both: the working tree as a test, the
@@ -20,6 +25,11 @@ case for this: Naima's repository uses exactly the model every project uses
    verified and pushed, `naima update` moves the lock to the new `main`, as
    one commit. A change the tracker is about to use — a new type, field,
    status or directory — is used only after that update.
+
+The development files — the tests, `AGENTS.md`, `.claude/`, `.github/`,
+`deno.json`, `dist.json`, `scripts/`, and this tracker — are on `main` only:
+the locked program never holds them, so `deno task naima` cannot read
+Naima's own items from inside its program directory by accident.
 
 ```sh
 deno task naima check        # the locked commit, on this tracker

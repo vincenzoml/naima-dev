@@ -42,10 +42,11 @@ branches, formal verifiers, the documentation rule — is a plugin.
 
 Requires [Deno](https://deno.com) and git. No dependencies, no releases, no
 binaries: a project carries one folder, `naima-tracker/`, and runs a clone of
-Naima inside it, locked to one commit. In any git repository:
+Naima's `dist` branch inside it — only the files that run Naima — locked to
+one commit. In any git repository:
 
 ```sh
-git clone https://github.com/vincenzoml/naima.git naima-tracker/naima
+git clone --branch dist https://github.com/vincenzoml/naima.git naima-tracker/naima
 deno run -A naima-tracker/naima/naima.ts init
 deno run -A naima-tracker/naima/naima.ts new bugs "Export drops the alpha channel"
 deno run -A naima-tracker/naima/naima.ts check
@@ -60,10 +61,10 @@ all of this itself: [the Naima skill](docs/skill.md).
 **[docs/](docs/README.md)** — concepts, configuration, the generated
 reference of every command, type, field, relation, check, gate and plugin, the
 plugin contract, the bootstrap policy, and the flows for people and AI agents.
-Rules for working on this repository: [AGENTS.md](AGENTS.md).
+Rules for working on this repository: [AGENTS.md](https://github.com/vincenzoml/naima/blob/main/AGENTS.md).
 
-Naima tracks itself, in `naima-tracker/`, managed by a clone of itself locked
-to a commit of its own `main`, as every project is (`deno task naima`);
+Naima tracks itself, in `naima-tracker/`, managed by a clone of its own
+`dist`, locked by commit, as every project is (`deno task naima`);
 `deno task verify` runs the typecheck, the tests, and `check` with both the
 lock and the working tree: [Naima tracking itself](docs/bootstrap.md).
 

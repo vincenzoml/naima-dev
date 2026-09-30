@@ -33,7 +33,7 @@ run aligns the program to the locked commit by itself.
 When there is none and the work is to be tracked here:
 
 ```sh
-git clone https://github.com/vincenzoml/naima.git naima-tracker/naima
+git clone --branch dist https://github.com/vincenzoml/naima.git naima-tracker/naima
 naima init
 ```
 
@@ -50,7 +50,7 @@ the program, a commit the source does not have, data in another format.
 naima update --check
 ```
 
-When it says the source's main moved, run `naima update`, then `naima check`,
+When it says the source's dist moved, run `naima update`, then `naima check`,
 then commit `naima-tracker/` as one change. Updating is your job, not a
 person's: [updating](../../docs/install.md#updating).
 
