@@ -26,7 +26,8 @@ export {
   toplevel,
   trunk,
 } from "./git.ts"
-export { CARRY_MODES, loadPlugins, type Lock, parseConfig, parseLock, programOf, readConfig } from "./config.ts"
+export { CARRY_MODES, type Lock, parseConfig, parseLock, PLUGIN_NAME, programOf, readConfig } from "./config.ts"
+export { composePlugins } from "./plugins.ts"
 export { EXCLUDE_FILES, type Exclusion, exclusions } from "./excludes.ts"
 export { FORMAT, formatCheck, formatOf, formatRefusal, migrate, type Migration, MIGRATIONS, type Migrations, type Step } from "./format.ts"
 export {

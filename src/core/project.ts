@@ -3,21 +3,22 @@
 // too, because a plugin's migrations are known only once it is loaded.
 
 import { corePlugin } from "./base.ts"
-import { loadPlugins, parseConfig, readRaw } from "./config.ts"
+import { parseConfig, readRaw } from "./config.ts"
+import { composePlugins, severitiesOf } from "./plugins.ts"
 import { consoleIO, createContext, type IO, type Place } from "./context.ts"
 import { RESERVED } from "./entry.ts"
 import { FORMAT, formatOf, formatRefusal, formatsOf, migrateConfig, MIGRATIONS, type Migrations, type Pending, pending, stepsSaid } from "./format.ts"
 import { DATA_FILE } from "./layout.ts"
 import { buildRegistry } from "./registry.ts"
-import type { Config, Context, Plugin } from "./types.ts"
+import type { Config, Context, FirstParty, Plugin } from "./types.ts"
 
 type Json = Record<string, unknown>
 
 export interface OpenOptions {
   /** The Naima that is running: the directory holding its naima.ts and src/. */
   programRoot: string
-  /** Every first-party plugin, built from the config. */
-  firstParty: (config: Config) => Plugin[]
+  /** Every first-party plugin, in load order. */
+  firstParty: readonly FirstParty[]
   /**
    * Run by the launcher, as the project's authority. Data that still owes a
    * migration is then refused until `naima update` runs it; the development
@@ -29,10 +30,7 @@ export interface OpenOptions {
 const CORE: Migrations = { plugin: null, migrations: MIGRATIONS }
 
 /** Every plugin `config` loads, first-party then third-party, in load order. */
-export async function pluginsOf(config: Config, opts: OpenOptions): Promise<Plugin[]> {
-  const firstParty = opts.firstParty(config)
-  return [...firstParty, ...(await loadPlugins(opts.programRoot, config, firstParty.map((p) => p.name)))]
-}
+export const pluginsOf = (config: Config, opts: OpenOptions): Promise<Plugin[]> => composePlugins(opts.programRoot, config, opts.firstParty)
 
 /** The migrations of the core and of every plugin `plugins` holds, in the order they run. */
 export const migrationsOf = (plugins: readonly Plugin[]): Migrations[] => [CORE, ...plugins.map((p) => ({ plugin: p.name, migrations: p.migrations ?? [] }))]
@@ -73,7 +71,7 @@ async function load(raw: Json, opts: OpenOptions, io: IO): Promise<{ config: Con
 /** Load a project into a context: its config in this Naima's formats, every plugin, the registry. */
 export async function openProject(place: Place, opts: OpenOptions, io: IO = consoleIO): Promise<Context> {
   const { config, plugins } = await load(readRaw(place.data), opts, io)
-  return createContext(place, config, buildRegistry([corePlugin, ...plugins], { reserved: [...RESERVED] }), io)
+  return createContext(place, config, buildRegistry([corePlugin, ...plugins], { reserved: [...RESERVED], severities: severitiesOf(config) }), io)
 }
 
 /** The formats a new project starts at: every plugin's own that has moved past format 1. */

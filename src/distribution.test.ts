@@ -78,7 +78,7 @@ test("bootstrap, init, new, check: the only addition is naima-tracker/, and git 
   const w = world()
   try {
     bootstrap(w)
-    assert.deepEqual(lockOf(w.host), { format: FORMAT, source: w.source, commit: w.head(), carry: "clone" })
+    assert.deepEqual(lockOf(w.host), { format: FORMAT, formats: { gates: 2 }, source: w.source, commit: w.head(), carry: "clone" })
     assert.equal(readFileSync(join(w.host, "naima-tracker", "README.md"), "utf8"), TRACKER_README)
     const made = naima(join(w.host, "src"), "new", "bugs", "Export drops alpha")
     assert.equal(made.code, 0, made.err)
@@ -138,12 +138,12 @@ test("naima update pulls, migrates and records the new commit; a normal run neve
   try {
     bootstrap(w)
     const old = w.head()
-    assert.equal(naima(w.host, "new", "todos", "Written in format 1").code, 0)
-    // The source's main gains a migration: format 1 → 2 stamps every item.
-    const moved = w.advance("src/core/format.ts", (t) =>
+    assert.equal(naima(w.host, "new", "todos", "Written in the old format").code, 0)
+    // The source's main gains a migration: format FORMAT → FORMAT + 1 stamps every item.
+    const moved = w.advance("src/core/migrations.ts", (t) =>
       t.replace(
-        "export const MIGRATIONS: readonly Migration[] = []",
-        'export const MIGRATIONS: readonly Migration[] = [{ from: 1, says: "stamped", item: (m) => ({ ...m, stamped: true }), stale: (m) => m.stamped !== true }]',
+        "export const CORE_MIGRATIONS: readonly Migration[] = [pluginsTable]",
+        `export const CORE_MIGRATIONS: readonly Migration[] = [pluginsTable, { from: ${FORMAT}, says: "stamped", item: (m) => ({ ...m, stamped: true }), stale: (m) => m.stamped !== true }]`,
       ))
 
     const check = naima(w.host, "check")
@@ -159,10 +159,10 @@ test("naima update pulls, migrates and records the new commit; a normal run neve
     const up = naima(w.host, "update")
     assert.equal(up.code, 0, up.err)
     assert.match(up.out, new RegExp(`locked ${old.slice(0, 12)} → ${moved.slice(0, 12)}`))
-    assert.match(up.out, /migrated the data from format 1 to 2/)
-    assert.deepEqual({ format: lockOf(w.host).format, commit: lockOf(w.host).commit }, { format: 2, commit: moved })
+    assert.match(up.out, new RegExp(`migrated the data from format ${FORMAT} to ${FORMAT + 1}`))
+    assert.deepEqual({ format: lockOf(w.host).format, commit: lockOf(w.host).commit }, { format: FORMAT + 1, commit: moved })
     assert.equal(git(programOf(w.host), "rev-parse", "HEAD"), moved)
-    const meta = JSON.parse(readFileSync(join(w.host, "naima-tracker", "naima-data", "todos", "written-format-1", "meta.json"), "utf8"))
+    const meta = JSON.parse(readFileSync(join(w.host, "naima-tracker", "naima-data", "todos", "written-old-format", "meta.json"), "utf8"))
     assert.equal(meta.stamped, true)
     assert.equal(naima(w.host, "check").code, 0)
     assert.equal(naima(w.host, "update", "--check").code, 0)
@@ -237,7 +237,7 @@ test("a fork source is honoured: the whole project runs that fork at that commit
   try {
     bootstrap(w)
     const f = fork(w)
-    setLock(w.host, { source: f.dir, commit: f.commit, plugins: ["plugins/escape.ts"] })
+    setLock(w.host, { source: f.dir, commit: f.commit, plugins: { escape: { source: "plugins/escape.ts" } } })
     const r = naima(w.host, "fork-says")
     assert.equal(r.code, 0, r.err)
     assert.equal(r.out, "this is the fork")
@@ -253,7 +253,7 @@ test("under the launcher's permissions Naima writes only under naima-tracker/ an
   try {
     bootstrap(w)
     const f = fork(w)
-    setLock(w.host, { source: f.dir, commit: f.commit, plugins: ["plugins/escape.ts"] })
+    setLock(w.host, { source: f.dir, commit: f.commit, plugins: { escape: { source: "plugins/escape.ts" } } })
     assert.equal(naima(w.host, "write-inside").code, 0)
     assert.ok(existsSync(join(w.host, "naima-tracker", "naima-data", "inside.txt")))
     const write = naima(w.host, "write-outside")

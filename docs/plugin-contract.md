@@ -13,13 +13,20 @@ export default function myPlugin(options: Record<string, unknown>): Plugin {
 }
 ```
 
-The first-party plugins are always loaded. A third-party plugin is added
-under `plugins` in `naima.json`, by its path inside the program — a fork of
-Naima that carries it — with optional `options` ([configuration](config.md)):
+The first-party plugins are loaded unless the project switches one off or
+replaces it. A third-party plugin is added under `plugins` in `naima.json`,
+by the path of its module inside the program — a fork of Naima that carries
+it — with optional `options`; a first-party plugin takes its options, and its
+replacement, the same way ([configuration](config.md#the-plugins-table)):
 
 ```json
-{ "plugins": [{ "name": "plugins/mine.ts", "options": {} }] }
+{ "plugins": { "mine": { "source": "plugins/mine.ts", "options": {} }, "docs": { "options": { "reference": "docs/reference.md" } } } }
 ```
+
+A plugin is registered under the name its entry has. The factory is called
+with the entry's `options`; a plugin that carries migrations must accept the
+options as they stand before its own migrations run, since it is loaded then
+to collect them.
 
 ## Contributions
 
@@ -32,7 +39,7 @@ Naima that carries it — with optional `options` ([configuration](config.md)):
 | `fields` | fields with a kind (`string`, `strings`, `date`, `enum`, `boolean`, `number`, `object`), enum values in rank order, and the types they apply to; `configured: true` when the values come from the project's configuration, so the program's reference does not list them |
 | `relations` | link relations; each names its inverse, which must also be declared |
 | `dirs` | directories under the tracker root the plugin owns that are not item types |
-| `checks` | `run(ctx) → Finding[]`; `problem` fails `naima check`, `note` does not |
+| `checks` | `run(ctx) → Finding[]`; `problem` fails `naima check`, `note` does not; the project may weigh each one `off`, `note` or `problem` ([check severity](config.md#check-severity)) |
 | `commands` | `naima <name>`: `says`, `usage`, `options` (one per `--flag` in the usage), `examples` (invocations without the leading `naima`); `run(args, ctx)` returns an exit code (may be async) |
 | `views` | `naima view <name>`: a named rendering of derived state |
 | `summary` | a block of `naima summary` |

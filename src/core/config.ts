@@ -1,24 +1,24 @@
-// The project file, `naima-data/naima.json`, and the plugins it adds.
+// The project file, `naima-data/naima.json`.
 //
-// Automatic, not configured: every first-party plugin is always loaded, with
-// defaults it infers from the repository. The file holds only what the tool
-// cannot infer — the data formats, the lock (which Naima runs: its source,
-// commit and how it is carried), where the program is when it has moved, the
-// project's gates, and third-party plugins to add. Nothing in it switches
-// anything on. The format is specified in docs/format.md.
+// Automatic first: every first-party plugin is loaded, with defaults it infers
+// from the repository, unless the project says otherwise. The file holds only
+// what the tool cannot infer — the data formats, the lock (which Naima runs:
+// its source, commit and how it is carried), where the program is when it has
+// moved — and the `plugins` table: a plugin's options, a plugin switched off
+// or replaced, a third-party plugin added, a check weighed differently. The
+// format is specified in docs/format.md.
 
 import { readFileSync } from "node:fs"
 import { isAbsolute, join, relative, resolve, sep } from "node:path"
-import { pathToFileURL } from "node:url"
 import { message } from "./errors.ts"
 import { writeFileAtomic } from "./files.ts"
 import { DATA_FILE, DEFAULT_PROGRAM } from "./layout.ts"
 import { FORMAT, formatRefusal, formatsOf } from "./format.ts"
-import type { Carry, Config, Plugin, PluginEntry, PluginFactory, PluginOptions } from "./types.ts"
+import type { Carry, Config, PluginConfig, PluginOptions, Severity } from "./types.ts"
 
 export const CARRY_MODES: readonly Carry[] = ["clone", "vendored", "submodule"]
 
-const KEYS = new Set(["format", "formats", "source", "commit", "carry", "program", "gates", "plugins"])
+const KEYS = new Set(["format", "formats", "source", "commit", "carry", "program", "plugins"])
 const COMMIT = /^[0-9a-f]{40}$/
 
 const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v)
@@ -79,20 +79,50 @@ export function parseConfig(raw: unknown, opts: { lenient?: boolean } = {}): Con
     }
   }
   const lock = parseLock(raw)
-  const gates = raw["gates"] ?? {}
-  if (!isObject(gates)) throw new Error(`${DATA_FILE}: gates must map a gate name to its definition`)
-  const extras = raw["plugins"] ?? []
-  if (!Array.isArray(extras)) throw new Error(`${DATA_FILE}: plugins must be a list of third-party plugins`)
-  const plugins: PluginEntry[] = extras.map((p: unknown) => {
-    if (typeof p === "string") return { name: p, options: {} }
-    if (isObject(p) && typeof p["name"] === "string") {
-      const options = p["options"] ?? {}
-      if (!isObject(options)) throw new Error(`${DATA_FILE}: options of plugin "${p["name"]}" must be an object`)
-      return { name: p["name"], options: options as PluginOptions }
+  return { format: FORMAT, formats: formatsOf(raw), ...lock, plugins: parsePlugins(raw["plugins"]) }
+}
+
+const ENTRY_KEYS = new Set(["enabled", "options", "source", "replacedBy", "checks"])
+const SEVERITIES = new Set<string>(["off", "note", "problem"])
+/** A plugin's name: what its contributions' qualified ids start with. */
+export const PLUGIN_NAME = /^[a-z][a-z0-9-]*$/
+
+/** The `plugins` table: plugin name → its configuration. Which names are first-party is the loader's to say. */
+function parsePlugins(value: unknown): Record<string, PluginConfig> {
+  if (value === undefined) return {}
+  if (!isObject(value)) {
+    throw new Error(`${DATA_FILE}: plugins maps a plugin's name to its configuration: { "options", "enabled", "source", "replacedBy", "checks" }`)
+  }
+  const out: Record<string, PluginConfig> = {}
+  for (const [name, entry] of Object.entries(value)) {
+    const where = `${DATA_FILE}: plugins.${name}`
+    if (!PLUGIN_NAME.test(name)) throw new Error(`${where}: a plugin's name is lowercase letters, digits and dashes, starting with a letter`)
+    if (!isObject(entry)) throw new Error(`${where} must be an object: { "options", "enabled", "source", "replacedBy", "checks" }`)
+    for (const key of Object.keys(entry)) {
+      if (!ENTRY_KEYS.has(key)) throw new Error(`${where}: unknown key "${key}" — an entry holds ${[...ENTRY_KEYS].join(", ")}`)
     }
-    throw new Error(`${DATA_FILE}: a plugin entry is a path inside the program, or { "name", "options" }`)
-  })
-  return { format: FORMAT, formats: formatsOf(raw), ...lock, gates, plugins }
+    const { enabled = true, options = {}, source, replacedBy, checks = {} } = entry
+    if (typeof enabled !== "boolean") throw new Error(`${where}.enabled must be true or false`)
+    if (!isObject(options)) throw new Error(`${where}.options must be an object`)
+    for (const [key, v] of [["source", source], ["replacedBy", replacedBy]] as const) {
+      if (v !== undefined && (typeof v !== "string" || !v.trim())) throw new Error(`${where}.${key} must be a path inside the program`)
+    }
+    if (source !== undefined && replacedBy !== undefined) {
+      throw new Error(`${where}: source is a third-party plugin's, replacedBy a first-party one's — not both`)
+    }
+    if (!isObject(checks)) throw new Error(`${where}.checks maps a check's name to off, note or problem`)
+    for (const [check, level] of Object.entries(checks)) {
+      if (typeof level !== "string" || !SEVERITIES.has(level)) throw new Error(`${where}.checks.${check} must be off, note or problem`)
+    }
+    out[name] = {
+      enabled,
+      options: options as PluginOptions,
+      ...(typeof source === "string" ? { source } : {}),
+      ...(typeof replacedBy === "string" ? { replacedBy } : {}),
+      checks: checks as Record<string, Severity>,
+    }
+  }
+  return out
 }
 
 /** The raw JSON of `<data>/naima.json`. */
@@ -130,31 +160,6 @@ export function programOf(data: string): string {
 
 /** The absolute program directory of a project whose data is `data`. */
 export const programDir = (data: string, config: Pick<Config, "program">): string => resolve(data, config.program)
-
-/**
- * The third-party plugins: a module whose default export is a plugin factory,
- * named by its path inside the program. Code runs only from the program —
- * never from the data, never from a package — so a project that wants a
- * plugin carries it in its fork of Naima. The first-party ones are not listed
- * anywhere: the caller loads every one of them.
- */
-export async function loadPlugins(program: string, config: Config, firstParty: string[]): Promise<Plugin[]> {
-  const out: Plugin[] = []
-  for (const entry of config.plugins) {
-    if (firstParty.includes(entry.name)) throw new Error(`${DATA_FILE}: "${entry.name}" is first-party and always loaded — plugins lists only third-party ones`)
-    const path = resolve(program, entry.name)
-    const inside = relative(program, path)
-    if (isAbsolute(entry.name) || !inside || inside.startsWith("..") || isAbsolute(inside)) {
-      throw new Error(
-        `${DATA_FILE}: plugin "${entry.name}" is not a path inside the program — code runs only from the program; carry the plugin in a fork of Naima`,
-      )
-    }
-    const mod = (await import(pathToFileURL(path).href)) as { default?: unknown }
-    if (typeof mod.default !== "function") throw new Error(`plugin "${entry.name}" has no default-exported factory`)
-    out.push((mod.default as PluginFactory)(entry.options))
-  }
-  return out
-}
 
 /** A path from `from` to `to`, with forward slashes: for messages, and for git. */
 export const posixRelative = (from: string, to: string): string => relative(from, to).split(sep).join("/")

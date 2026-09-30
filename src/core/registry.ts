@@ -3,12 +3,20 @@
 
 import { FrozenMap, FrozenSet } from "./collections.ts"
 import { inOrder } from "./format.ts"
-import type { Check, Command, FieldDef, GateDef, Plugin, RankTerm, Registry, RelationDef, SummarySection, TypeDef, Verifier, View } from "./types.ts"
+import type { Check, Command, FieldDef, GateDef, Plugin, RankTerm, Registry, RelationDef, Severity, SummarySection, TypeDef, Verifier, View } from "./types.ts"
 
 export interface RegistryOptions {
   /** Command names the entry point answers before any plugin is loaded: a plugin command by one of them could never run. */
   reserved?: string[]
+  /** The severity the project gives a plugin's checks: plugin name → check name → severity. A check set off is not run. */
+  severities?: Record<string, Record<string, Severity>>
 }
+
+/** A check as the project weighs it: every finding at `level`. */
+const weighed = (check: Check, level: Exclude<Severity, "off">): Check => ({
+  ...check,
+  run: (ctx) => check.run(ctx).map((f) => ({ ...f, level })),
+})
 
 export function buildRegistry(plugins: Plugin[], opts: RegistryOptions = {}): Registry {
   // Built mutable here, then handed out frozen: no plugin can change another's contributions at run time.
@@ -69,7 +77,20 @@ export function buildRegistry(plugins: Plugin[], opts: RegistryOptions = {}): Re
     for (const c of p.checks ?? []) own("check", c.name, p.name)
     for (const s of p.summary ?? []) own("summary section", s.name, p.name)
     for (const t of p.rank ?? []) own("rank term", t.name, p.name)
-    registry.checks.push(...(p.checks ?? []))
+    const levels = opts.severities?.[p.name] ?? {}
+    for (const name of Object.keys(levels)) {
+      if (!(p.checks ?? []).some((c) => c.name === name)) {
+        throw new Error(
+          `plugins.${p.name}.checks names "${name}", which ${p.name} does not declare — its checks: ${
+            (p.checks ?? []).map((c) => c.name).join(", ") || "none"
+          }`,
+        )
+      }
+    }
+    for (const c of p.checks ?? []) {
+      const level = Object.hasOwn(levels, c.name) ? levels[c.name] : undefined
+      if (level !== "off") registry.checks.push(level ? weighed(c, level) : c)
+    }
     registry.summary.push(...(p.summary ?? []))
     registry.rank.push(...(p.rank ?? []))
   }

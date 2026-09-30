@@ -131,7 +131,7 @@ test("check fails on a tracker that mixes formats", () => {
   }
 })
 
-/** A plugin whose format 1 → 2 moves its setting `oldKey` to `gates`, and 2 → 3 renames its field `size` to `bytes`. */
+/** A plugin whose format 1 → 2 moves its setting `oldKey` to its own options, and 2 → 3 renames its field `size` to `bytes`. */
 const moving = (steps = 2): Plugin => ({
   name: "mover",
   says: "a plugin whose data moves",
@@ -139,7 +139,7 @@ const moving = (steps = 2): Plugin => ({
     {
       from: 1,
       says: "oldKey moved",
-      config: ({ oldKey, ...rest }) => (oldKey === undefined ? rest : { ...rest, gates: oldKey }),
+      config: ({ oldKey, ...rest }) => (oldKey === undefined ? rest : { ...rest, plugins: { mover: { options: { key: oldKey } } } }),
     },
     { from: 2, says: "size became bytes", item: ({ size, ...rest }) => (size === undefined ? rest : { ...rest, bytes: size }), stale: (m) => "size" in m },
   ] satisfies Migration[]).slice(0, steps),
@@ -156,7 +156,11 @@ test("a plugin's own migrations run after the core's and record its format in fo
     const after = files(data)
     assert.equal(
       after["naima.json"],
-      JSON.stringify({ format: 3, formats: { mover: 3 }, source: "s", commit: "a".repeat(40), carry: "clone", gates: { x: 1 } }, null, 2) + "\n",
+      JSON.stringify(
+        { format: 3, formats: { mover: 3 }, source: "s", commit: "a".repeat(40), carry: "clone", plugins: { mover: { options: { key: { x: 1 } } } } },
+        null,
+        2,
+      ) + "\n",
     )
     assert.deepEqual(JSON.parse(after[join("bugs", "beta", "meta.json")] ?? ""), { id: "2", title: "Beta", status: "open", bytes: 3 })
     assert.deepEqual(migrate(data, fixture, [{ plugin: "mover", migrations: plugin.migrations ?? [] }]), [], "idempotent")
@@ -202,7 +206,7 @@ test("data that owes a plugin's migration: the launched program refuses it, the 
     const before = files(data)
     const errors: string[] = []
     const io = { out: () => {}, err: (l: string) => void errors.push(l), now: () => new Date() }
-    const opts = (plugin: Plugin, launched: boolean) => ({ programRoot: place.program, firstParty: () => [plugin], launched })
+    const opts = (plugin: Plugin, launched: boolean) => ({ programRoot: place.program, firstParty: [{ name: plugin.name, factory: () => plugin }], launched })
     await assert.rejects(
       openProject(place, opts(moving(1), true), io),
       /naima\.json is mover format 1, older than the mover format 2 this Naima's mover reads — naima update migrates it/,

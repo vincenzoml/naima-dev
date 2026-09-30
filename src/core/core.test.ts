@@ -57,31 +57,37 @@ test("the registry refuses a name declared twice", () => {
 
 const LOCK = { source: "https://example.invalid/naima.git", commit: "a".repeat(40) }
 
-test("naima.json: the format, the lock, gates and third-party plugins; nothing to switch on", () => {
-  assert.deepEqual(parseConfig({ format: FORMAT, ...LOCK }), {
-    format: FORMAT,
-    formats: {},
-    ...LOCK,
-    carry: "clone",
-    program: "../naima",
-    gates: {},
-    plugins: [],
-  })
+test("naima.json: the formats, the lock, and the plugins table — options, enabled, source, replacedBy, check severities", () => {
+  assert.deepEqual(parseConfig({ format: FORMAT, ...LOCK }), { format: FORMAT, formats: {}, ...LOCK, carry: "clone", program: "../naima", plugins: {} })
   const c = parseConfig({
     format: FORMAT,
     ...LOCK,
     carry: "vendored",
-    gates: { v1: {} },
-    plugins: ["plugins/a.ts", { name: "plugins/b.ts", options: { k: 1 } }],
+    plugins: {
+      gates: { options: { gates: { v1: { title: "One" } } } },
+      "beta-markers": { enabled: false },
+      trackers: { replacedBy: "plugins/my-trackers.ts" },
+      mine: { source: "plugins/mine.ts", options: { k: 1 }, checks: { strict: "note" } },
+    },
   })
   assert.equal(c.carry, "vendored")
-  assert.deepEqual(c.plugins, [{ name: "plugins/a.ts", options: {} }, { name: "plugins/b.ts", options: { k: 1 } }])
+  assert.deepEqual(c.plugins, {
+    gates: { enabled: true, options: { gates: { v1: { title: "One" } } }, checks: {} },
+    "beta-markers": { enabled: false, options: {}, checks: {} },
+    trackers: { enabled: true, options: {}, replacedBy: "plugins/my-trackers.ts", checks: {} },
+    mine: { enabled: true, options: { k: 1 }, source: "plugins/mine.ts", checks: { strict: "note" } },
+  })
   assert.throws(() => parseConfig({ ...LOCK }), /has no format/)
   assert.throws(() => parseConfig({ format: FORMAT, source: "", commit: LOCK.commit }), /source must be/)
   assert.throws(() => parseConfig({ format: FORMAT, ...LOCK, commit: "abc" }), /commit must be the full hash/)
   assert.throws(() => parseConfig({ format: FORMAT, ...LOCK, carry: "zip" }), /carry must be one of: clone, vendored, submodule/)
   assert.throws(() => parseConfig({ format: FORMAT, ...LOCK, naima: "^0.2.0" }), /unknown key "naima"/)
-  assert.throws(() => parseConfig({ format: FORMAT, ...LOCK, plugins: [3] }), /a plugin entry/)
+  assert.throws(() => parseConfig({ format: FORMAT, ...LOCK, gates: {} }), /unknown key "gates"/, "gates are the gates plugin's options now")
+  assert.throws(() => parseConfig({ format: FORMAT, ...LOCK, plugins: ["plugins/a.ts"] }), /plugins maps a plugin's name/)
+  assert.throws(() => parseConfig({ format: FORMAT, ...LOCK, plugins: { Mine: {} } }), /lowercase letters/)
+  assert.throws(() => parseConfig({ format: FORMAT, ...LOCK, plugins: { mine: { enable: false } } }), /unknown key "enable"/)
+  assert.throws(() => parseConfig({ format: FORMAT, ...LOCK, plugins: { mine: { checks: { x: "warn" } } } }), /checks\.x must be off, note or problem/)
+  assert.throws(() => parseConfig({ format: FORMAT, ...LOCK, plugins: { mine: { source: "a.ts", replacedBy: "b.ts" } } }), /not both/)
   assert.deepEqual(parseConfig({ format: FORMAT, formats: { gates: 2 }, ...LOCK }).formats, { gates: 2 })
   assert.throws(() => parseConfig({ format: FORMAT, formats: { gates: 0 }, ...LOCK }), /formats\.gates must be a format/)
 })
@@ -426,7 +432,7 @@ test("the registry and the config cannot be changed once the project is loaded",
     assert.throws(() => mutable.dirs.add("X"), /registry is read-only/)
     assert.throws(() => mutable.checks.push({}), TypeError)
     assert.throws(() => Object.assign(registry, { commands: new Map() }), TypeError)
-    assert.throws(() => Object.assign(config.gates, { v2: {} }), TypeError)
+    assert.throws(() => Object.assign(config.plugins, { v2: {} }), TypeError)
     assert.throws(() => Object.assign(config, { commit: "f".repeat(40) }), TypeError)
     assert.ok(registry.commands.has("show") && registry.types.has("notes"))
   } finally {

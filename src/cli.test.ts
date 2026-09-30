@@ -59,7 +59,13 @@ test("init writes naima-tracker/ and nothing else, locked to the Naima that runs
     assert.match(init.out, /next: naima new/)
     const data = JSON.parse(readFileSync(join(h.root, "naima-tracker", "naima-data", "naima.json"), "utf8"))
     const git = (...args: string[]) => gitIn(PROGRAM, ...args)
-    assert.deepEqual(data, { format: FORMAT, source: git("remote", "get-url", "origin"), commit: git("rev-parse", "HEAD"), carry: "clone" })
+    assert.deepEqual(data, {
+      format: FORMAT,
+      formats: { gates: 2 },
+      source: git("remote", "get-url", "origin"),
+      commit: git("rev-parse", "HEAD"),
+      carry: "clone",
+    })
     assert.equal(readFileSync(join(h.root, "naima-tracker", "README.md"), "utf8"), TRACKER_README)
     assert.equal(readFileSync(join(h.root, "naima-tracker", ".gitignore"), "utf8"), "/naima/\n")
     assert.equal(
@@ -96,7 +102,7 @@ test("every first-party plugin is loaded with nothing but the lock; new, link, s
     assert.equal((await naima(h.root, ["init"])).code, 0)
     const sub = join(h.root, "src")
     const plugins = (await naima(sub, ["plugins"])).out
-    for (const p of firstParty({ gates: {} })) assert.match(plugins, new RegExp(`\\b${p.name}\\b`))
+    for (const p of firstParty) assert.match(plugins, new RegExp(`\\b${p.name}\\b`))
     const made = await naima(sub, ["new", "bugs", "Export drops alpha", "--set", "impact=high"])
     assert.match(made.out, /^naima-tracker\/naima-data\/bugs\/export-drops-alpha\//)
     assert.equal((await naima(sub, ["new", "tests", "Export keeps alpha"])).code, 0)
@@ -148,7 +154,7 @@ test("newer data is refused in one line, and nothing is written", async () => {
   }
 })
 
-test("a third-party plugin runs only from inside the program; a first-party name is refused", async () => {
+test("a third-party plugin runs only from inside the program; a first-party name takes replacedBy, never source", async () => {
   const h = host()
   try {
     assert.equal((await naima(h.root, ["init"])).code, 0)
@@ -160,13 +166,18 @@ test("a third-party plugin runs only from inside the program; a first-party name
     writeFileSync(join(h.root, "hello.mjs"), plugin)
     const file = join(h.root, "naima-tracker", "naima-data", "naima.json")
     const lock = JSON.parse(readFileSync(file, "utf8"))
-    const plugins = (list: unknown[]) => writeFileSync(file, JSON.stringify({ ...lock, plugins: list }))
-    plugins([{ name: "plugins/hello.mjs", options: { who: "world" } }])
+    const plugins = (table: unknown) => writeFileSync(file, JSON.stringify({ ...lock, plugins: table }))
+    plugins({ hello: { source: "plugins/hello.mjs", options: { who: "world" } } })
     assert.equal((await naima(h.root, ["hello"], program)).out, "hello world")
-    plugins(["../project/hello.mjs"])
+    plugins({ hello: { source: "../project/hello.mjs" } })
     assert.match((await naima(h.root, ["hello"], program)).err, /not a path inside the program/)
-    plugins(["trackers"])
-    assert.match((await naima(h.root, ["check"], program)).err, /"trackers" is first-party and always loaded/)
+    plugins({ trackers: { source: "plugins/hello.mjs" } })
+    assert.match(
+      (await naima(h.root, ["check"], program)).err,
+      /plugins\.trackers is first-party and already loaded — replacedBy runs other code under its name/,
+    )
+    plugins({ hello: { options: {} } })
+    assert.match((await naima(h.root, ["check"], program)).err, /plugins\.hello is no first-party plugin and names no source/)
   } finally {
     h.cleanup()
   }
@@ -195,7 +206,10 @@ test("the reference is the program's: a project's own gates do not change it", a
     const before = await naima(h.root, ["docs"])
     const file = join(h.root, "naima-tracker", "naima-data", "naima.json")
     const lock = JSON.parse(readFileSync(file, "utf8"))
-    writeFileSync(file, JSON.stringify({ ...lock, gates: { "v1-launch": { title: "The launch", says: "what ships first" } } }))
+    writeFileSync(
+      file,
+      JSON.stringify({ ...lock, plugins: { gates: { options: { gates: { "v1-launch": { title: "The launch", says: "what ships first" } } } } } }),
+    )
     const after = await naima(h.root, ["docs"])
     assert.equal(after.code, 0, after.err)
     assert.equal(after.out, before.out)
@@ -221,7 +235,7 @@ export default () => ({ name: "codes", says: "exit codes", commands: [
 ] })\n`,
     )
     const file = join(h.root, "naima-tracker", "naima-data", "naima.json")
-    writeFileSync(file, JSON.stringify({ ...JSON.parse(readFileSync(file, "utf8")), plugins: ["plugins/codes.mjs"] }))
+    writeFileSync(file, JSON.stringify({ ...JSON.parse(readFileSync(file, "utf8")), plugins: { codes: { source: "plugins/codes.mjs" } } }))
     const own = await naima(h.root, ["seventy-five"], program)
     assert.deepEqual([own.code, own.out], [1, "run 1"])
     assert.match(own.err, /exited 75, the code reserved for asking the launcher to relaunch — reported as 1/)

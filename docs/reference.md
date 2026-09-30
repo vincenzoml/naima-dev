@@ -658,7 +658,7 @@ Options, each with the default it takes when nothing sets it:
 
 | Option | Default | What it does |
 |---|---|---|
-| `gates` | `{}` | the `gates` key of `naima-tracker/naima-data/naima.json`: gate name → { "title", "says", "holdsOn" }. holdsOn "code" (the default) waits for code, not proof: a fixed item that owes only its proving gesture, and the gestures themselves, are owed but do not block. holdsOn "proof": every open item on the gate blocks it. |
+| `gates` | `{}` | `plugins.gates.options.gates` in `naima-tracker/naima-data/naima.json`: gate name → { "title", "says", "holdsOn" }. holdsOn "code" (the default) waits for code, not proof: a fixed item that owes only its proving gesture, and the gestures themselves, are owed but do not block. holdsOn "proof": every open item on the gate blocks it. |
 
 ### naima gates
 
@@ -713,6 +713,10 @@ naima queue first-public --human
 **Summary sections**: `gates`.
 
 **Rank terms**, added to every item's urgency: `gate`.
+
+**Migrations** of its own data, run by `naima update` after the core's; its format is 2:
+
+- format 1 → 2: the top-level gates key of naima.json moves to plugins.gates.options.gates
 
 ## beta-markers
 

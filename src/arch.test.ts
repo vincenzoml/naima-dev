@@ -53,7 +53,7 @@ const CORE = join(SRC, "core")
 const PUBLIC = join(CORE, "index.ts")
 const TEST_HELPER = join(CORE, "testing.ts")
 /** The one computed import the rule allows: the core loading a third-party plugin named in naima.json. */
-const PLUGIN_LOADER = join(CORE, "config.ts")
+const PLUGIN_LOADER = join(CORE, "plugins.ts")
 /** Every place a plugin can live: the first-party ones, and the program's plugins/ for a fork's own. */
 const PLUGIN_DIRS = [join(SRC, "plugins"), join(ROOT, "plugins")]
 
@@ -108,7 +108,7 @@ const CONTRACT = ["types", "fields", "relations", "dirs", "checks", "commands", 
 function pluginVocabulary(): Set<string> {
   const core = new Set<string>([...CONTRACT, ...(corePlugin.fields ?? []).map((f) => f.name), ...(corePlugin.relations ?? []).map((r) => r.name)])
   const names = new Set<string>()
-  for (const p of firstParty({ gates: {} })) {
+  for (const p of firstParty.map((f) => f.factory({}))) {
     for (
       const n of [
         p.name,

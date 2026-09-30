@@ -1,10 +1,11 @@
 // Gates: named release or merge conditions, backed by items.
 //
 // A gate is the set of items that must be settled before something may
-// happen. It is configured, never hard-coded, under `gates` in the project's
-// naima-tracker/naima-data/naima.json:
+// happen. It is configured, never hard-coded, in this plugin's options in the
+// project's naima-tracker/naima-data/naima.json:
 //
-//   "gates": { "v1": { "title": "First public release", "says": "…", "holdsOn": "code" } }
+//   "plugins": { "gates": { "options": { "gates": {
+//     "v1": { "title": "First public release", "says": "…", "holdsOn": "code" } } } } }
 //
 // holdsOn "code"  (default) the gate waits for code, not for proof: an item
 //                 that is fixed and owes only its proving gesture, and the
@@ -31,6 +32,7 @@ import {
   type Item,
   label,
   linked,
+  type Migration,
   parse,
   type Plugin,
   type SummarySection,
@@ -58,6 +60,21 @@ const GATE = { name: "gate", kind: "enum" } as const
 const FIXED_ON = { name: "fixedOn", kind: "date" } as const
 const RUN_BY = { name: "runBy", kind: "enum" } as const
 const HUMAN_BECAUSE = { name: "humanBecause", kind: "enum" } as const
+
+const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v)
+
+/** Format 1 → 2: the project's gates, once a top-level key of naima.json, are this plugin's own options. */
+export const moveGates: Migration = {
+  from: 1,
+  says: "the top-level gates key of naima.json moves to plugins.gates.options.gates",
+  config({ gates, ...raw }) {
+    if (gates === undefined || (isObject(gates) && !Object.keys(gates).length)) return raw
+    const plugins = isObject(raw["plugins"]) ? raw["plugins"] : {}
+    const entry = isObject(plugins["gates"]) ? plugins["gates"] : {}
+    const options = isObject(entry["options"]) ? entry["options"] : {}
+    return { ...raw, plugins: { ...plugins, gates: { ...entry, options: { ...options, gates } } } }
+  },
+}
 
 /** Fixed but unproven, or itself a proving gesture: owed, not blocking, under holdsOn "code". */
 const owesOnlyProof = (ctx: Context, item: Item): boolean => fieldValue(item, FIXED_ON) !== undefined || isEvidenceType(ctx, item.type)
@@ -179,7 +196,7 @@ export default function gates(options: Record<string, unknown> = {}): Plugin {
       {
         name: "gates",
         says:
-          `the \`gates\` key of \`${DEFAULT_DATA}/${DATA_FILE}\`: gate name → { "title", "says", "holdsOn" }. holdsOn "code" (the default) waits for code, not proof: a fixed item that owes only its proving gesture, and the gestures themselves, are owed but do not block. holdsOn "proof": every open item on the gate blocks it.`,
+          `\`plugins.gates.options.gates\` in \`${DEFAULT_DATA}/${DATA_FILE}\`: gate name → { "title", "says", "holdsOn" }. holdsOn "code" (the default) waits for code, not proof: a fixed item that owes only its proving gesture, and the gestures themselves, are owed but do not block. holdsOn "proof": every open item on the gate blocks it.`,
         default: "{}",
       },
     ],
@@ -193,6 +210,7 @@ export default function gates(options: Record<string, unknown> = {}): Plugin {
       },
     ],
     gates: defs,
+    migrations: [moveGates],
     rank: [{ name: "gate", score: (i) => (fieldValue(i, GATE) !== undefined ? 0 : 4) }],
     checks: [gatedProofIsGated],
     commands: [gatesCommand, queue],

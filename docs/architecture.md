@@ -18,8 +18,10 @@ src/
     git.ts         the one git wrapper (runGit, gitOrNull, mustGit); reading across every branch; the project's files
     files.ts       the one walker (regular files only, links never followed); writeFileAtomic
     layout.ts      naima-tracker/ and its names; finding the data directory
-    config.ts      naima.json: the lock, gates, third-party plugin loading
+    config.ts      naima.json: the formats, the lock, the plugins table
+    plugins.ts     which plugins a project loads: first-party ones as they are, off or replaced; third-party ones
     format.ts      the data formats, the core's and each plugin's; migrations; the one-format check
+    migrations.ts  the core's own migrations
     project.ts     opening a project: naima.json, the plugins, their formats, the registry, the context
     entry.ts       the commands the entry point answers before any plugin loads
     excludes.ts    the host tool configurations init prints, or writes, an exclusion for
@@ -29,7 +31,7 @@ src/
     testing.ts     a throwaway project for tests
   plugins/<name>/  one directory per first-party plugin, with its tests:
                    trackers, coordination, triage, gates, beta-markers, verifier, docs
-  builtins.ts      every first-party plugin, always loaded } the composition root:
+  builtins.ts      every first-party plugin, in load order } the composition root:
   cli.ts           the program's entry point             } the only modules that see both
   launcher.ts      runs the program under Deno's permissions (install.md)
 ```
@@ -98,7 +100,8 @@ records count.
 `src/arch.test.ts` enforces the rule on every test run, on every way one
 module reaches another — static, side-effect and dynamic imports, re-exports,
 `require` — for the first-party plugins and for a fork's own under `plugins/`.
-The one computed import allowed is the core loading a third-party plugin.
+The one computed import allowed is the core loading a plugin a project's
+`plugins` table names (`core/plugins.ts`).
 
 ## Checks
 

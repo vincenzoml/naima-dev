@@ -207,9 +207,27 @@ export interface Migration {
 export type PluginOptions = Record<string, unknown>
 export type PluginFactory = (options: PluginOptions) => Plugin
 
-export interface PluginEntry {
+/** A first-party plugin: its name and its factory, loaded unless the project switches it off or replaces it. */
+export interface FirstParty {
   name: string
+  factory: PluginFactory
+}
+
+/** How much a check's finding weighs in this project: off, a note, or a problem that fails `naima check`. */
+export type Severity = "off" | "note" | "problem"
+
+/** One entry of naima.json's `plugins` table: how the project configures the plugin of that name. */
+export interface PluginConfig {
+  /** False switches the plugin off: it is not loaded. */
+  enabled: boolean
+  /** The plugin's own options, as it documents them. */
   options: PluginOptions
+  /** A third-party plugin's code: a path inside the program. */
+  source?: string
+  /** A first-party plugin's replacement: the code that runs under its name instead. */
+  replacedBy?: string
+  /** The severity of the plugin's checks, by check name, as the project weighs them. */
+  checks: Record<string, Severity>
 }
 
 /** How a project carries its program: a gitignored clone, plain committed files, or a git submodule. */
@@ -228,10 +246,8 @@ export interface Config {
   carry: Carry
   /** The program directory, relative to the data directory. */
   program: string
-  /** The project's gates, by name; read by the gates plugin. */
-  gates: Record<string, unknown>
-  /** Third-party plugins to add, as paths inside the program; every first-party plugin is always loaded. */
-  plugins: PluginEntry[]
+  /** Every plugin the project configures, first-party or third-party, by name. A first-party plugin it does not name is loaded as it is. */
+  plugins: Record<string, PluginConfig>
 }
 
 /** Every loaded contribution, merged. Read-only: frozen once built, so no plugin can change another's. */

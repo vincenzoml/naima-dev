@@ -20,14 +20,15 @@ import { DATA_FILE } from "./layout.ts"
 import { listDirs, META } from "./item.ts"
 import { writeFileAtomic } from "./files.ts"
 import { label } from "./lifecycle.ts"
+import { CORE_MIGRATIONS } from "./migrations.ts"
 import type { Check, Finding, Migration } from "./types.ts"
 
 export type { Migration } from "./types.ts"
 
 type Json = Record<string, unknown>
 
-/** Every migration of the core's own format, in order. Empty while format 1 is the only format. */
-export const MIGRATIONS: readonly Migration[] = []
+/** Every migration of the core's own format, in order (core/migrations.ts). */
+export const MIGRATIONS: readonly Migration[] = CORE_MIGRATIONS
 
 /** The format this Naima reads and writes. */
 export const FORMAT = 1 + MIGRATIONS.length

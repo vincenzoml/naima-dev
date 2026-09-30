@@ -83,11 +83,11 @@ test("init's next step names a type the loaded plugins really create, not a hard
       says: "a project whose only type is tasks",
       types: [{ id: "tasks", dir: "tasks", title: "Tasks", says: "work", statuses: { open: { open: true, says: "to do" } }, initialStatus: "open" }],
     } as unknown as Plugin
-    const r = await naima(w.root, ["init"], w.program, () => [tasks])
+    const r = await naima(w.root, ["init"], w.program, [{ name: "tasks", factory: () => tasks }])
     assert.equal(r.code, 0, r.err)
     assert.match(r.out, /^next: naima new tasks "<the first thing to do>"$/m)
     assert.doesNotMatch(r.out, /todos/)
-    const none = await naima(w.root, ["init"], w.program, () => [])
+    const none = await naima(w.root, ["init"], w.program, [])
     assert.match(none.out, /^next: naima help$/m, "no creatable type: no type is named")
   } finally {
     w.cleanup()

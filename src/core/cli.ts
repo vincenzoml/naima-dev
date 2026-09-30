@@ -17,7 +17,6 @@ import {
   DATA_DIR,
   DATA_FILE,
   DEFAULT_DATA,
-  DEFAULT_PROGRAM,
   DIST_BRANCH,
   findData,
   globalOptions,
@@ -30,7 +29,7 @@ import {
 } from "./layout.ts"
 import { align, carry, ignoreProgram, localWork, refuseLocalWork, remoteHead, short, stage, type Target, vendor } from "./program.ts"
 import { EXIT, isInternal, message } from "./errors.ts"
-import type { Carry, Config, Context, Plugin } from "./types.ts"
+import type { Carry, Context } from "./types.ts"
 
 export interface CliOptions extends OpenOptions {
   cwd: string
@@ -40,8 +39,6 @@ export interface CliOptions extends OpenOptions {
   data?: string
   /** Run by the launcher: align the program first, and ask to be run again when the code on disk is not the code running. */
   launched?: boolean
-  /** Every first-party plugin, built from the config. All of them are always loaded. */
-  firstParty: (config: Config) => Plugin[]
   io?: IO
   /** Print the stack of an internal error (NAIMA_DEBUG=1). */
   debug?: boolean
@@ -134,7 +131,7 @@ async function init(args: string[], opts: CliOptions, io: IO): Promise<number> {
   mkdirSync(data, { recursive: true })
   const readme = join(tracker, "README.md")
   if (!existsSync(readme)) writeFileSync(readme, TRACKER_README)
-  const formats = formatsFor(opts.firstParty(parseConfigFor(source, commit)))
+  const formats = formatsFor(opts.firstParty.map((p) => p.factory({})))
   writeRaw(data, { format: FORMAT, ...(Object.keys(formats).length ? { formats } : {}), source, commit, carry: "clone" })
   ignoreProgram({ root, tracker, program, source, commit, carry: "clone" }, true)
   io.out(`wrote ${TRACKER_DIR}/: README.md, .gitignore, ${DATA_DIR}/${DATA_FILE} — locked to ${source} at ${short(commit)}`)
@@ -153,18 +150,6 @@ function migrated(steps: readonly Step[], from: unknown, plugins: readonly { plu
   }
   return out
 }
-
-/** The config of a project init is about to write: nothing but its lock, in this Naima's format. */
-const parseConfigFor = (source: string, commit: string): Config => ({
-  format: FORMAT,
-  formats: {},
-  source,
-  commit,
-  carry: "clone",
-  program: DEFAULT_PROGRAM,
-  gates: {},
-  plugins: [],
-})
 
 async function update(args: string[], opts: CliOptions, place: Place, lock: Lock, raw: Record<string, unknown>, io: IO): Promise<number> {
   const check = bool(parse(args, { check: { type: "boolean" } }), "check")

@@ -6,8 +6,10 @@ compatibility boundary between forks. Change Naima however you like
 ([modifying Naima](install.md#modifying-naima)); a fork that reads and writes
 this format works on the same data as every other.
 
-This page specifies **format 1**, the one this Naima reads. The format is a
+This page specifies **format 2**, the one this Naima reads. The format is a
 number, `format` in `naima.json`; it moves only with a migration (below).
+Each plugin with migrations of its own has a format of its own too, in
+`formats`.
 
 ## The folder
 
@@ -39,26 +41,26 @@ the one whose `naima.json` carries `format`.
 
 ```json
 {
-  "format": 1,
+  "format": 2,
+  "formats": { "gates": 2 },
   "source": "https://github.com/vincenzoml/naima.git",
   "commit": "0123456789abcdef0123456789abcdef01234567",
   "carry": "clone",
-  "gates": {
-    "v1": { "title": "First release", "says": "What v1 needs.", "holdsOn": "code" }
+  "plugins": {
+    "gates": { "options": { "gates": { "v1": { "title": "First release", "says": "What v1 needs.", "holdsOn": "code" } } } }
   }
 }
 ```
 
 | Key | Required | What it is |
 |---|---|---|
-| `format` | yes | the data format, an integer: this page is format 1 |
+| `format` | yes | the data format, an integer: this page is format 2 |
 | `formats` | no, `{}` | each plugin's own data format, by plugin name: only the plugins whose format has moved past 1 appear; one absent is at format 1 ([migrations](#migrations)) |
 | `source` | yes | the git URL, or absolute path, of the Naima the project runs: Naima's own repository, or a fork; never starting with `-`, and a path on this disk is absolute |
 | `commit` | yes | the full hash of the `source` commit the project runs: **the lock**; a commit of its [`dist` branch](install.md#the-dist-branch), or of `main` for a source without one |
 | `carry` | no, `clone` | how the program is carried: `clone`, `vendored` or `submodule` (below) |
 | `program` | no, `../naima` | the program directory, relative to the data directory |
-| `gates` | no, `{}` | gate name → `{ "title", "says", "holdsOn" }`; how a gate decides is in the [reference](reference.md#gates) |
-| `plugins` | no, `[]` | third-party plugins: a path inside the program, or `{ "name", "options" }` ([configuration](config.md)) |
+| `plugins` | no, `{}` | plugin name → `{ "options", "enabled", "replacedBy", "source", "checks" }`, first-party plugins included: their options (the project's gates are the `gates` plugin's), switched off, replaced, added, their checks weighed ([configuration](config.md#the-plugins-table)) |
 
 Any other key is an error. `source`, `commit`, `carry` and `program` are the
 lock: they keep these names and meanings in every format, so that any Naima
@@ -162,7 +164,16 @@ change `naima.json` alone; one that rewrites items is refused there too. Paralle
 merge it first; every other branch then merges the trunk and runs `naima
 update`, which finishes the migration of its own new items or does nothing.
 
-Format 1 is the first format, and this Naima carries no migration yet. The
-layout before it — a top-level `naima/` directory whose `config.json` held a
+This Naima carries one migration of the core's format, and one of the
+`gates` plugin's:
+
+- **format 1 → 2**: `plugins`, a list of third-party paths, becomes a table
+  keyed by plugin name; each path becomes the `source` of an entry named
+  after its file (`plugins/mine.ts` → `mine`, `plugins/other/index.ts` →
+  `other`, a second `mine` → `mine-2`), its options kept;
+- **gates format 1 → 2**: the top-level `gates` key moves to
+  `plugins.gates.options.gates`.
+
+Format 1 was the first format. The layout before it — a top-level `naima/` directory whose `config.json` held a
 version pin — had no anchor carrying a format, so it cannot be migrated from:
 Naima's own tracker, the only one in it, was moved by hand with `git mv`.

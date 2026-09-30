@@ -78,7 +78,7 @@ test("the program is handed only the allow-listed environment: an unrelated secr
   try {
     assert.equal(launch(w.host, ["init"]).code, 0)
     const file = join(w.host, "naima-tracker", "naima-data", "naima.json")
-    writeFileSync(file, JSON.stringify({ ...JSON.parse(readFileSync(file, "utf8")), plugins: ["plugins/probe.ts"] }, null, 2))
+    writeFileSync(file, JSON.stringify({ ...JSON.parse(readFileSync(file, "utf8")), plugins: { probe: { source: "plugins/probe.ts" } } }, null, 2))
     const r = launch(w.host, ["probe"], { UNRELATED_SECRET: "s3cret", GIT_PROBE: "seen" })
     assert.equal(r.code, 0, r.err)
     assert.deepEqual(r.out.split("\n"), ["secret=undefined", "git=seen", "home=true"])
