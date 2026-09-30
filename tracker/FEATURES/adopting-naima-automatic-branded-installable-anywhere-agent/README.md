@@ -44,9 +44,10 @@ owner (owner rule 3). It is parked, unmerged, on branch
    bootstrap policy (the development version is managed by the previous
    stable) is this same mechanism, not a special case.
 5. **"Just add naima."** `npx naima init` in any git repository: creates
-   `naima/` with the pin, adds one "Tracked with Naima" line to the README
-   (never twice; never creates a README), prints the one next command. No
-   question asked.
+   `naima/` with the pin, ~~adds one "Tracked with Naima" line to the README
+   (never twice; never creates a README),~~ prints the one next command. No
+   question asked. **Reversed 2026-09-30** (see below): `init` touches no
+   file outside `naima/`.
 6. **An agent skill.** Naima ships a skill (`skills/naima/SKILL.md`, in the
    format agent tools load) that teaches an agent to work in a Naima project:
    the flows, the rules, the commands. When the project has no `naima/`, the
@@ -54,6 +55,16 @@ owner (owner rule 3). It is parked, unmerged, on branch
    agent how to get it (npx, or clone the repository and link it). The skill
    is a thin pointer to `docs/flows/` and the reference, never a second copy
    of them.
+
+## Reversal, 2026-09-30
+
+The owner, on the README line of behaviour 5:
+
+> "modifying user files seems extreme"
+
+So the README clause is dropped: `naima init` never touches any file outside
+`naima/`, and the brand is carried only by the top-level `naima/` directory.
+The struck text above is kept as the record of what was asked first.
 
 ## Boundaries
 
@@ -66,14 +77,14 @@ owner (owner rule 3). It is parked, unmerged, on branch
 ## Documentation (owner rule 2)
 
 `docs/`: "Using Naima in your project" (install, `init`, the `naima/` layout,
-the pin, the badge line), "The Naima skill", and the automatic principle in
+the pin, ~~the badge line~~ — reversed 2026-09-30), "The Naima skill", and the automatic principle in
 `docs/config.md`; `docs/reference.md` regenerated.
 
 ## Done when
 
 - An end-to-end test creates a temporary git repository outside Naima, runs
   the CLI from Naima's location (`init`, `new`, `check`), and asserts the
-  only additions are `naima/` and the README line.
+  only addition is `naima/` ~~and the README line~~ (reversed 2026-09-30).
 - A test shows a `naima` outside the pin refusing with its one-line message.
 - Naima's own repo runs on the new layout; a new stable (v0.2.0) is tagged and
   pinned; `npm run verify` passes with both the stable and the working tree.
