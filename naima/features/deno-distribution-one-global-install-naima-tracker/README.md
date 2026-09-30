@@ -1,4 +1,4 @@
-# Deno distribution: one global install, naima-tracker/, a versioned open format
+# Deno distribution: a per-project clone locked by commit, naima-tracker/, an open format
 
 Defined with the owner on 2026-09-30. It supersedes parts of
 `features/adopting-naima-automatic-branded-installable-anywhere-agent`, as
@@ -29,55 +29,76 @@ agent skill stay.
 
 ## Behaviour
 
-1. **The data directory is `naima-tracker/`** at the project root. It is a
-   visible component of the repository, not a cache. It holds
-   `naima-tracker/naima.json` and the items (`naima-tracker/bugs/`, …).
-   Nothing else of Naima's is ever written into a project.
-2. **The repository declares a data format version, not a tool version.**
-   `naima.json` carries `format: <integer>` (plus the project's facts, such as
-   its gates). There is no tool pin.
-3. **Every action goes through the tool, from day 0.** Creating, triaging,
-   linking, closing, checking and the gates all run through `naima`, so the
-   checks are deterministic and they guide the agent.
-4. **One global install, one version, managed by Deno.** Naima is installed
-   with `deno install -g` from a release, with its permissions baked in:
+*Revised 2026-09-30 (second definition round, see Reversals). No
+implementation until the owner says go (owner rule 3).*
+
+1. **One folder, `naima-tracker/`, at the project root**, a visible component
+   of the repository:
+   - `naima-tracker/naima/` is the program and its corpus (flows, roles,
+     rules, skill, docs): a git clone of Naima's repository, **gitignored**;
+   - `naima-tracker/naima-data/` is the items, and `naima.json`;
+   - `naima-tracker/README.md` is one line saying what Naima is, and a link to
+     https://github.com/vincenzoml/naima (owner, 2026-09-30: "naima-tracker
+     must have a README.md with one line explaining what naima is and a link
+     to the repo"). The sentence has one shared source, the same as Naima's
+     own README;
+   - `naima-tracker/.gitignore` ignores `naima/`, so Naima touches no project
+     file outside its folder.
+2. **No releases, no version numbers, no compiled binaries.** Owner: "the tool
+   itself manages updates by pulling from main. That's the release. No
+   versions to manage. Commit id is a version." and "no compiled binaries,
+   just execute from there". Deno executes the TypeScript directly from
+   `naima-tracker/naima/`.
+3. **The data records its Naima, like a lockfile.** `naima-data/naima.json`
+   carries the data `format` (an integer), the Naima `source` (a git URL,
+   Naima's by default) and the `commit` the data was last written and checked
+   with, plus the project's facts, such as its gates. Every run aligns
+   `naima-tracker/naima/` to exactly that source and commit, cloning it if it
+   is absent. So everyone working on the project, and CI, runs the same
+   Naima.
+4. **Updating is an explicit step, never automatic.** `naima update` pulls
+   the source's `main`, migrates the data forward if the format moved, and
+   records the new commit, all as one reviewable commit in the project. No
+   run ever pulls on its own: executing whatever lands on `main` is a supply
+   chain risk.
+5. **Forward-only migration.** When the data's format is older than the
+   checked-out Naima's, `naima update` migrates it deterministically, forward
+   only: the same input gives byte-identical output. When it is newer (data
+   written by a newer Naima than the recorded commit, which only happens by
+   hand), the tool refuses in one line.
+6. **Every action goes through the tool, from day 0**: create, triage, link,
+   close, check, gates. The checks are deterministic, and they guide the
+   agent.
+7. **Deno, with permissions.** The launcher runs Naima under Deno with these
+   permissions:
    - read the repository;
-   - write only under `naima-tracker/` (and git's own files through `git`);
+   - write only under `naima-tracker/`;
    - run only `git`;
-   - nothing else: no network, no env beyond what is needed, no other
-     binaries.
+   - network only for the git operations of alignment and update, which
+     happen through `git`.
 
-   It lives in Deno's global bin directory. Updating overwrites it, so only
-   one version exists on a machine. Until the public release, the install
-   source is a local clone (`deno install -g -f … <clone>/src/cli.ts`). After
-   it, the source is the published package.
-5. **Forward-only migration.** When a project's `format` is older than the
-   installed tool's, the tool migrates it deterministically, forward only, and
-   the agent commits the migration as one commit. When it is newer, the tool
-   refuses and says in one line to update Naima. That is the only refusal.
-6. **Open format, extension through plugins.** The format is a versioned,
-   public specification (`docs/format.md`): every file, field and invariant.
-   Customisation is through the plugin contract. Plugins are loaded only from
-   the install, never from a project's repository, so no code in a repository
-   is ever executed by Naima. Forks are welcome; the format is the
-   compatibility boundary.
-7. **Runtime-agnostic code.** The code uses only standard APIs and stays
-   dependency-free by default. CI runs the test suite on Deno, Node and Bun.
-   Deno is the default and documented runtime. A dependency, if ever added,
-   must be pure JavaScript, pinned in the lockfile, and justified.
-8. **The skill manages the install.** When `naima` is missing, the skill
-   (`skills/naima/SKILL.md`) installs Deno through its official installer and
-   then Naima (behaviour 4). When a newer Naima is released, it updates it and
-   lets behaviour 5 migrate each repository on its next touch.
-9. **`deno compile` is optional.** A single executable is produced per
-   release for those without Deno. It is not part of the normal path.
-
-10. **`naima-tracker/README.md`.** Owner, 2026-09-30: "naima-tracker must
-    have a README.md with one line explaining what naima is and a link to the
-    repo." `naima init` writes it: one line saying what Naima is (from one
-    shared source, the same sentence as Naima's own README), and a link to
-    https://github.com/vincenzoml/naima. The migration creates it for existing
-    trackers; `check` reports it when missing; `docs/format.md` documents it.
+   Deno is the only thing installed on the machine, once, by its official
+   installer.
+8. **Modifying Naima is encouraged, and reproducible.** Whoever changes it
+   edits `naima-tracker/naima/`, publishes it as a fork, and sets `source` in
+   `naima.json` to the fork. The whole team then runs that fork at that
+   commit. Improvements go back through pull requests.
+9. **Open format.** `docs/format.md` is the versioned public specification
+   of every file, field and invariant. The format is the compatibility
+   boundary between forks.
+10. **Plugins come from the program, not the data.** Code is executed only
+    from `naima-tracker/naima/` (the recorded source and commit), never from
+    `naima-data/`.
+11. **Runtime-agnostic code.** The code uses standard APIs only and stays
+    dependency-free by default. CI runs the tests on Deno, Node and Bun, and
+    Deno is the documented runtime. A dependency, if ever added, must be pure
+    JavaScript, pinned, and justified.
+12. **Bootstrap and the skill.** In a project without Naima, the agent
+    installs Deno if it is missing (official installer) and clones Naima into
+    `naima-tracker/naima/`, and `naima init` creates the rest. The skill,
+    shipped in the clone, tells the agent exactly this. Its corpus is plain
+    markdown files in the clone, read directly as files; `naima guide` only
+    prints the index and paths.
 
 ## Reversals (owner rule: record, never overwrite)
 
@@ -92,11 +113,20 @@ agent skill stay.
   pinned stable) becomes: the globally installed Naima manages Naima's own
   tracker; the working tree is tested against it but never manages it.
 
+- *Second round, 2026-09-30:*
+  - one global install, one version per machine, `deno install -g`, and
+    `deno compile` binaries: replaced by the per-project gitignored clone,
+    locked by commit, executed directly (behaviours 1–4 and 7);
+  - "a data format version, not a tool version": kept, and extended with the
+    recorded source and commit;
+  - `naima-tracker/naima.json` and items directly under `naima-tracker/`:
+    moved into `naima-tracker/naima-data/`.
+
 ## Boundaries
 
-- Nothing is published (JSR, npm, binaries): the repository is private, and
-  publishing belongs to the first public release (the todo under
-  `first-public` covers JSR and the release binaries).
+- Nothing is published: the repository is private. The default `source`
+  (Naima's repository) becomes reachable to others at the first public
+  release.
 - No migration code for projects other than Naima itself: none exist yet.
   The migration mechanism exists, with Naima's own layout change as its first
   migration.
@@ -113,17 +143,20 @@ agent skill stay.
 
 ## Done when
 
-- An end-to-end test (under Deno) creates a temporary git repository, runs
-  `naima init`, `new` and `check`, and asserts that the only addition is
-  `naima-tracker/`.
-- A test shows that a format-1 repository is migrated forward by a newer tool,
-  deterministically: the same input gives byte-identical output.
-- A test shows that a newer-format repository is refused with the one-line
-  message.
-- A test shows that, run with the baked permissions, Naima cannot write outside
-  `naima-tracker/` or run anything but `git` (Deno's permission error is
-  asserted).
+- An end-to-end test (under Deno) creates a temporary git repository and runs
+  the bootstrap, `naima init`, `new` and `check`. It asserts that the only
+  addition is `naima-tracker/`, and that `git status` shows `naima-data/`,
+  `README.md` and `.gitignore` but not `naima/`.
+- A test shows that a second clone of the host repository aligns
+  `naima-tracker/naima/` to the recorded source and commit.
+- A test shows that `naima update` pulls, migrates and records the new commit,
+  and that a normal run never pulls.
+- A test shows deterministic forward migration: byte-identical output.
+- A test shows that a newer-format refusal gives its one-line message.
+- A test shows that, under the launcher's permissions, Naima cannot write
+  outside `naima-tracker/` or run anything but `git`: Deno's permission error
+  is asserted.
+- A test shows that a fork `source` is honoured.
 - The suite passes on Deno, Node and Bun.
-- Naima's own repository is on `naima-tracker/`, format-versioned, and managed
-  by the globally installed Naima. A new stable, v0.3.0, is tagged.
+- Naima's own repository uses this layout for its own tracker.
 - `verify` passes.
