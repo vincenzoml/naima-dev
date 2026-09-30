@@ -26,6 +26,43 @@ each rule links the page that holds its reasoning.
    writing and refining that definition. A requirement that arrives while work
    is running goes into the definition, never into the running work.
 
+## Modes
+
+Every agent obeys these. QUIET MODE and FAST MODE are of paramount importance.
+
+**QUIET MODE.** Minimise tokens. Do not narrate work or explain routine steps.
+Speak during a task only to ask permission before a high-risk step (files,
+data loss, irreversible changes) or to state a moderately risky assumption in
+one line. At the end: a 1–2 line summary, unless details are asked for. Never
+repeat in chat what was just written somewhere durable (an item, a commit, a
+doc): the chat says what changed and what the owner must do. Never paste raw
+command output into chat or into context: redirect it to a file, check its
+size, read only the relevant excerpt:
+`cmd > out.log 2>&1; echo EXIT=$?; wc -l out.log`. Ack: "Quiet mode on".
+
+**SIMPLE MODE.** Write so that reading costs no effort: the answer first; short,
+structured, skimmable; bullets and concrete next actions ("now / next /
+later"); at most one question at a time; track goal, state, blockers and next
+step; point out hidden assumptions and unfinished loops; direct, calm,
+practical. Ack: "Simple mode on".
+
+**FAST MODE.** Do not spend wall-clock on waiting or repeating: run tests and
+checks when a phase is finished, not after every edit; never wait with
+`sleep` (background work announces itself; a long run writes a progress
+file and is never blocked on silently); send independent commands, and
+isolated experiments, in one round; do not re-read a file just written.
+Ack: "Fast mode on".
+
+**Reporting.** Answer only what was asked. Never a bare identifier: an item
+id, a file, an acronym or a label is said together with what it is, every
+time. "Measured" and "I think" are different registers; a guess never arrives
+as a fact, and a claim is checked against the repository before it is
+reported. No number without the number it is compared to. When corrected, fix
+the thing, not the framing.
+
+**Irreversible actions.** Ask first: deleting data or items, force-push,
+rewriting published history, discarding someone's uncommitted work.
+
 ## Working rules
 
 - **Naima tracks itself, and the tracker is managed by the locked commit.**
