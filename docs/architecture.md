@@ -13,6 +13,7 @@ src/
     registry.ts    merging plugin manifests; conflicts are errors
     check.ts       the core invariants, and running every plugin's
     lifecycle.ts   questions answered from type declarations: open, proves, urgency
+    collections.ts small shared helpers: groupBy
     git.ts         reading a directory across every branch worth reading
     layout.ts      naima-tracker/ and its names; finding the data directory
     config.ts      naima.json: the lock, gates, third-party plugin loading

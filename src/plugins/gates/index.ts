@@ -25,6 +25,7 @@ import {
   type Plugin,
   type SummarySection,
   bool,
+  groupBy,
   isEvidenceType,
   isOpen,
   label,
@@ -99,12 +100,10 @@ const queue: Command = {
     const p = parse(args, { human: { type: "boolean" } })
     const gate = p.positionals[0]
     const open = ctx.repo.items.filter((i) => isOpen(ctx, i) && (gate ? i.meta.gate === gate : i.meta.gate !== undefined))
-    const by = new Map<string, Item[]>()
-    for (const i of open) {
+    const by = groupBy(open, (i) => {
       const who = runByOf(ctx, i)
-      const bucket = who === "agent" || who === "agent-hands" ? "agent" : who || "unclassified"
-      by.set(bucket, [...(by.get(bucket) ?? []), i])
-    }
+      return who === "agent" || who === "agent-hands" ? "agent" : who || "unclassified"
+    })
     const noCode = open.filter((i) => !owesOnlyProof(ctx, i)).length
     ctx.out(`${gate ?? "all gates"}: ${open.length} open — ${["agent", "human", "build", "unclassified"].map((b) => `${b} ${by.get(b)?.length ?? 0}`).join(", ")}`)
     ctx.out(`  with no code yet: ${noCode}; owing only proof: ${open.length - noCode}`)

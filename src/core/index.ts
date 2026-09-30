@@ -6,6 +6,7 @@ export { parse, str, strs, bool, pairs, type Flags, type Parsed } from "./args.t
 export { fieldError, parseFieldValue, fieldsOf, appliesTo, enumRank } from "./fields.ts"
 export { slugify, uniqueSlug, isUuid, today, writeJson, readReadme, saveMeta, createItem, moveItem, listDirs, META, README, ATTACHMENTS } from "./item.ts"
 export { storedLinks } from "./repo.ts"
+export { groupBy } from "./collections.ts"
 export { statusDef, isOpen, proves, isEvidenceType, linked, urgency, byUrgency, label } from "./lifecycle.ts"
 export { setFields, addLink, renderBoard, typeOrThrow } from "./base.ts"
 export { runChecks, type CheckReport } from "./check.ts"

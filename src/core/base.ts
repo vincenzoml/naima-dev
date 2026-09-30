@@ -6,6 +6,7 @@ import { existsSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 import { bool, pairs, parse, str, strs } from "./args.ts"
 import { coreChecks, runChecks } from "./check.ts"
+import { groupBy } from "./collections.ts"
 import { parseFieldValue, appliesTo } from "./fields.ts"
 import { ATTACHMENTS, createItem, readReadme, saveMeta } from "./item.ts"
 import { byUrgency, isOpen, label } from "./lifecycle.ts"
@@ -210,11 +211,7 @@ export function renderBoard(ctx: Context, type: TypeDef, all: boolean): string[]
   const items = ctx.repo.items.filter((i) => i.type === type.id)
   const open = byUrgency(ctx, items.filter((i) => isOpen(ctx, i)))
   const out = [`# ${type.title}`, "", `${open.length} open, ${items.length - open.length} done`]
-  const sections = new Map<string, Item[]>()
-  for (const item of open) {
-    const key = typeof item.meta.section === "string" ? item.meta.section : ""
-    sections.set(key, [...(sections.get(key) ?? []), item])
-  }
+  const sections = groupBy(open, (item) => (typeof item.meta.section === "string" ? item.meta.section : ""))
   for (const [section, group] of [...sections].sort(([a], [b]) => (a === "" ? 1 : b === "" ? -1 : a.localeCompare(b)))) {
     out.push("", `## ${section || "(no section)"}`, ...group.map(line))
   }

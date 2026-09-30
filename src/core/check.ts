@@ -3,6 +3,7 @@
 
 import { existsSync, readdirSync } from "node:fs"
 import { join } from "node:path"
+import { groupBy } from "./collections.ts"
 import { formatCheck } from "./format.ts"
 import { fieldError, fieldsOf } from "./fields.ts"
 import { README, isUuid, titleWords } from "./item.ts"
@@ -110,16 +111,11 @@ const duplicates: Check = {
   name: "duplicates",
   says: "items of one type with the same title are linked as duplicates, or reported",
   run(ctx) {
-    const groups = new Map<string, string[]>()
-    for (const item of ctx.repo.items) {
-      if (typeof item.meta.title !== "string") continue
-      const key = `${item.type}:${titleWords(item.meta.title).join(" ")}`
-      groups.set(key, [...(groups.get(key) ?? []), item.meta.id])
-    }
+    const groups = groupBy(ctx.repo.items, (item) => `${item.type}:${titleWords(item.meta.title).join(" ")}`)
     const out: Finding[] = []
-    for (const ids of groups.values()) {
-      if (ids.length < 2) continue
-      const items = ids.map((id) => ctx.repo.byId.get(id)).filter((i) => i !== undefined)
+    for (const items of groups.values()) {
+      if (items.length < 2) continue
+      const ids = items.map((i) => i.meta.id)
       const linked = items.every((i) => ctx.repo.linksOf(i).some((l) => l.rel === "duplicate-of" && ids.includes(l.id)))
       if (!linked) out.push(note(`possible duplicates, not linked: ${items.map(label).join(", ")}`))
     }
