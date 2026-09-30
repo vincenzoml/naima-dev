@@ -240,3 +240,19 @@ test("new validates every --set before it writes anything", async () => {
     p.cleanup()
   }
 })
+
+test("an empty item reference is a usage error, never the only item", async () => {
+  const p = tempProject([notes])
+  try {
+    const item = createItem(p.ctx, p.ctx.registry.types.get("notes")!, "Only one")
+    assert.throws(() => p.ctx.repo.resolve(""), /no item named/)
+    assert.throws(() => p.ctx.repo.resolve("  "), /no item named/)
+    await assert.rejects(p.run("show", ""), /usage: naima show <item>/)
+    await assert.rejects(p.run("show"), /usage: naima show <item>/)
+    await assert.rejects(p.run("set", "", "size=L"), /usage: naima set <item> field=value/)
+    await assert.rejects(p.run("set", item.slug), /usage: naima set <item> field=value/)
+    assert.equal(p.ctx.repo.resolve(item.meta.id).meta.size, undefined)
+  } finally {
+    p.cleanup()
+  }
+})

@@ -101,7 +101,9 @@ const close: Command = {
   usage: "close <item>",
   examples: ["close export-drops"],
   run(args, ctx) {
-    const item = ctx.repo.resolve(parse(args).positionals[0] ?? "")
+    const ref = parse(args).positionals[0]
+    if (!ref?.trim()) throw new Error(`usage: naima ${this.usage}`)
+    const item = ctx.repo.resolve(ref)
     const state = lifecycle(ctx, item)
     if (state === "closed") throw new Error(`${label(item)} is already closed`)
     if (state !== "resolved") {

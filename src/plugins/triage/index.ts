@@ -101,7 +101,8 @@ const triage: Command = {
     const [sub, ...rest] = args
     if (sub === "set") {
       const [ref, ...assignments] = rest
-      const item = ctx.repo.resolve(ref ?? "")
+      if (!ref?.trim() || !assignments.length) throw new Error(`usage: naima ${this.usage}`)
+      const item = ctx.repo.resolve(ref)
       setFields(ctx, item, pairs(assignments))
       // A value set by hand is judgement; it stops being inference.
       if (item.meta.triagedBy === "derived") delete item.meta.triagedBy

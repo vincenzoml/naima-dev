@@ -51,6 +51,8 @@ export function loadRepo(trackerRoot: string, registry: Registry): Repo {
   }
 
   const resolve = (ref: string): Item => {
+    // An empty fragment is a fragment of every slug: it must never pick "the only item".
+    if (!ref.trim()) throw new Error("no item named: an item reference cannot be empty")
     const exact =
       byId.get(ref) ??
       items.find((i) => `${i.type}/${i.slug}` === ref) ??

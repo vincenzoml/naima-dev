@@ -96,7 +96,9 @@ const show: Command = {
   usage: "show <item>",
   examples: ["show export-drops", "show bugs/export-drops-alpha-channel"],
   run(args, ctx) {
-    const item = ctx.repo.resolve(parse(args).positionals[0] ?? "")
+    const ref = parse(args).positionals[0]
+    if (!ref?.trim()) throw new Error(`usage: naima ${this.usage}`)
+    const item = ctx.repo.resolve(ref)
     const { id, title, status, links: _links, ...rest } = item.meta
     ctx.out(`${title}\n${label(item)}  ${id}  [${status}]`)
     for (const [k, v] of Object.entries(rest)) ctx.out(`  ${k}: ${typeof v === "string" ? v : JSON.stringify(v)}`)
@@ -138,7 +140,8 @@ const set: Command = {
   examples: ["set export-drops status=partial area=export", "set export-drops area="],
   run(args, ctx) {
     const [ref, ...rest] = parse(args).positionals
-    const item = ctx.repo.resolve(ref ?? "")
+    if (!ref?.trim() || !rest.length) throw new Error(`usage: naima ${this.usage}`)
+    const item = ctx.repo.resolve(ref)
     setFields(ctx, item, pairs(rest))
     ctx.out(`${label(item)}: ${rest.join(" ")}`)
     return 0
