@@ -178,3 +178,29 @@ test("a released claim stays released: the trunk's copy does not bring it back, 
     p.cleanup()
   }
 })
+
+test("prune lists a stale claim another ref carries, naming the ref it must be dropped from", async () => {
+  const p = tempProject([things, coordination()], { git: true })
+  try {
+    const a = createItem(p.ctx, p.ctx.registry.types.get("things")!, "Alpha")
+    p.git("add", "-A")
+    p.git("commit", "-q", "-m", "items")
+    p.git("checkout", "-q", "-b", "gone")
+    await p.run("claim", a.slug)
+    p.git("add", "-A")
+    p.git("commit", "-q", "-m", "claim")
+    p.git("checkout", "-q", "-b", "carrier") // carries gone's claim file
+    p.git("checkout", "-q", "main")
+    p.git("branch", "-q", "-D", "gone")
+    p.output.length = 0
+    assert.equal(await p.run("prune"), 0)
+    const out = p.output.join("\n")
+    assert.doesNotMatch(out, /every claim names a branch that exists/)
+    assert.match(out, /gone\s+1 items\s+\S+\.json\s+on carrier: drop it there/)
+    p.output.length = 0
+    await p.run("prune", "--write")
+    assert.match(p.output.join("\n"), /removed 0 here; 1 must be dropped on its ref/)
+  } finally {
+    p.cleanup()
+  }
+})

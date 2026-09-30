@@ -42,7 +42,7 @@ Names are global: no two plugins may declare the same command, type, field, rela
 | [`claim`](#naima-claim) | coordination | record that this branch is working on items (writes one file on this branch) |
 | [`release`](#naima-release) | coordination | drop this branch's claim on items; the last one removes the file |
 | [`claims`](#naima-claims) | coordination | who holds what, recombined from every branch |
-| [`prune`](#naima-prune) | coordination | list (or with --write remove) claim files naming a branch git no longer has |
+| [`prune`](#naima-prune) | coordination | list (or with --write remove) claim files naming a branch git no longer has; one only another ref carries is listed with that ref, to be dropped there |
 | [`pass`](#naima-pass) | coordination | write this session's note (one new file), or list the newest |
 | [`triage`](#naima-triage) | triage | coverage of the four fields; set them; list what needs a human; derive what the page proves |
 | [`gates`](#naima-gates) | gates | every gate, whoever declared it, and whether it holds; --check exits 1 if one does not |
@@ -542,7 +542,7 @@ naima claims --branch fix/export-alpha
 
 ### naima prune
 
-List (or with --write remove) claim files naming a branch git no longer has.
+List (or with --write remove) claim files naming a branch git no longer has; one only another ref carries is listed with that ref, to be dropped there.
 
 ```sh
 naima prune [--write]

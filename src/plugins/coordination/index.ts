@@ -48,6 +48,8 @@ export interface Claim {
   note?: string
   items: ClaimEntry[]
   file: string
+  /** The ref it was read from; this worktree's branch when `local`. */
+  ref: string
   local: boolean
 }
 
@@ -68,7 +70,7 @@ function parseClaim(f: BranchFile): Claim | null {
     const c = JSON.parse(f.text) as Partial<Claim>
     if (!Array.isArray(c.items)) return null
     const items = c.items.filter((e): e is ClaimEntry => typeof e?.id === "string")
-    return { branch: c.branch ?? f.ref, claimedAt: c.claimedAt ?? "", ...(c.note ? { note: c.note } : {}), items, file: f.name, local: f.local }
+    return { branch: c.branch ?? f.ref, claimedAt: c.claimedAt ?? "", ...(c.note ? { note: c.note } : {}), items, file: f.name, ref: f.ref, local: f.local }
   } catch {
     return null // an unreadable claim is one row missing, never a broken listing
   }
@@ -113,7 +115,7 @@ export function readPasses(ctx: Context): Pass[] {
 function writeClaim(ctx: Context, claim: Claim): string {
   const dir = join(ctx.root, rel(ctx, CLAIMS))
   mkdirSync(dir, { recursive: true })
-  const { file, local: _local, ...body } = claim
+  const { file, ref: _ref, local: _local, ...body } = claim
   writeJson(join(dir, file), body)
   return join(rel(ctx, CLAIMS), file)
 }
@@ -130,7 +132,7 @@ function myClaim(ctx: Context, branch: string, all: Claim[] = readClaims(ctx)): 
  */
 function freshClaim(ctx: Context, branch: string): Claim {
   const committed = filesAt(ctx.root, "HEAD", rel(ctx, CLAIMS), ".json").map(parseClaim).find((c) => c?.branch === branch)
-  return { branch, claimedAt: today(ctx), items: [], file: committed?.file ?? `${randomUUID()}.json`, local: true }
+  return { branch, claimedAt: today(ctx), items: [], file: committed?.file ?? `${randomUUID()}.json`, ref: branch, local: true }
 }
 
 const claim: Command = {
@@ -220,25 +222,29 @@ const claims: Command = {
 
 const prune: Command = {
   name: "prune",
-  says: "list (or with --write remove) claim files naming a branch git no longer has",
+  says: "list (or with --write remove) claim files naming a branch git no longer has; one only another ref carries is listed with that ref, to be dropped there",
   usage: "prune [--write]",
   options: [{ name: "--write", says: "remove the stale claim files instead of listing them" }],
   examples: ["prune", "prune --write"],
   run(args, ctx) {
     const write = bool(parse(args, { write: { type: "boolean" } }), "write")
     const alive = allRefNames(ctx.root)
-    const stale = readClaims(ctx).filter((c) => c.local && !alive.has(c.branch))
+    const stale = readClaims(ctx).filter((c) => !alive.has(c.branch))
     if (!stale.length) {
       ctx.out("every claim names a branch that exists")
       return 0
     }
-    for (const c of stale) ctx.out(`  ${c.branch}  ${c.items.length} items  ${c.file}`)
+    // Only a file on this disk can be removed from here; one another ref carries is dropped on that ref.
+    const here = stale.filter((c) => c.local)
+    const elsewhere = stale.filter((c) => !c.local)
+    for (const c of here) ctx.out(`  ${c.branch}  ${c.items.length} items  ${c.file}`)
+    for (const c of elsewhere) ctx.out(`  ${c.branch}  ${c.items.length} items  ${c.file}  on ${c.ref}: drop it there (git switch ${c.ref}, naima prune --write)`)
     if (!write) {
       ctx.out("nothing removed — run again with --write")
       return 0
     }
-    for (const c of stale) unlinkSync(join(ctx.root, rel(ctx, CLAIMS), c.file))
-    ctx.out(`removed ${stale.length} — commit the deletions on ${currentBranch(ctx.root)}`)
+    for (const c of here) unlinkSync(join(ctx.root, rel(ctx, CLAIMS), c.file))
+    ctx.out(`removed ${here.length} here${elsewhere.length ? `; ${elsewhere.length} must be dropped on its ref` : ""} — commit the deletions on ${currentBranch(ctx.root)}`)
     return 0
   },
 }
