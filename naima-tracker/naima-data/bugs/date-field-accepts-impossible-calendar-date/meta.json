@@ -1,0 +1,9 @@
+{
+  "id": "ced65f08-456a-4188-998f-a78caad91e27",
+  "title": "A `date` field accepts an impossible calendar date",
+  "status": "open",
+  "created": "2026-09-30",
+  "impact": "low",
+  "priority": "later",
+  "confidence": "measured"
+}
