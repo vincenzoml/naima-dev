@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { spawn } from "node:child_process"
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { test } from "node:test"
 import { fileURLToPath } from "node:url"
@@ -220,6 +220,22 @@ test("new never reuses a directory: a slug taken in another case, or by a concur
     assert.equal(dirs.length, 8)
     const ids = new Set(dirs.map((d) => JSON.parse(readFileSync(join(p.ctx.trackerRoot, "bugs", d, "meta.json"), "utf8")).id))
     assert.equal(ids.size, 8)
+  } finally {
+    p.cleanup()
+  }
+})
+
+test("new validates every --set before it writes anything", async () => {
+  const p = tempProject([notes])
+  try {
+    await assert.rejects(p.run("new", "notes", "Half made", "--set", "size=L", "--set", "badfield=1"), /"badfield" is not a field of notes/)
+    await assert.rejects(p.run("new", "notes", "Half made", "--set", "size=XXL"), /size: "XXL" is not one of/)
+    await assert.rejects(p.run("new", "notes", "Half made", "--set", "status=__proto__"), /is not one of: open, done/)
+    const dir = join(p.ctx.trackerRoot, "NOTES")
+    assert.deepEqual(existsSync(dir) ? readdirSync(dir) : [], [])
+    assert.equal(await p.run("new", "notes", "Half made", "--set", "size=L", "--set", "status=done"), 0)
+    const [item] = p.ctx.repo.items
+    assert.deepEqual([item?.slug, item?.meta.size, item?.meta.status], ["half-made", "L", "done"])
   } finally {
     p.cleanup()
   }

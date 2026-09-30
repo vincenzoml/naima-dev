@@ -17,28 +17,39 @@ export function typeOrThrow(ctx: Context, id: string | undefined): TypeDef {
   return type
 }
 
-/** Set `field=value` pairs on an item, validated against the registry. */
-export function setFields(ctx: Context, item: Item, assignments: [string, string][]): void {
+/**
+ * The fields `field=value` pairs give an item of `type`, validated against the
+ * registry, applied to a copy of `meta`. Throws on the first invalid pair and
+ * writes nothing, so a caller can validate before anything exists on disk.
+ */
+export function withFields<M extends Record<string, unknown>>(ctx: Context, type: string, meta: M, assignments: [string, string][]): M {
+  const next: Record<string, unknown> = { ...meta }
   for (const [name, raw] of assignments) {
     if (name === "status") {
-      const statuses = ctx.registry.types.get(item.type)?.statuses ?? {}
+      const statuses = ctx.registry.types.get(type)?.statuses ?? {}
       if (!Object.hasOwn(statuses, raw)) throw new Error(`status "${raw}" is not one of: ${Object.keys(statuses).join(", ")}`)
-      item.meta.status = raw
+      next.status = raw
       continue
     }
     if (name === "title") {
       if (!raw.trim()) throw new Error("title cannot be empty")
-      item.meta.title = raw
+      next.title = raw
       continue
     }
     const def = ctx.registry.fields.get(name)
-    if (!def || !appliesTo(def, item.type)) {
-      const known = [...ctx.registry.fields.values()].filter((f) => appliesTo(f, item.type)).map((f) => f.name)
-      throw new Error(`"${name}" is not a field of ${item.type} — fields: status, title, ${known.join(", ")}`)
+    if (!def || !appliesTo(def, type)) {
+      const known = [...ctx.registry.fields.values()].filter((f) => appliesTo(f, type)).map((f) => f.name)
+      throw new Error(`"${name}" is not a field of ${type} — fields: status, title, ${known.join(", ")}`)
     }
-    if (raw === "") delete item.meta[name]
-    else item.meta[name] = parseFieldValue(def, raw)
+    if (raw === "") delete next[name]
+    else next[name] = parseFieldValue(def, raw)
   }
+  return next as M
+}
+
+/** Set `field=value` pairs on an item, validated against the registry; nothing is written unless every pair is valid. */
+export function setFields(ctx: Context, item: Item, assignments: [string, string][]): void {
+  item.meta = withFields(ctx, item.type, item.meta, assignments)
   saveMeta(item)
 }
 
@@ -71,9 +82,9 @@ const newCommand: Command = {
     if (type.creatable === false) throw new Error(`${type.id} is an archive: items arrive by being moved there, not by being opened`)
     if (!title?.trim()) throw new Error(`usage: naima ${this.usage}`)
     const section = str(p, "section")
-    const item = createItem(ctx, type, title.trim(), section ? { section } : {})
-    const assignments = pairs(strs(p, "set"))
-    if (assignments.length) setFields(ctx, ctx.repo.resolve(item.meta.id), assignments)
+    // Every assignment is validated before the item exists: a typo leaves nothing behind.
+    const fields = withFields(ctx, type.id, section ? { section } : {}, pairs(strs(p, "set")))
+    const item = createItem(ctx, type, title.trim(), fields)
     ctx.out(`${ctx.trackerDir}/${type.dir}/${item.slug}/  ${item.meta.id}`)
     return 0
   },
