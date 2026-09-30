@@ -1,0 +1,12 @@
+{
+  "branch": "adoption",
+  "claimedAt": "2026-09-30",
+  "items": [
+    {
+      "id": "ca825fa4-f0b5-46d7-b422-84fc3fb6ad3e",
+      "ref": "features/adopting-naima-automatic-branded-installable-anywhere-agent",
+      "title": "Adopting Naima: automatic, branded, installable anywhere, and an agent skill"
+    }
+  ],
+  "note": "implementing behaviour 1-6, tag v0.2.0"
+}
