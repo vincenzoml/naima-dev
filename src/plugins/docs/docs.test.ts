@@ -153,3 +153,16 @@ test("a feature's docs name a markdown file: a bare #heading, an empty entry or 
     p.cleanup()
   }
 })
+
+test("a setext heading, underlined with === or ---, is an anchor links resolve to", () => {
+  assert.deepEqual([...anchorsOf("Title\n=====\n\nSome section\n---\n\ntext\n\n---\n\n- item\n---\n")], ["title", "some-section"])
+  const p = tempProject([docs({ links: ["docs"] }), features])
+  try {
+    mkdirSync(join(p.root, "docs"))
+    writeFileSync(join(p.root, "docs", "a.md"), "Guide\n=====\n\nExport keeps alpha\n------------------\n")
+    writeFileSync(join(p.root, "docs", "b.md"), "# B\n\n[one](a.md#guide) [two](a.md#export-keeps-alpha)\n")
+    assert.deepEqual(runChecks(p.ctx).problems.map((f) => f.message), [])
+  } finally {
+    p.cleanup()
+  }
+})

@@ -877,4 +877,4 @@ naima docs --check docs/reference.md
 | `documented` | every loaded plugin, command (with an example and every option), type, status, field, value, relation, check, view, gate and verifier carries its documentation |
 | `reference-current` | with the reference option set, the reference file is what `naima docs` generates from the loaded manifests |
 | `features-documented` | a feature in a documented status names its documentation in `docs`, and every name there resolves to a markdown file, and a heading when it names one |
-| `links-resolve` | every relative link in every markdown file of the project (or under the links option) points at a file, and a heading when it names one |
+| `links-resolve` | every relative link in every markdown file of the project (or under the links option) points at a file, and a heading (ATX or setext) when it names one |

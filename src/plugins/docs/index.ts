@@ -221,20 +221,34 @@ export function anchor(heading: string): string {
 
 const FENCE = /^\s*(```|~~~)/
 
-/** Every anchor a markdown file offers, duplicates numbered as GitHub numbers them. */
+const ATX = /^ {0,3}#{1,6}\s+(.+?)\s*#*\s*$/
+/** A setext underline: the line above it is the heading's text. */
+const UNDERLINE = /^ {0,3}(=+|-+)\s*$/
+/** A line that can be the text of a setext heading: a paragraph's, not a list item, quote, table, heading or break. */
+const PARAGRAPH = /^ {0,3}(?![-*+]\s|\d+[.)]\s|>|\||#|(=+|-+)\s*$)\S/
+
+/** Every anchor a markdown file offers, ATX (`# x`) and setext (`x` over `===` or `---`), duplicates numbered as GitHub numbers them. */
 export function anchorsOf(text: string): Set<string> {
   const out = new Set<string>()
   const seen = new Map<string, number>()
-  let fenced = false
-  for (const line of text.split("\n")) {
-    if (FENCE.test(line)) fenced = !fenced
-    if (fenced) continue
-    const m = line.match(/^#{1,6}\s+(.+?)\s*#*\s*$/)
-    if (!m?.[1]) continue
-    const base = anchor(m[1].replace(/`/g, "").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1"))
+  const add = (heading: string): void => {
+    const base = anchor(heading.replace(/`/g, "").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1"))
     const n = seen.get(base) ?? 0
     seen.set(base, n + 1)
     out.add(n ? `${base}-${n}` : base)
+  }
+  let fenced = false
+  let paragraph: string | null = null // the line above, when it could be a setext heading's text
+  for (const line of text.split("\n")) {
+    if (FENCE.test(line)) fenced = !fenced
+    if (fenced || FENCE.test(line)) {
+      paragraph = null
+      continue
+    }
+    const atx = line.match(ATX)?.[1]
+    if (atx) add(atx)
+    else if (paragraph !== null && UNDERLINE.test(line)) add(paragraph.trim())
+    paragraph = !atx && PARAGRAPH.test(line) && !(paragraph !== null && UNDERLINE.test(line)) ? line : null
   }
   return out
 }
@@ -345,7 +359,7 @@ export default function docs(options: Record<string, unknown> = {}): Plugin {
 
   const linksResolve: Check = {
     name: "links-resolve",
-    says: "every relative link in every markdown file of the project (or under the links option) points at a file, and a heading when it names one",
+    says: "every relative link in every markdown file of the project (or under the links option) points at a file, and a heading (ATX or setext) when it names one",
     run: (ctx) => brokenLinks(ctx.root, opts.links, ctx.program).map((message): Finding => ({ level: "problem", message })),
   }
 
