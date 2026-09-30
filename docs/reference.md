@@ -703,7 +703,7 @@ naima queue first-public --human
 
 | Check | What it holds |
 |---|---|
-| `gated-proof-is-gated` | an item that verifies a gated item carries a gate itself, or it ranks below what it gates |
+| `gated-proof-is-gated` | an open item that verifies an open gated item carries a gate itself |
 
 **Gates**, listed by `naima gates`
 

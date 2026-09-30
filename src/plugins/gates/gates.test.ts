@@ -74,3 +74,17 @@ test("gates are configured, never hard-coded", () => {
   assert.throws(() => gates({ gates: { x: { title: "X", holdsOn: "vibes" } } }), /holdsOn/)
   assert.equal(gates().gates?.length, 0)
 })
+
+test("gated-proof-is-gated says what it decides: an ungated proof of a gated item is a problem, whatever it ranks", () => {
+  const check = gates(config).checks?.find((c) => c.name === "gated-proof-is-gated")
+  assert.equal(check?.says, "an open item that verifies an open gated item carries a gate itself")
+  const p = tempProject([fixture(), gates(config)])
+  try {
+    const { ctx } = p
+    const bug = createItem(ctx, typeOrThrow(ctx, "bugs"), "Crash", { gate: "v1" })
+    createItem(ctx, typeOrThrow(ctx, "tests"), "No crash", { links: [{ rel: "verifies", id: bug.meta.id }] })
+    assert.match(runChecks(ctx).problems.map((f) => f.message).join("\n"), /verifies bugs\/crash \(gate v1\) but has no gate/)
+  } finally {
+    p.cleanup()
+  }
+})

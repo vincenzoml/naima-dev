@@ -119,7 +119,7 @@ const queue: Command = {
 
 const gatedProofIsGated: Check = {
   name: "gated-proof-is-gated",
-  says: "an item that verifies a gated item carries a gate itself, or it ranks below what it gates",
+  says: "an open item that verifies an open gated item carries a gate itself",
   run(ctx) {
     const out: Finding[] = []
     for (const item of ctx.repo.items) {
