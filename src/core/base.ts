@@ -282,13 +282,15 @@ const summary: Command = {
 
 const plugins: Command = {
   name: "plugins",
-  says: "list loaded plugins and what each contributes; a contribution's qualified id is <plugin>/<name>, shown when its short name is shared or renamed",
+  says:
+    "list loaded plugins, the extension points each declares, and what each contributes to every point; a contribution's qualified id is <plugin>/<name>, shown when its short name is shared or renamed",
   usage: "plugins",
   examples: ["plugins"],
   run(_args, ctx) {
     for (const p of ctx.registry.plugins) {
       ctx.out(`${p.name} — ${p.says}`)
-      for (const kind of ["types", "fields", "relations", "checks", "commands", "views", "gates", "verifiers"]) {
+      if (p.points?.length) ctx.out(`  ${"points".padEnd(10)} ${p.points.map((pt) => pt.id).join(", ")}`)
+      for (const kind of ctx.registry.points.keys()) {
         const mine = ctx.registry.contributions(kind).filter((c) => c.plugin === p.name)
         // The short name a person types, and the qualified id when it differs from <plugin>/<name> or the short name is shared.
         const said = mine.map((c) => (shortOrId(ctx, kind, c) === c.name && c.id === `${p.name}/${c.name}` ? c.name : `${c.name} (${c.id})`))

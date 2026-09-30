@@ -26,7 +26,15 @@ const undocumented: Plugin = {
   name: "sloppy",
   says: "",
   commands: [{ name: "go", says: "go somewhere", usage: "go [--fast]", run: () => 0 }],
-  gates: [{ name: "g", title: "G", says: "", evaluate: () => ({ holds: true, blocking: [], owed: [] }) }],
+  // A point of its own, documented as any point is: by what its contributions lack.
+  points: [{
+    id: "widgets",
+    noun: "widget",
+    says: "",
+    key: (w: { name: string }) => w.name,
+    gaps: (w: { decides?: string }) => (w.decides ? [] : ["does not say how it decides"]),
+  }],
+  contributes: { widgets: [{ name: "g" }] },
 }
 
 test("a contribution without its documentation fails check, named", () => {
@@ -36,7 +44,8 @@ test("a contribution without its documentation fails check, named", () => {
     assert.ok(gaps.includes('plugin "sloppy" does not say what it is'))
     assert.ok(gaps.includes('command "go" (sloppy) has no example'))
     assert.ok(gaps.includes('command "go" (sloppy): option --fast is in the usage but not documented'))
-    assert.ok(gaps.includes('gate "g" does not say how it decides'))
+    assert.ok(gaps.includes('widget "g" does not say how it decides'))
+    assert.ok(gaps.includes('extension point "widgets" does not say what it is'))
     assert.ok(runChecks(p.ctx).problems.some((f) => f.message.startsWith("undocumented:")))
   } finally {
     p.cleanup()
@@ -66,6 +75,32 @@ test("the reference is generated, written, and checked for drift", async () => {
     writeFileSync(join(p.root, "REFERENCE.md"), text + "hand edit\n")
     assert.ok(runChecks(p.ctx).problems.some((f) => /out of date/.test(f.message)))
     assert.equal(await p.run("docs", "--check"), 1)
+  } finally {
+    p.cleanup()
+  }
+})
+
+test("the reference lists every extension point, who declares it and who contributes to it, and documents each contribution as its point says", () => {
+  const widgets: Plugin = {
+    name: "widgets",
+    says: "declares a point",
+    points: [{
+      id: "widgets",
+      noun: "widget",
+      says: "a widget",
+      key: (w: { name: string }) => w.name,
+      document: (ws: { name: string }[]) => ws.map((w) => `- widget ${w.name}`),
+    }],
+  }
+  const maker: Plugin = { name: "maker", says: "contributes to it", contributes: { widgets: [{ name: "gear" }] } }
+  const p = tempProject([docs({}), features, widgets, maker])
+  try {
+    const text = renderReference(p.ctx)
+    assert.match(text, /^## Extension points$/m)
+    assert.match(text, /^\| `types` \| core \| item types: .* \| features \|$/m)
+    assert.match(text, /^\| `widgets` \| widgets \| a widget \| maker \|$/m)
+    assert.match(text, /## maker\n[\s\S]*^- widget gear$/m)
+    assert.match(text, /\*\*Extension points\*\* it declares: `widgets`\./)
   } finally {
     p.cleanup()
   }

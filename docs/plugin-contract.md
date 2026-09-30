@@ -30,23 +30,77 @@ to collect them.
 
 ## Contributions
 
+Every kind of contribution is an **extension point**: the core declares its
+own, a plugin may declare more, and any plugin contributes to any point that
+some loaded plugin declares. A contribution goes under the point's id in
+`contributes`; for the core's points, the same key at the top of the manifest
+says the same thing and is typed.
+
 | Part | What it declares |
 |---|---|
 | `says` | one line: what the plugin is (required) |
 | `about` | longer markdown: the concepts a reader needs before the reference |
 | `options` | the keys the plugin reads from its `options`: `name`, `says`, `default` (a first-party plugin infers each default from the repository) |
+| `points` | extension points it declares ([below](#extension-points)) |
+| `contributes` | contributions to any point, by point id: `{ "gates": [...] }` |
+| `optional` | points it contributes to only when some loaded plugin declares them; without one those contributions are dropped instead of refused |
+
+The core's points, each also a typed key of the manifest:
+
+| Point | What a contribution is |
+|---|---|
+| `commands` | `naima <name>`: `says`, `usage`, `options` (one per `--flag` in the usage), `examples` (invocations without the leading `naima`); `run(args, ctx)` returns an exit code (may be async) |
 | `types` | item types: `id`, `dir`, `statuses` (each `open` or `done`, optionally `proves`), `initialStatus`, a README `template`, `creatable: false` for archives |
 | `fields` | fields with a kind (`string`, `strings`, `date`, `enum`, `boolean`, `number`, `object`), enum values in rank order, and the types they apply to; `configured: true` when the values come from the project's configuration, so the program's reference does not list them |
 | `relations` | link relations; each names its inverse, which must also be declared |
-| `dirs` | directories under the tracker root the plugin owns that are not item types |
 | `checks` | `run(ctx) → Finding[]`; `problem` fails `naima check`, `note` does not; the project may weigh each one `off`, `note` or `problem` ([check severity](config.md#check-severity)) |
-| `commands` | `naima <name>`: `says`, `usage`, `options` (one per `--flag` in the usage), `examples` (invocations without the leading `naima`); `run(args, ctx)` returns an exit code (may be async) |
 | `views` | `naima view <name>`: a named rendering of derived state |
+| `dirs` | directories under the tracker root the plugin owns that are not item types |
 | `summary` | a block of `naima summary` |
 | `rank` | an additive urgency term; lower is more urgent |
-| `gates` | a named condition: `title`, `says`, `decides` (how it decides, in words), `evaluate(ctx) → { holds, blocking, owed }`; `configured: true` for a gate the project's configuration declares, which the program's reference leaves out |
-| `verifiers` | an adapter to a formal-methods tool: `verify({ model, property, options }) → { verdict, output, counterexample? }` |
 | `migrations` | its own data migrations, in order from its format 1: `from`, `says`, and pure `config(raw)`, `item(meta)`, `stale(meta)`; its format is 1 + their number ([migrations](format.md#migrations)) |
+
+First-party plugins declare two more: the `gates` plugin declares `gates` (a
+named condition: `title`, `says`, `decides`, `evaluate(ctx) → { holds,
+blocking, owed }`), the `verifier` plugin `verifiers`
+([below](#the-verifier-contract)). The [reference](reference.md#extension-points)
+lists every point with who declares it and who contributes to it.
+
+A contribution to a point no loaded plugin declares, and any manifest key the
+contract does not know, is refused when the project loads: a misspelt key is
+never silently ignored.
+
+## Extension points
+
+A point is data: an `ExtensionPoint` in [`src/core/types.ts`](../src/core/types.ts).
+
+```ts
+const notifiersPoint: ExtensionPoint<Notifier> = {
+  id: "notifiers",                       // the key under contributes, and the kind of qualified ids
+  says: "somewhere to send a message",
+  noun: "notifier",                      // one contribution, in words
+  key: (n) => n.name,                    // the name a contribution goes by
+  stored: false,                         // true when its names are written into the data
+  renamed: (n, name) => ({ ...n, name }),     // a copy under a project's rename
+  validate: (v) => typeof (v as Notifier)?.notify === "function" ? null : "has no notify function",
+  gaps: (n) => n.says ? [] : ["does not say where it sends"],   // what the docs check reports
+  document: (ns) => ns.map((n) => `- ${n.name}: ${n.says}`),    // its lines in the reference
+}
+
+export default (): Plugin => ({ name: "notify", says: "…", points: [notifiersPoint], commands: [/* reads ctx.registry.contributions("notifiers") */] })
+// and in any other plugin:
+export default (): Plugin => ({ name: "chat", says: "…", contributes: { notifiers: [{ name: "room", says: "the team room", notify: (m) => … }] } })
+```
+
+A point's contributions are read with `ctx.registry.contributions(id)` —
+each with its qualified id, the name it goes by, and whose it is — and one by
+name with `ctx.registry.find(id, ref)`. A contribution `validate` refuses is
+refused when the project loads; `configured(c)` marks one the project's
+configuration makes, which the program's reference leaves out. The core's own
+points are declared exactly this way (`src/core/points.ts`): adding a kind
+of contribution never takes a change to the core. The on-disk layout is not
+a point: `<type>/<slug>/{README.md,meta.json,attachments/}` is the
+compatibility boundary between forks ([the format](format.md)).
 
 ## Names
 
@@ -130,14 +184,16 @@ Render anything caught with `message(e)`, never `(e as Error).message`.
 Plugins do not import each other. They cooperate through what they declare:
 the `trackers` plugin's `close` accepts any item whose status `proves`, so a
 `verifier` property that holds closes a bug exactly as a passed test does; the
-`gates` plugin lists every gate in the registry, including the verifier's
-`properties` gate; `triage` and `gates` each add a `rank` term and the core
+`gates` plugin lists every gate contributed to its `gates` point, including
+the verifier's `properties` gate (a contribution the verifier makes
+`optional`, so it is dropped when no gates plugin is loaded); `triage` and `gates` each add a `rank` term and the core
 sums them.
 
 ## The verifier contract
 
 A verifier is an adapter to a formal-methods tool (a model checker, a
-theorem prover, a spatial logic checker):
+theorem prover, a spatial logic checker), contributed to the `verifier`
+plugin's `verifiers` point by any plugin — `contributes: { verifiers: [myChecker] }`:
 
 ```ts
 const myChecker: Verifier = {

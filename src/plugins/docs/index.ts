@@ -19,18 +19,24 @@ import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs"
 import { dirname, join, relative, resolve } from "node:path"
 import {
   bool,
+  cell,
   type Check,
   cliCommands,
+  code,
   type Command,
+  commandSection,
   type Context,
-  DEFAULT_DATA,
+  type Contribution,
+  type ExtensionPoint,
   fieldValue,
   type Finding,
   label,
-  type OptionDoc,
+  optionsTable,
   parse,
   type Plugin,
   projectFiles,
+  sentence,
+  table,
   walkFiles,
   writeFileAtomic,
 } from "../../core/index.ts"
@@ -75,92 +81,35 @@ export function referencesOf(reference: string | undefined): string[] {
 
 // ── the manifests ────────────────────────────────────────────────────────────
 
-const FLAG = /--[a-z][a-z0-9-]*/g
+const blank = (s: unknown): boolean => typeof s !== "string" || !s.trim()
 
-/** Every contribution of every loaded plugin that lacks its documentation. */
+/** How a contribution is named in a finding: its point's noun, its name, and whose it is when that is not plain. */
+const where = (point: ExtensionPoint, c: Contribution): string =>
+  `${point.noun} "${c.name}"${c.id === `${c.plugin}/${c.name}` ? "" : ` (${c.id})`}${point.id === "commands" ? ` (${c.plugin})` : ""}`
+
+/** Every contribution of every loaded plugin, to every point, that lacks its documentation — and every command the entry point answers. */
 export function documentationGaps(ctx: Context): string[] {
   const out: string[] = []
-  const blank = (s: unknown): boolean => typeof s !== "string" || !s.trim()
-  const commands = [
-    ...cliCommands.map((c) => ({ c, owner: "core" })),
-    ...ctx.registry.plugins.flatMap((p) => (p.commands ?? []).map((c) => ({ c, owner: p.name }))),
-  ]
-  for (const p of ctx.registry.plugins) if (blank(p.says)) out.push(`plugin "${p.name}" does not say what it is`)
-  for (const { c, owner } of commands) {
-    const where = `command "${c.name}" (${owner})`
-    if (blank(c.says)) out.push(`${where} does not say what it does`)
-    if (blank(c.usage)) out.push(`${where} has no usage`)
-    if (!c.examples?.length) out.push(`${where} has no example`)
-    const documented = new Set((c.options ?? []).map((o) => o.name))
-    for (const flag of new Set(c.usage.match(FLAG) ?? [])) if (!documented.has(flag)) out.push(`${where}: option ${flag} is in the usage but not documented`)
-    for (const o of c.options ?? []) {
-      if (!c.usage.includes(o.name)) out.push(`${where}: option ${o.name} is documented but not in the usage`)
-      if (blank(o.says)) out.push(`${where}: option ${o.name} does not say what it does`)
-    }
-  }
+  const said = (who: string, gaps: readonly string[]): string[] => gaps.map((g) => (g.startsWith(":") ? `${who}${g}` : `${who} ${g}`))
   for (const p of ctx.registry.plugins) {
+    if (blank(p.says)) out.push(`plugin "${p.name}" does not say what it is`)
     for (const o of p.options ?? []) if (blank(o.says)) out.push(`plugin "${p.name}": option ${o.name} does not say what it does`)
   }
-  for (const t of ctx.registry.types.values()) {
-    if (blank(t.says)) out.push(`type "${t.id}" does not say what it is`)
-    for (const [name, s] of Object.entries(t.statuses)) if (blank(s.says)) out.push(`type "${t.id}": status "${name}" does not say what it means`)
-  }
-  for (const f of ctx.registry.fields.values()) {
-    if (blank(f.says)) out.push(`field "${f.name}" does not say what it holds`)
-    if (f.kind === "enum") {
-      for (const [v, says] of Object.entries(f.values ?? {})) if (blank(says)) out.push(`field "${f.name}": value "${v}" does not say what it means`)
-    }
-  }
-  for (const r of ctx.registry.relations.values()) if (blank(r.says)) out.push(`relation "${r.name}" does not say what it means`)
-  for (const c of ctx.registry.checks) if (blank(c.says)) out.push(`check "${c.name}" does not say what it holds`)
-  for (const v of ctx.registry.views.values()) if (blank(v.says)) out.push(`view "${v.name}" does not say what it shows`)
-  for (const g of ctx.registry.gates.values()) {
-    if (blank(g.says)) out.push(`gate "${g.name}" does not say what it is for`)
-    if (blank(g.decides)) out.push(`gate "${g.name}" does not say how it decides`)
-  }
-  for (const v of ctx.registry.verifiers.values()) if (blank(v.says)) out.push(`verifier "${v.id}" does not say what it checks`)
-  for (const p of ctx.registry.plugins) {
-    for (const m of p.migrations ?? []) if (blank(m.says)) out.push(`plugin "${p.name}": migration ${m.from} does not say what it does`)
+  const commands = ctx.registry.points.get("commands")
+  for (const c of cliCommands) out.push(...said(`command "${c.name}" (core)`, commands?.gaps?.(c) ?? []))
+  for (const point of ctx.registry.points.values()) {
+    if (blank(point.says)) out.push(`extension point "${point.id}" does not say what it is`)
+    for (const c of ctx.registry.contributions(point.id)) out.push(...said(where(point, c), point.gaps?.(c.value) ?? []))
   }
   return out
 }
 
-const cell = (s: string | undefined): string => (s ?? "").replace(/\|/g, "\\|").replace(/\n/g, " ")
-const code = (s: string): string => "`" + s + "`"
-/** A `says` line as a sentence: capitalised, with a full stop. */
-const sentence = (s: string): string => {
-  const t = s.trim()
-  return (t.charAt(0).toUpperCase() + t.slice(1)).replace(/([^.!?])$/, "$1.")
-}
-
-function optionsTable(options: OptionDoc[], what: string): string[] {
-  if (!options.length) return []
-  return [
-    "",
-    `| ${what} | Default | What it does |`,
-    "|---|---|---|",
-    ...options.map((o) => `| ${code(o.name)} | ${o.default !== undefined ? code(o.default) : ""} | ${cell(o.says)} |`),
-  ]
-}
-
-function commandSection(c: Pick<Command, "name" | "says" | "usage" | "options" | "examples">): string[] {
-  return [
-    "",
-    `### naima ${c.name}`,
-    "",
-    sentence(c.says),
-    "",
-    "```sh",
-    ...c.usage.split(" | ").map((u) => `naima ${u}`),
-    "```",
-    ...optionsTable(c.options ?? [], "Option"),
-    ...(c.examples?.length ? ["", "Examples:", "", "```sh", ...c.examples.map((e) => `naima ${e}`), "```"] : []),
-  ]
-}
-
-/** The reference, generated from the manifests of the loaded plugins. Deterministic. */
+/** The reference, generated from the manifests of the loaded plugins: every point's contributions, as each point documents them. Deterministic. */
 export function renderReference(ctx: Context): string {
   const r = ctx.registry
+  const points = [...r.points.values()]
+  /** A point's contributions the program makes: the ones the project's configuration makes are the project's, not in the program's reference. */
+  const programs = (point: ExtensionPoint): readonly Contribution[] => r.contributions(point.id).filter((c) => !point.configured?.(c.value))
   const L: string[] = [
     "# Reference",
     "",
@@ -178,71 +127,33 @@ export function renderReference(ctx: Context): string {
     "| Command | Plugin | What it does |",
     "|---|---|---|",
     ...cliCommands.map((c) => `| [${code(c.name)}](#${anchor("naima " + c.name)}) | core | ${cell(c.says)} |`),
-    ...r.plugins.flatMap((p) => (p.commands ?? []).map((c) => `| [${code(c.name)}](#${anchor("naima " + c.name)}) | ${p.name} | ${cell(c.says)} |`)),
+    ...r.contributions("commands").map((c) => {
+      const cmd = c.value as Command
+      return `| [${code(cmd.name)}](#${anchor("naima " + cmd.name)}) | ${c.plugin} | ${cell(cmd.says)} |`
+    }),
+    "",
+    "## Extension points",
+    "",
+    "Every kind of contribution is an extension point: the core's own, and any a plugin declares. A plugin contributes to one under its id.",
+    ...table(
+      ["Point", "Declared by", "What it is", "Contributed by"],
+      points.map((point) => {
+        const by = [...new Set(programs(point).map((c) => c.plugin))]
+        const owner = r.plugins.find((p) => (p.points ?? []).includes(point))?.name ?? "core"
+        return [code(point.id), owner, point.says, by.join(", ")]
+      }),
+    ),
   ]
   for (const p of r.plugins) {
     L.push("", `## ${p.name}`, "", sentence(p.says), "", `Its contributions' qualified ids are ${code(`${p.name}/<name>`)}.`)
     if (p.about) L.push("", p.about)
     if (p.options?.length) L.push("", "Options, each with the default it takes when nothing sets it:", ...optionsTable(p.options, "Option"))
+    if (p.points?.length) L.push("", `**Extension points** it declares: ${p.points.map((pt) => code(pt.id)).join(", ")}.`)
     if (p.name === "core") { for (const c of cliCommands) L.push(...commandSection(c)) }
-    for (const c of p.commands ?? []) L.push(...commandSection(c))
-    for (const t of p.types ?? []) {
-      L.push(
-        "",
-        `### type: ${t.id}`,
-        "",
-        `${t.title}: ${t.says}. Items live in ${code(`${DEFAULT_DATA}/${t.dir}/`)}; a new one starts as ${code(t.initialStatus)}${
-          t.creatable === false ? "; it is an archive: items arrive by being moved there, never by being opened" : ""
-        }.`,
-      )
-      L.push("", "| Status | Category | Proves | Meaning |", "|---|---|---|---|")
-      for (const [name, s] of Object.entries(t.statuses)) L.push(`| ${code(name)} | ${s.category} | ${s.proves ? "yes" : ""} | ${cell(s.says)} |`)
-    }
-    if (p.fields?.length) {
-      L.push("", "**Fields**", "", "| Field | Kind | Applies to | Meaning | Values |", "|---|---|---|---|---|")
-      for (const f of p.fields) {
-        const values = f.configured
-          ? "set by the project's configuration"
-          : f.values
-          ? Object.entries(f.values).map(([v, s]) => `${code(v)} ${cell(s)}`).join("; ")
-          : ""
-        L.push(`| ${code(f.name)} | ${f.kind} | ${f.appliesTo ? f.appliesTo.join(", ") : "every type"} | ${cell(f.says)} | ${values} |`)
-      }
-    }
-    if (p.relations?.length) {
-      L.push(
-        "",
-        "**Link relations** — only the direction written is stored; the inverse is derived when read.",
-        "",
-        "| Relation | Inverse | Reads as |",
-        "|---|---|---|",
-      )
-      for (const rel of p.relations) L.push(`| ${code(rel.name)} | ${code(rel.inverse)} | ${cell(rel.says)} |`)
-    }
-    if (p.checks?.length) {
-      L.push("", "**Checks**, run by `naima check`", "", "| Check | What it holds |", "|---|---|")
-      for (const c of p.checks) L.push(`| ${code(c.name)} | ${cell(c.says)} |`)
-    }
-    // A gate the project configures is the project's, not the program's: it is not in the program's reference.
-    const gates = (p.gates ?? []).filter((g) => !g.configured)
-    if (gates.length) {
-      L.push("", "**Gates**, listed by `naima gates`", "", "| Gate | Title | What it is for | How it decides |", "|---|---|---|---|")
-      for (const g of gates) L.push(`| ${code(g.name)} | ${cell(g.title)} | ${cell(g.says)} | ${cell(g.decides)} |`)
-    }
-    if (p.verifiers?.length) {
-      L.push("", "**Verifiers**, used by `naima verify`", "", "| Verifier | What it checks |", "|---|---|")
-      for (const v of p.verifiers) L.push(`| ${code(v.id)} | ${cell(v.says)} |`)
-    }
-    if (p.views?.length) {
-      L.push("", "**Views**, printed by `naima view <name>`", "", "| View | What it shows |", "|---|---|")
-      for (const v of p.views) L.push(`| ${code(v.name)} | ${cell(v.says)} |`)
-    }
-    if (p.dirs?.length) L.push("", `**Directories** it owns under the tracker root: ${p.dirs.map((d) => code(d + "/")).join(", ")}.`)
-    if (p.summary?.length) L.push("", `**Summary sections**: ${p.summary.map((s) => code(s.name)).join(", ")}.`)
-    if (p.rank?.length) L.push("", `**Rank terms**, added to every item's urgency: ${p.rank.map((t) => code(t.name)).join(", ")}.`)
-    if (p.migrations?.length) {
-      L.push("", `**Migrations** of its own data, run by \`naima update\` after the core's; its format is ${p.migrations.length + 1}:`, "")
-      for (const m of p.migrations) L.push(`- format ${m.from} → ${m.from + 1}: ${m.says}`)
+    for (const point of points) {
+      const mine = programs(point).filter((c) => c.plugin === p.name)
+      if (!mine.length) continue
+      L.push(...(point.document ? point.document(mine.map((c) => c.value), p.name) : ["", `**${point.id}**: ${mine.map((c) => code(c.name)).join(", ")}.`]))
     }
   }
   return L.join("\n") + "\n"

@@ -20,7 +20,6 @@ import {
   type Context,
   fieldValue,
   type Finding,
-  type GateDef,
   type Item,
   label,
   parse,
@@ -28,12 +27,25 @@ import {
   saveMeta,
   setFieldValue,
   usageError,
-  type Verdict,
-  type VerifyResult,
   writeFileAtomic,
   writeJson,
 } from "../../core/index.ts"
 import { exampleRegex } from "./adapters/example-regex.ts"
+import { type Verdict, type Verifier, verifiersPoint, type VerifyResult } from "./contract.ts"
+
+export type { Verdict, Verifier, VerifyRequest, VerifyResult } from "./contract.ts"
+
+/** The gate this plugin contributes to the gates point: the shape that point takes, declared here since plugins never import each other. */
+interface Gate {
+  name: string
+  title: string
+  says: string
+  decides: string
+  evaluate(ctx: Context): { holds: boolean; blocking: Item[]; owed: Item[] }
+}
+
+const verifierOf = (ctx: Context, id: string): Verifier | undefined => ctx.registry.find<Verifier>("verifiers", id)?.value
+const verifierIds = (ctx: Context): string[] => ctx.registry.contributions("verifiers").map((c) => c.name)
 
 export const TYPE = "properties"
 
@@ -144,8 +156,8 @@ export async function verifyItem(ctx: Context, item: Item): Promise<Verdict> {
   if (typeof id !== "string" || typeof model !== "string" || typeof property !== "string") {
     throw new Error(`${label(item)}: set verifier, model and property first`)
   }
-  const verifier = ctx.registry.verifiers.get(id)
-  if (!verifier) throw new Error(`${label(item)}: no verifier "${id}" — verifiers: ${[...ctx.registry.verifiers.keys()].join(", ")}`)
+  const verifier = verifierOf(ctx, id)
+  if (!verifier) throw new Error(`${label(item)}: no verifier "${id}" — verifiers: ${verifierIds(ctx).join(", ")}`)
   const path = modelPath(ctx.root, model)
   if (!path) throw new Error(`${label(item)}: model ${model} is outside the project — model is a path from the project root`)
   if (!existsSync(path)) throw new Error(`${label(item)}: model ${model} does not exist`)
@@ -208,7 +220,7 @@ const verifiers: Command = {
   usage: "verifiers",
   examples: ["verifiers"],
   run(_args, ctx) {
-    for (const v of ctx.registry.verifiers.values()) ctx.out(`  ${v.id.padEnd(16)} ${v.says}`)
+    for (const c of ctx.registry.contributions("verifiers")) ctx.out(`  ${c.name.padEnd(16)} ${(c.value as Verifier).says}`)
     return 0
   },
 }
@@ -222,7 +234,7 @@ const evidence: Check = {
     const problem = (item: Item, message: string) => out.push({ level: "problem", message: `${label(item)}: ${message}`, item })
     for (const item of properties(ctx)) {
       const { verifier, model } = item.meta
-      if (typeof verifier === "string" && !ctx.registry.verifiers.has(verifier)) problem(item, `verifier "${verifier}" is not loaded`)
+      if (typeof verifier === "string" && !verifierIds(ctx).includes(verifier)) problem(item, `verifier "${verifier}" is not loaded`)
       const path = typeof model === "string" ? modelPath(ctx.root, model) : null
       if (typeof model === "string" && !path) problem(item, `model ${model} is outside the project — model is a path from the project root`)
       else if (path && !existsSync(path)) problem(item, `model ${String(model)} does not exist`)
@@ -253,7 +265,7 @@ const evidence: Check = {
   },
 }
 
-const allHold: GateDef = {
+const allHold: Gate = {
   name: "properties",
   title: "Every property holds",
   says: "no property item is open, violated or in error",
@@ -296,8 +308,10 @@ export default function verifier(): Plugin {
       { name: "lastRun", kind: "string", says: "the attachment holding the last run: a file name in the item's attachments/", appliesTo: [TYPE] },
       { name: "verifierOptions", kind: "object", says: "options handed to the verifier with the model and the property, as a JSON object", appliesTo: [TYPE] },
     ],
-    verifiers: [exampleRegex],
-    gates: [allHold],
+    points: [verifiersPoint],
+    contributes: { verifiers: [exampleRegex], gates: [allHold] },
+    // Its gate is there when a gates plugin is: without one, nothing lists gates.
+    optional: ["gates"],
     checks: [evidence],
     commands: [verify, verifiers],
   }

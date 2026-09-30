@@ -8,7 +8,8 @@
 // exit status and output to a verdict, and returns the trace it printed.
 
 import { readFileSync } from "node:fs"
-import { message, type Verifier, type VerifyRequest, type VerifyResult } from "../../../core/index.ts"
+import { message } from "../../../core/index.ts"
+import type { Verifier, VerifyRequest, VerifyResult } from "../contract.ts"
 
 /** The whole check, synchronous: a real adapter awaits its tool here. */
 function check({ model, property }: VerifyRequest): VerifyResult {

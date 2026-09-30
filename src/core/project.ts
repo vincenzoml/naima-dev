@@ -9,6 +9,7 @@ import { consoleIO, createContext, type IO, type Place } from "./context.ts"
 import { RESERVED } from "./entry.ts"
 import { FORMAT, formatOf, formatRefusal, formatsOf, migrateConfig, MIGRATIONS, type Migrations, type Pending, pending, stepsSaid } from "./format.ts"
 import { DATA_FILE } from "./layout.ts"
+import { migrationsOf } from "./manifest.ts"
 import { buildRegistry } from "./registry.ts"
 import type { Config, Context, FirstParty, Plugin } from "./types.ts"
 
@@ -33,7 +34,7 @@ const CORE: Migrations = { plugin: null, migrations: MIGRATIONS }
 export const pluginsOf = (config: Config, opts: OpenOptions): Promise<Plugin[]> => composePlugins(opts.programRoot, config, opts.firstParty)
 
 /** The migrations of the core and of every plugin `plugins` holds, in the order they run. */
-export const migrationsOf = (plugins: readonly Plugin[]): Migrations[] => [CORE, ...plugins.map((p) => ({ plugin: p.name, migrations: p.migrations ?? [] }))]
+export const allMigrations = (plugins: readonly Plugin[]): Migrations[] => [CORE, ...plugins.map((p) => ({ plugin: p.name, migrations: migrationsOf(p) }))]
 
 /**
  * The plugins a raw naima.json loads as it stands, and every migration it
@@ -43,7 +44,7 @@ export const migrationsOf = (plugins: readonly Plugin[]): Migrations[] => [CORE,
 export async function owed(raw: Json, opts: OpenOptions): Promise<{ plugins: Plugin[]; all: Migrations[]; steps: Pending[] }> {
   const core = migrateConfig(raw, pending(raw, [CORE]), [CORE])
   const plugins = await pluginsOf(parseConfig({ ...core, format: FORMAT }, { lenient: true }), opts)
-  const all = migrationsOf(plugins)
+  const all = allMigrations(plugins)
   return { plugins, all, steps: pending(raw, all) }
 }
 
@@ -87,5 +88,5 @@ export async function openProject(place: Place, opts: OpenOptions, io: IO = cons
 
 /** The formats a new project starts at: every plugin's own that has moved past format 1. */
 export function formatsFor(plugins: readonly Plugin[]): Record<string, number> {
-  return Object.fromEntries(plugins.filter((p) => formatOf(p.migrations) > 1).map((p) => [p.name, formatOf(p.migrations)]))
+  return Object.fromEntries(plugins.filter((p) => formatOf(migrationsOf(p)) > 1).map((p) => [p.name, formatOf(migrationsOf(p))]))
 }

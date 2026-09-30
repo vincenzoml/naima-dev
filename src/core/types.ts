@@ -123,46 +123,33 @@ export interface RankTerm {
   score(item: Item, ctx: Context): number
 }
 
-export interface GateResult {
-  holds: boolean
-  /** What stops the gate. */
-  blocking: Item[]
-  /** What is still owed but does not stop it. */
-  owed: Item[]
-}
-
-/** A named release or merge condition, backed by items. */
-export interface GateDef {
-  name: string
-  title: string
-  says: string
-  /** How `evaluate` decides: what blocks the gate and what is only owed. */
-  decides?: string
-  /** Declared by the project's configuration, not the program: the program's reference leaves it out. */
-  configured?: boolean
-  evaluate(ctx: Context): GateResult
-}
-
-export interface VerifyRequest {
-  /** Absolute path of the model or specification file. */
-  model: string
-  property: string
-  options: Record<string, unknown>
-}
-
-export type Verdict = "holds" | "violated" | "error" | "unknown"
-
-export interface VerifyResult {
-  verdict: Verdict
-  output: string
-  counterexample?: string
-}
-
-/** An adapter to a formal-methods tool. */
-export interface Verifier {
+/**
+ * A kind of contribution, declared as data: the core declares its own —
+ * types, fields, relations, directories, checks, commands, views, summary
+ * sections, rank terms, migrations — and any plugin may declare one more the
+ * same way, which every plugin can then contribute to.
+ */
+// deno-lint-ignore no-explicit-any
+export interface ExtensionPoint<T = any> {
+  /** The key contributions go under, in a manifest's `contributes`; also the kind of their qualified ids, and of `rename`. */
   id: string
   says: string
-  verify(request: VerifyRequest, ctx: Context): Promise<VerifyResult>
+  /** One contribution, in words: "gate", "verifier". */
+  noun: string
+  /** The name a contribution goes by within the point. */
+  key(c: T): string
+  /** Its names are written into the data: two contributions may not share one, and a project renames one of them instead. */
+  stored?: boolean
+  /** A copy of `c` going by `name`, for a rename; without it the point's contributions cannot be renamed. */
+  renamed?(c: T, name: string): T
+  /** Why a contribution is not one, or null: checked when the project loads, so a malformed one never runs. */
+  validate?(c: unknown): string | null
+  /** What a contribution lacks of its documentation, each said after its name: the `docs` plugin's `documented` check reports them. */
+  gaps?(c: T): string[]
+  /** True for a contribution the project's configuration makes, not the program: the program's reference leaves it out. */
+  configured?(c: T): boolean
+  /** The reference's markdown for one plugin's contributions to this point, those the configuration makes left out. */
+  document?(cs: readonly T[], plugin: string): string[]
 }
 
 /** What a plugin declares. Every contribution is optional. */
@@ -183,10 +170,14 @@ export interface Plugin {
   views?: View[]
   summary?: SummarySection[]
   rank?: RankTerm[]
-  gates?: GateDef[]
-  verifiers?: Verifier[]
   /** Its own data migrations, in order from its format 1: its format is 1 + their number (docs/format.md#migrations). */
   migrations?: Migration[]
+  /** Extension points it declares: new kinds of contribution any plugin can make. */
+  points?: ExtensionPoint[]
+  /** Contributions to any point, by point id. A typed key above is the same as its point's entry here. */
+  contributes?: Record<string, readonly unknown[]>
+  /** Points it contributes to only when a loaded plugin declares them: without one, those contributions are dropped rather than refused. */
+  optional?: string[]
 }
 
 type Json = Record<string, unknown>
@@ -293,8 +284,8 @@ export interface Registry {
   readonly views: ReadonlyMap<string, View>
   readonly summary: readonly SummarySection[]
   readonly rank: readonly RankTerm[]
-  readonly gates: ReadonlyMap<string, GateDef>
-  readonly verifiers: ReadonlyMap<string, Verifier>
+  /** Every extension point, the core's and the plugins', by id, in the order the reference documents them. */
+  readonly points: ReadonlyMap<string, ExtensionPoint>
   /** Every contribution of a kind (`types`, `fields`, `commands`, …), in load order, with its qualified id. */
   contributions(kind: string): readonly Contribution[]
   /** The contribution of `kind` that `ref` names — its qualified id, or its short name while no other shares it; undefined when none does. Throws when `ref` is ambiguous, naming each qualified id. */

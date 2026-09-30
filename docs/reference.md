@@ -35,7 +35,7 @@ Every contribution below has a qualified id, `<plugin>/<name>`, and goes by its 
 | [`board`](#naima-board) | core | print a type's board, grouped by section, most urgent first |
 | [`view`](#naima-view) | core | print a plugin view; without a name, list them |
 | [`summary`](#naima-summary) | core | where the project stands, in one screen: every plugin's section |
-| [`plugins`](#naima-plugins) | core | list loaded plugins and what each contributes; a contribution's qualified id is <plugin>/<name>, shown when its short name is shared or renamed |
+| [`plugins`](#naima-plugins) | core | list loaded plugins, the extension points each declares, and what each contributes to every point; a contribution's qualified id is <plugin>/<name>, shown when its short name is shared or renamed |
 | [`types`](#naima-types) | core | list item types, their statuses and fields |
 | [`close`](#naima-close) | trackers | archive a resolved item: fixed, and proven by an item that has passed |
 | [`bugs`](#naima-bugs) | trackers | how many bugs have no code written, and how many are fixed but unproven |
@@ -51,6 +51,25 @@ Every contribution below has a qualified id, `<plugin>/<name>`, and goes by its 
 | [`verify`](#naima-verify) | verifier | run the verifier of properties and attach each run as evidence |
 | [`verifiers`](#naima-verifiers) | verifier | list the verifier adapters every plugin contributes |
 | [`docs`](#naima-docs) | docs | print the reference generated from the loaded manifests; write it, or check that a file matches it |
+
+## Extension points
+
+Every kind of contribution is an extension point: the core's own, and any a plugin declares. A plugin contributes to one under its id.
+
+| Point | Declared by | What it is | Contributed by |
+|---|---|---|---|
+| `commands` | core | `naima <name>`: a command, with its usage, options and examples | core, trackers, coordination, triage, gates, beta-markers, verifier, docs |
+| `types` | core | item types: a directory of items, their statuses, and the status a new one starts in | trackers, verifier |
+| `fields` | core | typed fields of an item's meta.json, and the types they apply to | core, trackers, triage, gates, verifier, docs |
+| `relations` | core | link relations between items, each naming its inverse | core, trackers |
+| `checks` | core | invariants `naima check` holds: a problem fails it, a note does not | core, trackers, coordination, gates, beta-markers, verifier, docs |
+| `views` | core | `naima view <name>`: a named rendering of derived state | triage |
+| `dirs` | core | directories under the tracker root a plugin owns that are not item types | coordination |
+| `summary` | core | a block of `naima summary` | core, trackers, coordination, triage, gates, beta-markers |
+| `rank` | core | an additive term of every item's urgency; lower is more urgent | triage, gates |
+| `migrations` | core | a plugin's own data migrations, in order from its format 1, run by `naima update` after the core's | gates |
+| `gates` | gates | a named release or merge condition, backed by items: `title`, `says`, `decides`, `evaluate(ctx) → { holds, blocking, owed }` | verifier |
+| `verifiers` | verifier | an adapter to a formal-methods tool: `verify({ model, property, options }, ctx) → { verdict, output, counterexample? }` | verifier |
 
 ## core
 
@@ -308,7 +327,7 @@ naima summary --json
 
 ### naima plugins
 
-List loaded plugins and what each contributes; a contribution's qualified id is <plugin>/<name>, shown when its short name is shared or renamed.
+List loaded plugins, the extension points each declares, and what each contributes to every point; a contribution's qualified id is <plugin>/<name>, shown when its short name is shared or renamed.
 
 ```sh
 naima plugins
@@ -670,6 +689,8 @@ Options, each with the default it takes when nothing sets it:
 |---|---|---|
 | `gates` | `{}` | `plugins.gates.options.gates` in `naima-tracker/naima-data/naima.json`: gate name → { "title", "says", "holdsOn" }. holdsOn "code" (the default) waits for code, not proof: a fixed item that owes only its proving gesture, and the gestures themselves, are owed but do not block. holdsOn "proof": every open item on the gate blocks it. |
 
+**Extension points** it declares: `gates`.
+
 ### naima gates
 
 Every gate, whoever declared it, and whether it holds; --check exits 1 if one does not.
@@ -778,6 +799,8 @@ Properties checked by formal-methods tools, with each run attached as evidence.
 Its contributions' qualified ids are `verifier/<name>`.
 
 A `properties` item names a `verifier` (an adapter any plugin can contribute), a `model` file (a path from the project root) and a `property` in the verifier's own language. `naima verify` runs the adapter and attaches the run — verdict, output, the model's sha256 — and the counterexample as its own file, then sets the status from the verdict. A property that holds is evidence exactly as a passed test is: it can `verify` a bug and close it. A verdict is only as good as what it was reached on, so `naima check` fails when a property claims to hold and its property, verifier, model path, `verifierOptions` or model contents have changed since the run. The shipped adapter, `example-regex`, is a stand-in that shows the shape of a real one.
+
+**Extension points** it declares: `verifiers`.
 
 ### naima verify
 

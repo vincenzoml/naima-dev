@@ -4,8 +4,11 @@
 
 ```
 src/
-  core/            the core: no item type, gate or workflow is named here
+  core/            the core: no item type, gate, verifier or workflow is named here
     types.ts       the contract (every interface a plugin sees)
+    points.ts      the core's own extension points: types, fields, relations, dirs, checks, commands, views, summary, rank, migrations
+    manifest.ts    what a manifest contributes to a point, whichever way it says so
+    markdown.ts    the markdown a point's documentation is written with
     index.ts       the public API — the only core module a plugin imports
     item.ts        an item on disk: create, move, save
     repo.ts        reading the tracker; ids, reference resolution, inverse links
@@ -91,8 +94,8 @@ records count.
   provide, and itself. There are no dependencies.
 - A plugin imports only `core/index.ts` and its own files. Its tests may also
   import `core/testing.ts`. Plugins never import each other: what one needs
-  from another travels through the registry (a field, a relation, a status
-  that `proves`, a gate, a verifier).
+  from another travels through the registry: a field, a relation, a status
+  that `proves`, a contribution to an extension point another declares.
 - `builtins.ts` and `cli.ts` compose the two.
 
 - The core names no plugin's type, field, relation or plugin in its code: it

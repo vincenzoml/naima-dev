@@ -1,0 +1,246 @@
+// The core's own extension points: the kinds of contribution every project
+// has. Declared exactly as a plugin declares one, so the registry, `naima
+// plugins` and the reference treat them and a plugin's alike.
+
+import { code, sentence, table } from "./markdown.ts"
+import { DEFAULT_DATA } from "./layout.ts"
+import type {
+  Check,
+  Command,
+  ExtensionPoint,
+  FieldDef,
+  FieldKind,
+  Migration,
+  OptionDoc,
+  RankTerm,
+  RelationDef,
+  SummarySection,
+  TypeDef,
+  View,
+} from "./types.ts"
+
+const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v)
+const blank = (s: unknown): boolean => typeof s !== "string" || !s.trim()
+const text = (v: unknown, key: string): string | null => (typeof (v as Record<string, unknown>)[key] === "string" ? null : `has no ${key}`)
+const fn = (v: unknown, key: string): string | null => (typeof (v as Record<string, unknown>)[key] === "function" ? null : `has no ${key} function`)
+/** The first reason `v` is not a contribution: not an object, or a check that fails. */
+const shape = (v: unknown, ...checks: ((v: unknown) => string | null)[]): string | null => {
+  if (!isObject(v)) return "is not an object"
+  for (const c of checks) {
+    const why = c(v)
+    if (why) return why
+  }
+  return null
+}
+const says = (c: { says?: string }, what: string): string[] => (blank(c.says) ? [`does not say what it ${what}`] : [])
+
+/** A table of a plugin's options, or a command's: name, default, what it does. */
+export function optionsTable(options: readonly OptionDoc[], what: string): string[] {
+  return table([what, "Default", "What it does"], options.map((o) => [code(o.name), o.default !== undefined ? code(o.default) : "", o.says]))
+}
+
+const FLAG = /--[a-z][a-z0-9-]*/g
+
+/** What a command lacks of its documentation. */
+export function commandGaps(c: Pick<Command, "says" | "usage" | "options" | "examples">): string[] {
+  const out = [...says(c, "does")]
+  if (blank(c.usage)) out.push("has no usage")
+  if (!c.examples?.length) out.push("has no example")
+  const documented = new Set((c.options ?? []).map((o) => o.name))
+  for (const flag of new Set(c.usage.match(FLAG) ?? [])) if (!documented.has(flag)) out.push(`: option ${flag} is in the usage but not documented`)
+  for (const o of c.options ?? []) {
+    if (!c.usage.includes(o.name)) out.push(`: option ${o.name} is documented but not in the usage`)
+    if (blank(o.says)) out.push(`: option ${o.name} does not say what it does`)
+  }
+  return out
+}
+
+/** A command's section of the reference: heading, what it does, usage, options, examples. */
+export function commandSection(c: Pick<Command, "name" | "says" | "usage" | "options" | "examples">): string[] {
+  return [
+    "",
+    `### naima ${c.name}`,
+    "",
+    sentence(c.says),
+    "",
+    "```sh",
+    ...c.usage.split(" | ").map((u) => `naima ${u}`),
+    "```",
+    ...optionsTable(c.options ?? [], "Option"),
+    ...(c.examples?.length ? ["", "Examples:", "", "```sh", ...c.examples.map((e) => `naima ${e}`), "```"] : []),
+  ]
+}
+
+export const FIELD_KINDS: readonly FieldKind[] = ["string", "strings", "date", "enum", "boolean", "number", "object"]
+
+export const typesPoint: ExtensionPoint<TypeDef> = {
+  id: "types",
+  says: "item types: a directory of items, their statuses, and the status a new one starts in",
+  noun: "type",
+  stored: true,
+  key: (t) => t.id,
+  renamed: (t, id) => ({ ...t, id, dir: id }),
+  validate: (v) =>
+    shape(v, (t) => text(t, "id"), (t) => text(t, "dir"), (t) => text(t, "title"), (t) => (isObject((t as TypeDef).statuses) ? null : "has no statuses")),
+  gaps: (
+    t,
+  ) => [...says(t, "is"), ...Object.entries(t.statuses).flatMap(([name, s]) => (blank(s.says) ? [`: status "${name}" does not say what it means`] : []))],
+  document: (types) =>
+    types.flatMap((t) => [
+      "",
+      `### type: ${t.id}`,
+      "",
+      `${t.title}: ${t.says}. Items live in ${code(`${DEFAULT_DATA}/${t.dir}/`)}; a new one starts as ${code(t.initialStatus)}${
+        t.creatable === false ? "; it is an archive: items arrive by being moved there, never by being opened" : ""
+      }.`,
+      ...table(
+        ["Status", "Category", "Proves", "Meaning"],
+        Object.entries(t.statuses).map(([name, s]) => [code(name), s.category, s.proves ? "yes" : "", s.says]),
+      ),
+    ]),
+}
+
+export const fieldsPoint: ExtensionPoint<FieldDef> = {
+  id: "fields",
+  says: "typed fields of an item's meta.json, and the types they apply to",
+  noun: "field",
+  stored: true,
+  key: (f) => f.name,
+  renamed: (f, name) => ({ ...f, name }),
+  validate: (v) =>
+    shape(
+      v,
+      (f) => text(f, "name"),
+      (f) => (FIELD_KINDS.includes((f as FieldDef).kind) ? null : `has kind ${JSON.stringify((f as FieldDef).kind)}, not one of: ${FIELD_KINDS.join(", ")}`),
+    ),
+  gaps: (f) => [
+    ...says(f, "holds"),
+    ...(f.kind === "enum" ? Object.entries(f.values ?? {}).flatMap(([v, s]) => (blank(s) ? [`: value "${v}" does not say what it means`] : [])) : []),
+  ],
+  document: (fields) => [
+    "",
+    "**Fields**",
+    ...table(
+      ["Field", "Kind", "Applies to", "Meaning", "Values"],
+      fields.map((f) => [
+        code(f.name),
+        f.kind,
+        f.appliesTo ? f.appliesTo.join(", ") : "every type",
+        f.says,
+        f.configured ? "set by the project's configuration" : f.values ? Object.entries(f.values).map(([v, s]) => `${code(v)} ${s}`).join("; ") : "",
+      ]),
+    ),
+  ],
+}
+
+export const relationsPoint: ExtensionPoint<RelationDef> = {
+  id: "relations",
+  says: "link relations between items, each naming its inverse",
+  noun: "relation",
+  stored: true,
+  key: (r) => r.name,
+  renamed: (r, name) => ({ ...r, name }),
+  validate: (v) => shape(v, (r) => text(r, "name"), (r) => text(r, "inverse")),
+  gaps: (r) => says(r, "means"),
+  document: (rels) => [
+    "",
+    "**Link relations** — only the direction written is stored; the inverse is derived when read.",
+    ...table(["Relation", "Inverse", "Reads as"], rels.map((r) => [code(r.name), code(r.inverse), r.says])),
+  ],
+}
+
+export const dirsPoint: ExtensionPoint<string> = {
+  id: "dirs",
+  says: "directories under the tracker root a plugin owns that are not item types",
+  noun: "directory",
+  stored: true,
+  key: (d) => d,
+  renamed: (_d, name) => name,
+  validate: (v) => (typeof v === "string" && /^[^\s/\\.][^/\\]*$/.test(v) ? null : "is not a directory name"),
+  document: (dirs) => ["", `**Directories** it owns under the tracker root: ${dirs.map((d) => code(d + "/")).join(", ")}.`],
+}
+
+export const checksPoint: ExtensionPoint<Check> = {
+  id: "checks",
+  says: "invariants `naima check` holds: a problem fails it, a note does not",
+  noun: "check",
+  key: (c) => c.name,
+  renamed: (c, name) => ({ ...c, name }),
+  validate: (v) => shape(v, (c) => text(c, "name"), (c) => fn(c, "run")),
+  gaps: (c) => says(c, "holds"),
+  document: (checks) => ["", "**Checks**, run by `naima check`", ...table(["Check", "What it holds"], checks.map((c) => [code(c.name), c.says]))],
+}
+
+export const commandsPoint: ExtensionPoint<Command> = {
+  id: "commands",
+  says: "`naima <name>`: a command, with its usage, options and examples",
+  noun: "command",
+  key: (c) => c.name,
+  renamed: (c, name) => ({ ...c, name, usage: c.usage.replace(c.name, name) }),
+  validate: (v) => shape(v, (c) => text(c, "name"), (c) => text(c, "usage"), (c) => fn(c, "run")),
+  gaps: commandGaps,
+  document: (commands) => commands.flatMap(commandSection),
+}
+
+export const viewsPoint: ExtensionPoint<View> = {
+  id: "views",
+  says: "`naima view <name>`: a named rendering of derived state",
+  noun: "view",
+  key: (v) => v.name,
+  renamed: (v, name) => ({ ...v, name }),
+  validate: (v) => shape(v, (c) => text(c, "name"), (c) => fn(c, "render")),
+  gaps: (v) => says(v, "shows"),
+  document: (views) => ["", "**Views**, printed by `naima view <name>`", ...table(["View", "What it shows"], views.map((v) => [code(v.name), v.says]))],
+}
+
+export const summaryPoint: ExtensionPoint<SummarySection> = {
+  id: "summary",
+  says: "a block of `naima summary`",
+  noun: "summary section",
+  key: (s) => s.name,
+  renamed: (s, name) => ({ ...s, name }),
+  validate: (v) => shape(v, (c) => text(c, "name"), (c) => fn(c, "render")),
+  document: (sections) => ["", `**Summary sections**: ${sections.map((s) => code(s.name)).join(", ")}.`],
+}
+
+export const rankPoint: ExtensionPoint<RankTerm> = {
+  id: "rank",
+  says: "an additive term of every item's urgency; lower is more urgent",
+  noun: "rank term",
+  key: (t) => t.name,
+  renamed: (t, name) => ({ ...t, name }),
+  validate: (v) => shape(v, (c) => text(c, "name"), (c) => fn(c, "score")),
+  document: (terms) => ["", `**Rank terms**, added to every item's urgency: ${terms.map((t) => code(t.name)).join(", ")}.`],
+}
+
+export const migrationsPoint: ExtensionPoint<Migration> = {
+  id: "migrations",
+  says: "a plugin's own data migrations, in order from its format 1, run by `naima update` after the core's",
+  noun: "migration",
+  key: (m) => String(m.from),
+  validate: (v) => shape(v, (m) => (Number.isInteger((m as Migration).from) ? null : "has no from"), (m) => text(m, "says")),
+  gaps: (m) => says(m, "does"),
+  document: (ms) => [
+    "",
+    `**Migrations** of its own data, run by \`naima update\` after the core's; its format is ${ms.length + 1}:`,
+    "",
+    ...ms.map((m) => `- format ${m.from} → ${m.from + 1}: ${m.says}`),
+  ],
+}
+
+/** The core's points, in the order the reference documents a plugin's contributions. */
+export const CORE_POINTS: readonly ExtensionPoint[] = [
+  commandsPoint,
+  typesPoint,
+  fieldsPoint,
+  relationsPoint,
+  checksPoint,
+  viewsPoint,
+  dirsPoint,
+  summaryPoint,
+  rankPoint,
+  migrationsPoint,
+]
+
+/** Manifest keys that are not contributions: a point may not take one as its id. */
+export const MANIFEST_KEYS: readonly string[] = ["name", "says", "about", "options", "points", "contributes", "optional", "contract", "uses"]

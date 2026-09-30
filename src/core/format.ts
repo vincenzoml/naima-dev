@@ -20,6 +20,7 @@ import { DATA_FILE } from "./layout.ts"
 import { listDirs, META } from "./item.ts"
 import { writeFileAtomic } from "./files.ts"
 import { label } from "./lifecycle.ts"
+import { migrationsOf } from "./manifest.ts"
 import { CORE_MIGRATIONS } from "./migrations.ts"
 import type { Check, Finding, Migration } from "./types.ts"
 
@@ -184,7 +185,7 @@ export function formatCheck(migrations: readonly Migration[] = MIGRATIONS): Chec
     name: "one-format",
     says: "no item is still in a shape a format migration, the core's or a plugin's own, replaced: a tracker never mixes formats",
     run(ctx) {
-      const all: Migrations[] = [{ plugin: null, migrations }, ...ctx.registry.plugins.map((p) => ({ plugin: p.name, migrations: p.migrations ?? [] }))]
+      const all: Migrations[] = [{ plugin: null, migrations }, ...ctx.registry.plugins.map((p) => ({ plugin: p.name, migrations: migrationsOf(p) }))]
       const out: Finding[] = []
       for (const { plugin, migrations: list } of all) {
         for (const m of list) {

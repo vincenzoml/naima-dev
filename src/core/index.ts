@@ -48,7 +48,11 @@ export {
   trackerOf,
 } from "./layout.ts"
 export { consoleIO, createContext, type IO, type Place } from "./context.ts"
-export { buildRegistry } from "./registry.ts"
+export { buildRegistry, type RegistryOptions } from "./registry.ts"
+export { cell, code, sentence, table } from "./markdown.ts"
+export { commandGaps, commandSection, CORE_POINTS, FIELD_KINDS, optionsTable } from "./points.ts"
+export { contributionsOf, migrationsOf } from "./manifest.ts"
+export { shortOrId } from "./names.ts"
 export { type CliOptions, runCli } from "./cli.ts"
 export { cliCommands } from "./entry.ts"
 export { type OpenOptions, openProject } from "./project.ts"

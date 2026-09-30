@@ -3,13 +3,20 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "n
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { test } from "node:test"
-import { createItem, type Plugin, runChecks, type Verifier } from "../../core/index.ts"
+import { createItem, type Plugin, runChecks } from "../../core/index.ts"
 import { tempProject } from "../../core/testing.ts"
 import { exampleRegex } from "./adapters/example-regex.ts"
-import verifier, { readRun } from "./index.ts"
+import verifier, { readRun, type Verifier } from "./index.ts"
+
+/** Whatever plugin declares the gates point: plugins never import each other, so a stand-in declares it here. */
+const gatesPoint: Plugin = {
+  name: "gates-point",
+  says: "declares gates",
+  points: [{ id: "gates", noun: "gate", says: "a gate", key: (g: { name: string }) => g.name }],
+}
 
 test("a run is attached as evidence, with the counterexample and the model's hash", async () => {
-  const p = tempProject([verifier()])
+  const p = tempProject([verifier(), gatesPoint])
   try {
     const { ctx } = p
     writeFileSync(join(p.root, "model.txt"), "init x = 0\nnext x' = x + 1\n")
@@ -23,7 +30,7 @@ test("a run is attached as evidence, with the counterexample and the model's has
     assert.equal(item.meta.status, "holds")
     assert.equal(readRun(item)?.verdict, "holds")
     assert.deepEqual(runChecks(ctx).problems, [])
-    assert.ok(ctx.registry.gates.get("properties")!.evaluate(ctx).holds)
+    assert.ok(ctx.registry.find<{ evaluate(c: typeof ctx): { holds: boolean } }>("gates", "properties")!.value.evaluate(ctx).holds)
 
     // the model changes: the old verdict is no longer evidence
     writeFileSync(join(p.root, "model.txt"), "init x = 0\nnext x' = x - 1\nassume x = -1\n")
@@ -37,7 +44,7 @@ test("a run is attached as evidence, with the counterexample and the model's has
     assert.ok(cex)
     assert.equal(readFileSync(join(item.dir, "attachments", cex), "utf8"), "3: assume x = -1\n")
     assert.deepEqual(runChecks(ctx).problems, [])
-    assert.equal(ctx.registry.gates.get("properties")!.evaluate(ctx).holds, false)
+    assert.equal(ctx.registry.find<{ evaluate(c: typeof ctx): { holds: boolean } }>("gates", "properties")!.value.evaluate(ctx).holds, false)
   } finally {
     p.cleanup()
   }
@@ -45,7 +52,7 @@ test("a run is attached as evidence, with the counterexample and the model's has
 
 test("adapters come from any plugin; a missing verifier or model is a problem", async () => {
   const always: Verifier = { id: "always", says: "", verify: () => Promise.resolve({ verdict: "holds", output: "ok" }) }
-  const extra: Plugin = { name: "extra", says: "", verifiers: [always] }
+  const extra: Plugin = { name: "extra", says: "", contributes: { verifiers: [always] } }
   const p = tempProject([verifier(), extra])
   try {
     const { ctx } = p
@@ -84,12 +91,14 @@ test("an adapter outside the contract gives a property in error with a readable 
   const extra: Plugin = {
     name: "extra",
     says: "",
-    verifiers: [
-      bad("pass", () => Promise.resolve({ verdict: "pass", output: "fine" })),
-      bad("silent", () => Promise.resolve({ verdict: "holds" })),
-      bad("nothing", () => Promise.resolve(undefined)),
-      bad("throws", () => Promise.reject("a string, not an Error")),
-    ],
+    contributes: {
+      verifiers: [
+        bad("pass", () => Promise.resolve({ verdict: "pass", output: "fine" })),
+        bad("silent", () => Promise.resolve({ verdict: "holds" })),
+        bad("nothing", () => Promise.resolve(undefined)),
+        bad("throws", () => Promise.reject("a string, not an Error")),
+      ],
+    },
   }
   const p = tempProject([verifier(), extra])
   try {
@@ -115,7 +124,7 @@ test("an adapter outside the contract gives a property in error with a readable 
 
 test("a property holds only for what was run: a changed property, verifier, model path or options is reported", async () => {
   const other: Verifier = { id: "other", says: "", verify: () => Promise.resolve({ verdict: "holds", output: "ok" }) }
-  const p = tempProject([verifier(), { name: "extra", says: "", verifiers: [other] }])
+  const p = tempProject([verifier(), { name: "extra", says: "", contributes: { verifiers: [other] } }])
   try {
     const { ctx } = p
     writeFileSync(join(p.root, "model.txt"), "alpha\nbeta\n")

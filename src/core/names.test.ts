@@ -69,7 +69,7 @@ test("a rename must name a contribution a loaded plugin declares, and never a pl
     () => buildRegistry([corePlugin, incidents()], { rename: { fields: { "ops/nothing": "x" } } }),
     /"ops\/nothing" is no field a loaded plugin declares/,
   )
-  assert.throws(() => buildRegistry([corePlugin, incidents()], { rename: { widgets: {} } }), /rename\.widgets: not a kind of contribution/)
+  assert.throws(() => buildRegistry([corePlugin, incidents()], { rename: { widgets: {} } }), /rename\.widgets: not an extension point/)
   assert.throws(
     () => buildRegistry([corePlugin, triage, incidents()], { rename: { fields: { "triage/priority": "when" } }, fixedNames: ["core", "triage"] }),
     /"triage\/priority" is triage's, which reads its own names as declared — rename the other plugin's instead/,

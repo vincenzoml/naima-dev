@@ -18,14 +18,15 @@
 import {
   bool,
   type Check,
+  code,
   type Command,
   type Context,
+  type Contribution,
   DATA_FILE,
   DEFAULT_DATA,
+  type ExtensionPoint,
   fieldValue,
   type Finding,
-  type GateDef,
-  type GateResult,
   groupBy,
   isEvidenceType,
   isOpen,
@@ -36,7 +37,57 @@ import {
   parse,
   type Plugin,
   type SummarySection,
+  table,
 } from "../../core/index.ts"
+
+export interface GateResult {
+  holds: boolean
+  /** What stops the gate. */
+  blocking: Item[]
+  /** What is still owed but does not stop it. */
+  owed: Item[]
+}
+
+/** A named release or merge condition, backed by items: what any plugin contributes to the `gates` point. */
+export interface GateDef {
+  name: string
+  title: string
+  says: string
+  /** How `evaluate` decides: what blocks the gate and what is only owed. */
+  decides?: string
+  /** Declared by the project's configuration, not the program: the program's reference leaves it out. */
+  configured?: boolean
+  evaluate(ctx: Context): GateResult
+}
+
+const blank = (s: unknown): boolean => typeof s !== "string" || !s.trim()
+
+/** The point this plugin declares: every plugin's gates, `naima gates` lists them all. */
+export const gatesPoint: ExtensionPoint<GateDef> = {
+  id: "gates",
+  says: "a named release or merge condition, backed by items: `title`, `says`, `decides`, `evaluate(ctx) → { holds, blocking, owed }`",
+  noun: "gate",
+  stored: true,
+  key: (g) => g.name,
+  renamed: (g, name) => ({ ...g, name }),
+  validate: (v) => {
+    const g = v as Partial<GateDef> | null
+    if (!g || typeof g !== "object") return "is not an object"
+    if (typeof g.name !== "string" || typeof g.title !== "string") return "has no name or title"
+    return typeof g.evaluate === "function" ? null : "has no evaluate function"
+  },
+  gaps: (g) => [...(blank(g.says) ? ["does not say what it is for"] : []), ...(blank(g.decides) ? ["does not say how it decides"] : [])],
+  // A gate the project configures is the project's, not the program's: it is not in the program's reference.
+  configured: (g) => g.configured === true,
+  document: (gates) => [
+    "",
+    "**Gates**, listed by `naima gates`",
+    ...table(["Gate", "Title", "What it is for", "How it decides"], gates.map((g) => [code(g.name), g.title, g.says, g.decides ?? ""])),
+  ],
+}
+
+/** Every gate any loaded plugin contributes, by name. */
+export const gatesOf = (ctx: Context): Contribution<GateDef>[] => ctx.registry.contributions("gates") as Contribution<GateDef>[]
 
 export interface GateConfig {
   title: string
@@ -105,11 +156,12 @@ const gatesCommand: Command = {
   examples: ["gates", "gates first-public --check"],
   run(args, ctx) {
     const p = parse(args, { check: { type: "boolean" } })
-    const wanted = p.positionals.length ? p.positionals : [...ctx.registry.gates.keys()]
+    const names = gatesOf(ctx).map((g) => g.name)
+    const wanted = p.positionals.length ? p.positionals : names
     let failed = 0
     for (const name of wanted) {
-      const gate = ctx.registry.gates.get(name)
-      if (!gate) throw new Error(`no gate "${name}" — gates: ${[...ctx.registry.gates.keys()].join(", ") || "none configured"}`)
+      const gate = ctx.registry.find<GateDef>("gates", name)?.value
+      if (!gate) throw new Error(`no gate "${name}" — gates: ${names.join(", ") || "none configured"}`)
       const r = gate.evaluate(ctx)
       if (!r.holds) failed++
       ctx.out(`${gate.name} — ${gate.title}: ${r.holds ? "HOLDS" : `BLOCKED by ${r.blocking.length}`}${r.owed.length ? `, ${r.owed.length} owed` : ""}`)
@@ -181,7 +233,7 @@ export default function gates(options: Record<string, unknown> = {}): Plugin {
   const status: SummarySection = {
     name: "gates",
     render: (ctx) =>
-      [...ctx.registry.gates.values()].map((g) => {
+      gatesOf(ctx).map(({ value: g }) => {
         const r = g.evaluate(ctx)
         return `  ${g.name.padEnd(16)} ${r.holds ? "holds" : `blocked by ${r.blocking.length}`}${r.owed.length ? `, ${r.owed.length} owed` : ""}`
       }),
@@ -209,7 +261,8 @@ export default function gates(options: Record<string, unknown> = {}): Plugin {
         values: Object.fromEntries(Object.entries(configured).map(([n, c]) => [n, c.title])),
       },
     ],
-    gates: defs,
+    points: [gatesPoint],
+    contributes: { gates: defs },
     migrations: [moveGates],
     rank: [{ name: "gate", score: (i) => (fieldValue(i, GATE) !== undefined ? 0 : 4) }],
     checks: [gatedProofIsGated],

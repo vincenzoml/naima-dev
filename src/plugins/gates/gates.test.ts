@@ -1,8 +1,10 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { createItem, type Plugin, runChecks, typeOrThrow } from "../../core/index.ts"
+import { type Context, createItem, type Plugin, runChecks, typeOrThrow } from "../../core/index.ts"
 import { tempProject } from "../../core/testing.ts"
-import gates from "./index.ts"
+import gates, { type GateDef } from "./index.ts"
+
+const gate = (ctx: Context, name: string): GateDef => ctx.registry.find<GateDef>("gates", name)!.value
 
 // A stand-in for whatever plugin declares the item types: plugins never import each other.
 const open = { category: "open" as const, says: "" }
@@ -34,16 +36,16 @@ test("a code gate waits for code, a proof gate for everything", async () => {
     createItem(ctx, typeOrThrow(ctx, "tests"), "No crash", { gate: "v1", links: [{ rel: "verifies", id: bug.meta.id }], runBy: "human" })
     createItem(ctx, typeOrThrow(ctx, "todos"), "Docs", { gate: "strict", fixedOn: "2026-01-01" })
 
-    let v1 = ctx.registry.gates.get("v1")!.evaluate(ctx)
+    let v1 = gate(ctx, "v1").evaluate(ctx)
     assert.deepEqual([v1.holds, v1.blocking.length, v1.owed.length], [false, 1, 1])
     assert.equal(await p.run("gates", "--check"), 1)
 
     const { setFields } = await import("../../core/index.ts")
     setFields(ctx, ctx.repo.resolve(bug.slug), [["fixedOn", "2026-01-14"]])
     ctx.reload()
-    v1 = ctx.registry.gates.get("v1")!.evaluate(ctx)
+    v1 = gate(ctx, "v1").evaluate(ctx)
     assert.deepEqual([v1.holds, v1.owed.length], [true, 2])
-    assert.equal(ctx.registry.gates.get("strict")!.evaluate(ctx).holds, false)
+    assert.equal(gate(ctx, "strict").evaluate(ctx).holds, false)
     assert.equal(await p.run("gates", "v1", "--check"), 0)
 
     p.output.length = 0
@@ -72,7 +74,7 @@ test("an unknown gate is refused, and a proof of a gated item must be gated", ()
 test("gates are configured, never hard-coded", () => {
   assert.throws(() => gates({ gates: { x: {} } }), /needs a title/)
   assert.throws(() => gates({ gates: { x: { title: "X", holdsOn: "vibes" } } }), /holdsOn/)
-  assert.equal(gates().gates?.length, 0)
+  assert.equal(gates().contributes?.["gates"]?.length, 0)
 })
 
 test("gated-proof-is-gated says what it decides: an ungated proof of a gated item is a problem, whatever it ranks", () => {
