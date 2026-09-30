@@ -75,12 +75,12 @@ function seeds(t: Target): string[] {
   const out: string[] = []
   const common = git(t.root, ["rev-parse", "--path-format=absolute", "--git-common-dir"])
   if (common.ok) {
-    const main = dirname(common.out)
-    const twin = join(main, posixRelative(t.root, t.program))
-    if (resolve(twin) !== resolve(t.program) && isRepo(twin)) out.push(twin)
+    // Asked of git, not of the file system: the main worktree is outside what Naima may read.
+    const twin = join(dirname(common.out), posixRelative(t.root, t.program))
+    if (resolve(twin) !== resolve(t.program) && git(t.root, ["-C", twin, "rev-parse", "--show-toplevel"]).out === twin) out.push(twin)
   }
   out.push(t.root)
-  return out.filter((s) => has(s, t.commit))
+  return out.filter((s) => git(t.root, ["-C", s, "cat-file", "-e", `${t.commit}^{commit}`]).ok)
 }
 
 function cloneProgram(t: Target): void {
