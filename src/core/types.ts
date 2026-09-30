@@ -35,6 +35,8 @@ export interface StatusDef {
   category: StatusCategory
   /** A status that counts as evidence for whatever this item `verifies`. */
   proves?: boolean
+  /** A status that counts as evidence against it — a failed test, a violated property: it blocks a gate and a close. */
+  refutes?: boolean
   says: string
 }
 

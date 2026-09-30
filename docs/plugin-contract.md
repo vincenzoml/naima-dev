@@ -28,7 +28,7 @@ Naima that carries it — with optional `options` ([configuration](config.md)):
 | `says` | one line: what the plugin is (required) |
 | `about` | longer markdown: the concepts a reader needs before the reference |
 | `options` | the keys the plugin reads from its `options`: `name`, `says`, `default` (a first-party plugin infers each default from the repository) |
-| `types` | item types: `id`, `dir`, `statuses` (each `open` or `done`, optionally `proves`), `initialStatus`, a README `template`, `creatable: false` for archives |
+| `types` | item types: `id`, `dir`, `statuses` (each `open` or `done`, optionally `proves` — evidence for what the item verifies — or `refutes` — evidence against it, which blocks a gate and a close), `initialStatus`, a README `template`, `creatable: false` for archives |
 | `fields` | fields with a kind (`string`, `strings`, `date`, `enum`, `boolean`, `number`, `object`), enum values in rank order, and the types they apply to; `configured: true` when the values come from the project's configuration, so the program's reference does not list them |
 | `relations` | link relations; each names its inverse, which must also be declared |
 | `dirs` | directories under the tracker root the plugin owns that are not item types |
@@ -135,7 +135,8 @@ no branch closing an item it claims — are listed in the
 
 Plugins do not import each other. They cooperate through what they declare:
 the `trackers` plugin's `close` accepts any item whose status `proves`, so a
-`verifier` property that holds closes a bug exactly as a passed test does; the
+`verifier` property that holds closes a bug exactly as a passed test does, and
+refuses on any whose status `refutes`, or that a check reports; the
 `gates` plugin lists every gate in the registry, including the verifier's
 `properties` gate; `triage` and `gates` each add a `rank` term and the core
 sums them.

@@ -40,6 +40,11 @@ Three states that are not synonyms:
 - **closed** — resolved, and moved to the archive by `naima close`, carrying
   its proof.
 
+A status may instead **refute** — a failed test, a violated property: then
+the item it verifies is not resolved whatever else proves it, and it blocks
+every gate the two are on. `naima close` also refuses a proof `naima check`
+reports as no longer current.
+
 "How many bugs are left" is the unfixed count (`naima bugs`); fixed-but-
 unproven is a different number, and the two are never added.
 

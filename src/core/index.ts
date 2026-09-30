@@ -24,7 +24,7 @@ export { storedLinks } from "./repo.ts"
 export { groupBy } from "./collections.ts"
 export { EXIT, isInternal, message, NaimaError } from "./errors.ts"
 export { isRegularFile, NEVER_SOURCE, walkFiles, writeFileAtomic } from "./files.ts"
-export { byUrgency, isEvidenceType, isOpen, label, linked, proves, statusDef, urgency } from "./lifecycle.ts"
+export { byUrgency, isEvidenceType, isOpen, label, linked, proves, refutes, statusDef, urgency } from "./lifecycle.ts"
 export { addLink, renderBoard, setFields, typeOrThrow } from "./base.ts"
 export { type CheckReport, runChecks } from "./check.ts"
 export {

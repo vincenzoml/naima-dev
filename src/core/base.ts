@@ -316,7 +316,9 @@ const types: Command = {
   run(_args, ctx) {
     for (const t of ctx.registry.types.values()) {
       ctx.out(`${t.id} (${ctx.trackerDir}/${t.dir}/) — ${t.says}`)
-      for (const [name, s] of Object.entries(t.statuses)) ctx.out(`  ${name.padEnd(10)} ${s.category}${s.proves ? ", proves" : ""} — ${s.says}`)
+      for (const [name, s] of Object.entries(t.statuses)) {
+        ctx.out(`  ${name.padEnd(10)} ${s.category}${s.proves ? ", proves" : ""}${s.refutes ? ", refutes" : ""} — ${s.says}`)
+      }
       const fields = [...ctx.registry.fields.values()].filter((f) => appliesTo(f, t.id)).map((f) => f.name)
       ctx.out(`  fields: ${fields.join(", ")}`)
     }

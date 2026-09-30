@@ -193,8 +193,10 @@ export function renderReference(ctx: Context): string {
           t.creatable === false ? "; it is an archive: items arrive by being moved there, never by being opened" : ""
         }.`,
       )
-      L.push("", "| Status | Category | Proves | Meaning |", "|---|---|---|---|")
-      for (const [name, s] of Object.entries(t.statuses)) L.push(`| ${code(name)} | ${s.category} | ${s.proves ? "yes" : ""} | ${cell(s.says)} |`)
+      L.push("", "| Status | Category | Evidence | Meaning |", "|---|---|---|---|")
+      for (const [name, s] of Object.entries(t.statuses)) {
+        L.push(`| ${code(name)} | ${s.category} | ${s.proves ? "proves" : s.refutes ? "refutes" : ""} | ${cell(s.says)} |`)
+      }
     }
     if (p.fields?.length) {
       L.push("", "**Fields**", "", "| Field | Kind | Applies to | Meaning | Values |", "|---|---|---|---|---|")

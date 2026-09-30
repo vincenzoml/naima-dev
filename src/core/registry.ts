@@ -45,6 +45,9 @@ export function buildRegistry(plugins: Plugin[], opts: RegistryOptions = {}): Re
     names.add(p.name)
     for (const t of p.types ?? []) {
       if (!Object.hasOwn(t.statuses, t.initialStatus)) throw new Error(`type "${t.id}": initial status "${t.initialStatus}" is not one of its statuses`)
+      for (const [name, s] of Object.entries(t.statuses)) {
+        if (s.proves && s.refutes) throw new Error(`type "${t.id}": status "${name}" both proves and refutes`)
+      }
       put(registry.types, t.id, t, "type", p.name)
       if (registry.dirs.has(t.dir)) throw new Error(`directory "${t.dir}" is claimed twice`)
       registry.dirs.add(t.dir)

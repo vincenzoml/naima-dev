@@ -2,7 +2,7 @@
 // plugin's write hook or status flag does to another's command.
 
 import assert from "node:assert/strict"
-import { existsSync } from "node:fs"
+import { existsSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { test } from "node:test"
 import { firstParty } from "./builtins.ts"
@@ -42,6 +42,46 @@ test("an item another branch claims, or nobody does, closes from here", async ()
     p.git("commit", "-q", "-m", "claim")
     p.git("checkout", "-q", "main")
     assert.equal(await p.run("close", "x-broken"), 0, "fix/x claims it, not main")
+  } finally {
+    p.cleanup()
+  }
+})
+
+test("a failed test blocks a gate that waits only for code, and so does the fix it refutes", async () => {
+  const p = project({ v1: { title: "V1" } })
+  try {
+    assert.equal(await p.run("new", "bugs", "Crash", "--set", "gate=v1", "--set", "fixedOn=2026-01-10"), 0)
+    assert.equal(await p.run("new", "tests", "No crash", "--set", "gate=v1"), 0)
+    assert.equal(await p.run("link", "no-crash", "verifies", "crash"), 0)
+    const gate = () => p.ctx.registry.gates.get("v1")!.evaluate(p.ctx)
+    assert.deepEqual([gate().holds, gate().owed.length], [true, 2], "not yet performed: owed, not blocking")
+    assert.equal(await p.run("set", "no-crash", "status=failed"), 0)
+    assert.deepEqual([gate().holds, gate().blocking.map((i) => i.slug).sort()], [false, ["crash", "no-crash"]])
+    await assert.rejects(p.run("close", "crash"), /refuted by tests\/no-crash \[failed\]/)
+  } finally {
+    p.cleanup()
+  }
+})
+
+test("close refuses an item whose proof no longer holds: a property that holds on a model changed since", async () => {
+  const p = project()
+  try {
+    writeFileSync(join(p.root, "model.txt"), "alpha\n")
+    assert.equal(
+      await p.run("new", "properties", "Has alpha", "--set", "verifier=example-regex", "--set", "model=model.txt", "--set", "property=some alpha"),
+      0,
+    )
+    assert.equal(await p.run("verify", "has-alpha"), 0)
+    assert.equal(await p.run("new", "bugs", "No alpha", "--set", "fixedOn=2026-01-15"), 0)
+    assert.equal(await p.run("link", "has-alpha", "verifies", "no-alpha"), 0)
+    writeFileSync(join(p.root, "model.txt"), "beta\n")
+    await assert.rejects(
+      p.run("close", "no-alpha"),
+      /no-alpha cannot be closed: its proof does not hold now: properties\/has-alpha: holds on a model that has changed since/,
+    )
+    assert.equal(p.ctx.repo.resolve("no-alpha").type, "bugs")
+    writeFileSync(join(p.root, "model.txt"), "alpha\n")
+    assert.equal(await p.run("close", "no-alpha"), 0, "current again: it closes")
   } finally {
     p.cleanup()
   }

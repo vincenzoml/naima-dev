@@ -414,7 +414,7 @@ naima bugs
 
 Bugs: something that is broken. Items live in `naima-tracker/naima-data/bugs/`; a new one starts as `open`.
 
-| Status | Category | Proves | Meaning |
+| Status | Category | Evidence | Meaning |
 |---|---|---|---|
 | `open` | open |  | nothing on the page has been done |
 | `partial` | open |  | some of it has, and the page says what is left |
@@ -424,7 +424,7 @@ Bugs: something that is broken. Items live in `naima-tracker/naima-data/bugs/`; 
 
 Todos: work that is not a defect: a task, a decision, a tidy-up. Items live in `naima-tracker/naima-data/todos/`; a new one starts as `open`.
 
-| Status | Category | Proves | Meaning |
+| Status | Category | Evidence | Meaning |
 |---|---|---|---|
 | `open` | open |  | not started |
 | `partial` | open |  | started; the page says what is left |
@@ -435,7 +435,7 @@ Todos: work that is not a defect: a task, a decision, a tidy-up. Items live in `
 
 Features: what the software does, or is asked to do. Items live in `naima-tracker/naima-data/features/`; a new one starts as `requested`.
 
-| Status | Category | Proves | Meaning |
+| Status | Category | Evidence | Meaning |
 |---|---|---|---|
 | `requested` | open |  | asked for; no code exists |
 | `planned` | open |  | agreed and scheduled |
@@ -446,19 +446,19 @@ Features: what the software does, or is asked to do. Items live in `naima-tracke
 
 Tests: a gesture that proves something, and its result. Items live in `naima-tracker/naima-data/tests/`; a new one starts as `open`.
 
-| Status | Category | Proves | Meaning |
+| Status | Category | Evidence | Meaning |
 |---|---|---|---|
 | `open` | open |  | not yet performed |
 | `partial` | open |  | performed in part |
-| `failed` | open |  | performed, and what it proves does not hold |
-| `passed` | done | yes | performed, and it holds; the page carries the measurement |
+| `failed` | open | refutes | performed, and what it proves does not hold |
+| `passed` | done | proves | performed, and it holds; the page carries the measurement |
 | `withdrawn` | done |  | no longer applies: what it would prove was reversed; the page says by what |
 
 ### type: closed
 
 Closed: the archive: resolved items, each with its proof. Items live in `naima-tracker/naima-data/closed/`; a new one starts as `closed`; it is an archive: items arrive by being moved there, never by being opened.
 
-| Status | Category | Proves | Meaning |
+| Status | Category | Evidence | Meaning |
 |---|---|---|---|
 | `closed` | done |  | fixed, proven, archived |
 
@@ -675,7 +675,7 @@ Options, each with the default it takes when nothing sets it:
 
 | Option | Default | What it does |
 |---|---|---|
-| `gates` | `{}` | the `gates` key of `naima-tracker/naima-data/naima.json`: gate name → { "title", "says", "holdsOn" }. holdsOn "code" (the default) waits for code, not proof: a fixed item that owes only its proving gesture, and the gestures themselves, are owed but do not block. holdsOn "proof": every open item on the gate blocks it. |
+| `gates` | `{}` | the `gates` key of `naima-tracker/naima-data/naima.json`: gate name → { "title", "says", "holdsOn" }. holdsOn "code" (the default) waits for code, not proof: a fixed item that owes only its proving gesture, and the gestures themselves, are owed but do not block, unless refuted (a failed test, a violated property). holdsOn "proof": every open item on the gate blocks it. |
 
 ### naima gates
 
@@ -816,11 +816,11 @@ naima verifiers
 
 Properties: a property of the software, proven or refuted by a verifier. Items live in `naima-tracker/naima-data/properties/`; a new one starts as `open`.
 
-| Status | Category | Proves | Meaning |
+| Status | Category | Evidence | Meaning |
 |---|---|---|---|
 | `open` | open |  | not yet verified |
-| `holds` | done | yes | the last run on the current model holds |
-| `violated` | open |  | the last run found a counterexample |
+| `holds` | done | proves | the last run on the current model holds |
+| `violated` | open | refutes | the last run found a counterexample |
 | `error` | open |  | the last run could not reach a verdict |
 
 **Fields**

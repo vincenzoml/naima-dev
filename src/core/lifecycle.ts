@@ -13,6 +13,9 @@ export const isOpen = (ctx: Context, item: Item): boolean => statusDef(ctx, item
 /** Does this item's status count as evidence for what it verifies? */
 export const proves = (ctx: Context, item: Item): boolean => statusDef(ctx, item)?.proves === true
 
+/** Does this item's status count as evidence against what it verifies? */
+export const refutes = (ctx: Context, item: Item): boolean => statusDef(ctx, item)?.refutes === true
+
 /** Can items of this type ever count as evidence? */
 export const isEvidenceType = (ctx: Context, type: string): boolean =>
   Object.values(ctx.registry.types.get(type)?.statuses ?? {}).some((s) => s.proves === true)

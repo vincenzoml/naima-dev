@@ -316,7 +316,7 @@ export default function verifier(): Plugin {
         statuses: {
           open: { category: "open", says: "not yet verified" },
           holds: { category: "done", proves: true, says: "the last run on the current model holds" },
-          violated: { category: "open", says: "the last run found a counterexample" },
+          violated: { category: "open", refutes: true, says: "the last run found a counterexample" },
           error: { category: "open", says: "the last run could not reach a verdict" },
         },
         initialStatus: "open",

@@ -21,6 +21,8 @@ import {
   type Plugin,
   proves,
   readReadme,
+  refutes,
+  runChecks,
   setFieldValue,
   type SummarySection,
   today,
@@ -52,11 +54,28 @@ const work = (title: string): string => `# ${title}\n\nWhat has to be done, and 
 const gesture = (title: string): string =>
   `# ${title}\n\nThe gesture that proves it, step by step, and what a pass looks like.\n\n## Result\n\nWhat was seen, when, and by whom.\n`
 
-/** Where an item stands on the fixed → resolved → closed line. */
+/** Where an item stands on the fixed → resolved → closed line. A proof that refutes outweighs any that proves. */
 export function lifecycle(ctx: Context, item: Item): Lifecycle {
   if (item.type === "closed") return "closed"
   if (!fieldValue(item, FIXED_ON)) return "unfixed"
-  return linked(ctx, item, "verified-by").some((p) => proves(ctx, p)) ? "resolved" : "fixed"
+  const proofs = linked(ctx, item, "verified-by")
+  return proofs.some((p) => proves(ctx, p)) && !proofs.some((p) => refutes(ctx, p)) ? "resolved" : "fixed"
+}
+
+/**
+ * Why the proof of `item` does not stand now, or null: an item verifying it
+ * refutes it, or `naima check` finds a problem on an item verifying it — a
+ * property that holds on a model changed since its run, say. `close` refuses
+ * on either: a proof that was once good is not a proof.
+ */
+export function proofProblem(ctx: Context, item: Item): string | null {
+  const proofs = linked(ctx, item, "verified-by")
+  const refuting = proofs.filter((p) => refutes(ctx, p))
+  if (refuting.length) return `it is refuted by ${refuting.map((p) => `${label(p)} [${p.meta.status}]`).join(", ")}`
+  const ids = new Set(proofs.map((p) => p.meta.id))
+  const stale = runChecks(ctx).problems.filter((f) => f.item && ids.has(f.item.meta.id))
+  if (stale.length) return `its proof does not hold now: ${stale.map((f) => f.message).join("; ")}`
+  return null
 }
 
 const partialWithoutClause: Check = {
@@ -124,6 +143,8 @@ const close: Command = {
     const item = ctx.repo.resolve(ref)
     const state = lifecycle(ctx, item)
     if (state === "closed") throw new Error(`${label(item)} is already closed`)
+    const problem = proofProblem(ctx, item)
+    if (problem) throw new Error(`${label(item)} cannot be closed: ${problem}`)
     if (state !== "resolved") {
       throw new Error(`${label(item)} is ${state}: closing takes fixedOn and a verified-by item that has passed`)
     }
@@ -219,7 +240,7 @@ export default function trackers(): Plugin {
         statuses: {
           open: { category: "open", says: "not yet performed" },
           partial: { category: "open", says: "performed in part" },
-          failed: { category: "open", says: "performed, and what it proves does not hold" },
+          failed: { category: "open", refutes: true, says: "performed, and what it proves does not hold" },
           passed: { category: "done", proves: true, says: "performed, and it holds; the page carries the measurement" },
           withdrawn: { category: "done", says: "no longer applies: what it would prove was reversed; the page says by what" },
         },
