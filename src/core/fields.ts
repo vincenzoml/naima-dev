@@ -3,7 +3,23 @@
 
 import type { FieldDef, Item, Registry } from "./types.ts"
 
-const DATE = /^\d{4}(-\d{2}(-\d{2})?)?$/
+const DATE = /^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?$/
+
+/** YYYY, YYYY-MM or YYYY-MM-DD naming a month and a day that exist. */
+function isDate(value: string): boolean {
+  const m = DATE.exec(value)
+  if (!m) return false
+  const [, year, month, day] = m
+  if (month === undefined) return true
+  const mm = Number(month)
+  if (mm < 1 || mm > 12) return false
+  if (day === undefined) return true
+  const y = Number(year)
+  const leap = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0
+  const last = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][mm - 1] ?? 0
+  const dd = Number(day)
+  return dd >= 1 && dd <= last
+}
 
 /** Why `value` is not a valid value of `def`, or null when it is. */
 export function fieldError(def: FieldDef, value: unknown): string | null {
@@ -14,7 +30,7 @@ export function fieldError(def: FieldDef, value: unknown): string | null {
     case "strings":
       return Array.isArray(value) && value.every((v) => typeof v === "string") ? null : "is not a list of strings"
     case "date":
-      return typeof value === "string" && DATE.test(value) ? null : "is not a date (YYYY, YYYY-MM or YYYY-MM-DD)"
+      return typeof value === "string" && isDate(value) ? null : "is not a date (YYYY, YYYY-MM or YYYY-MM-DD)"
     case "boolean":
       return typeof value === "boolean" ? null : "is not true or false"
     case "number":

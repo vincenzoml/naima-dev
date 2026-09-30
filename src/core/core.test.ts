@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { test } from "node:test"
-import { FORMAT, addLink, buildRegistry, createItem, findData, parseConfig, runChecks, setFields, slugify, uniqueSlug, type Plugin } from "./index.ts"
+import { FORMAT, addLink, buildRegistry, createItem, fieldError, findData, parseConfig, runChecks, setFields, slugify, uniqueSlug, type Plugin } from "./index.ts"
 import { corePlugin } from "./base.ts"
 import { tempProject } from "./testing.ts"
 
@@ -152,6 +152,23 @@ test("a status is only one the type declares itself, never an Object.prototype k
     p.ctx.reload()
     assert.match(messages(runChecks(p.ctx)), /status "constructor" is not one of/)
     assert.throws(() => buildRegistry([corePlugin, { ...notes, types: [{ ...notes.types![0]!, initialStatus: "toString" }] }]), /initial status "toString"/)
+  } finally {
+    p.cleanup()
+  }
+})
+
+test("a date field holds only a real calendar date", () => {
+  const date = { name: "due", kind: "date" as const, says: "" }
+  for (const ok of ["2024", "2024-02", "2024-02-29", "2000-02-29", "2023-12-31"]) assert.equal(fieldError(date, ok), null, ok)
+  for (const bad of ["2024-13-99", "2024-00", "2024-13", "2023-02-29", "2024-04-31", "2024-01-00", "1900-02-29"]) assert.match(fieldError(date, bad) ?? "", /is not a date/, bad)
+  const p = tempProject([notes])
+  try {
+    const item = createItem(p.ctx, p.ctx.registry.types.get("notes")!, "One")
+    assert.throws(() => setFields(p.ctx, item, [["created", "2024-13-99"]]), /is not a date/)
+    const meta = JSON.parse(readFileSync(join(item.dir, "meta.json"), "utf8"))
+    writeFileSync(join(item.dir, "meta.json"), JSON.stringify({ ...meta, created: "2024-13-99" }))
+    p.ctx.reload()
+    assert.match(messages(runChecks(p.ctx)), /created "2024-13-99" is not a date/)
   } finally {
     p.cleanup()
   }
