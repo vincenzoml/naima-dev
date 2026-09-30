@@ -73,8 +73,18 @@ function parseClaim(f: BranchFile): Claim | null {
   }
 }
 
+/** The branch a claim file records, read without trusting the rest of it. */
+function claimBranch(f: BranchFile): string | undefined {
+  try {
+    const branch = (JSON.parse(f.text) as { branch?: unknown }).branch
+    return typeof branch === "string" ? branch : undefined
+  } catch {
+    return undefined
+  }
+}
+
 export function readClaims(ctx: Context): Claim[] {
-  return readAcrossBranches(ctx.root, rel(ctx, CLAIMS), ".json")
+  return readAcrossBranches(ctx.root, rel(ctx, CLAIMS), ".json", { owner: claimBranch })
     .map(parseClaim)
     .filter((c): c is Claim => c !== null)
 }

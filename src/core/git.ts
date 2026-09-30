@@ -179,18 +179,24 @@ function treeEntries(tree: Buffer): { mode: string; name: string; sha: string }[
   return out
 }
 
-/** Every `ext` file directly under `dir` on each ref: one batch lists the trees, one reads the files. */
-function filesOnRefs(root: string, refs: string[], dir: string, ext: string): BranchFile[][] {
-  const trees = objects(root, refs.map((ref) => `${ref}:${dir}`))
-  const listed = trees.map((t) => (t?.type === "tree" ? treeEntries(t.data).filter((e) => e.mode.startsWith("100") && e.name.endsWith(ext)) : []))
+/**
+ * Every `ext` file directly under `dir` on each ref, and the names this
+ * worktree's HEAD holds there: one batch lists the trees, one reads the files.
+ */
+function filesOnRefs(root: string, refs: string[], dir: string, ext: string): { onRefs: BranchFile[][]; onHead: Set<string> } {
+  const files = (t: { type: string; data: Buffer } | null | undefined) =>
+    t?.type === "tree" ? treeEntries(t.data).filter((e) => e.mode.startsWith("100") && e.name.endsWith(ext)) : []
+  const [head, ...trees] = objects(root, [`HEAD:${dir}`, ...refs.map((ref) => `${ref}:${dir}`)])
+  const listed = trees.map(files)
   const blobs = objects(root, listed.flat().map((e) => e.sha))
   let next = 0
-  return refs.map((ref, i) =>
+  const onRefs = refs.map((ref, i) =>
     (listed[i] ?? []).flatMap((e) => {
       const blob = blobs[next++]
       return blob?.type === "blob" ? [{ ref, name: e.name, text: blob.data.toString("utf8"), local: false }] : []
     }),
   )
+  return { onRefs, onHead: new Set(files(head).map((e) => e.name)) }
 }
 
 export function filesHere(root: string, dir: string, ext: string, ref: string): BranchFile[] {
@@ -202,20 +208,43 @@ export function filesHere(root: string, dir: string, ext: string, ref: string): 
     .map((name) => ({ ref, name, text: readFileSync(join(abs, name), "utf8"), local: true }))
 }
 
+export interface AcrossOptions {
+  /**
+   * The branch a record says it belongs to. A copy on this worktree's disk of
+   * another branch's record — the trunk carrying a claim merged from it — is
+   * older than that branch's own: the branch's version wins.
+   */
+  owner?: (file: BranchFile) => string | undefined
+}
+
 /**
  * Every file under `dir` (relative to `root`) on every ref worth reading, one
  * entry per file name. The branch this worktree stands on is read from disk,
  * not from its ref: the working tree is the newer truth, so a record written
- * and not yet committed is seen, and one deleted and not yet committed is not.
+ * and not yet committed is seen. A record another branch owns is read from
+ * that branch.
  */
-export function readAcrossBranches(root: string, dir: string, ext: string): BranchFile[] {
+export function readAcrossBranches(root: string, dir: string, ext: string, opts: AcrossOptions = {}): BranchFile[] {
   const seen = new Map<string, BranchFile>()
+  const byRef = new Map<string, Map<string, BranchFile>>()
   const inGit = gitPath(dir) // a ref's tree is read with forward slashes: a Windows path would name nothing
   const here = currentBranch(root)
+  const local = filesHere(root, dir, ext, here)
   if (isGitRepo(root)) {
     const refs = refsWorthReading(root).filter((ref) => ref !== here)
-    for (const files of filesOnRefs(root, refs, inGit, ext)) for (const f of files) if (!seen.has(f.name)) seen.set(f.name, f)
+    const { onRefs } = filesOnRefs(root, refs, inGit, ext)
+    for (const files of onRefs) {
+      for (const f of files) {
+        if (!seen.has(f.name)) seen.set(f.name, f)
+        const mine = byRef.get(f.ref) ?? new Map<string, BranchFile>()
+        byRef.set(f.ref, mine.set(f.name, f))
+      }
+    }
   }
-  for (const f of filesHere(root, dir, ext, here)) seen.set(f.name, f)
+  for (const f of local) {
+    const owner = opts.owner?.(f)
+    const owners = owner !== undefined && owner !== here ? byRef.get(owner)?.get(f.name) : undefined
+    seen.set(f.name, owners ?? f)
+  }
   return [...seen.values()]
 }

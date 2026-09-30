@@ -1,8 +1,9 @@
 import assert from "node:assert/strict"
-import { existsSync, readdirSync } from "node:fs"
+import { execFileSync } from "node:child_process"
+import { existsSync, readdirSync, rmSync } from "node:fs"
 import { join } from "node:path"
 import { test } from "node:test"
-import { createItem, type Plugin } from "../../core/index.ts"
+import { DEFAULT_DATA, DEFAULT_PROGRAM, createContext, createItem, type Plugin } from "../../core/index.ts"
 import { tempProject } from "../../core/testing.ts"
 import coordination, { readClaims, readPasses } from "./index.ts"
 
@@ -107,6 +108,48 @@ test("a claim belongs to a branch: on a detached HEAD it is refused", async () =
     await assert.rejects(p.run("claim", a.slug), /HEAD is detached: a claim belongs to a branch/)
     assert.ok(!existsSync(join(p.ctx.trackerRoot, "claims")))
   } finally {
+    p.cleanup()
+  }
+})
+
+/** A second worktree of `p`'s repository, on a new branch, with its own context. */
+function worktree(p: ReturnType<typeof tempProject>, branch: string) {
+  const root = `${p.root}-${branch}`
+  p.git("worktree", "add", "-q", "-b", branch, root)
+  const output: string[] = []
+  const ctx = createContext({ root, data: join(root, DEFAULT_DATA), program: join(root, DEFAULT_DATA, DEFAULT_PROGRAM) }, p.ctx.config, p.ctx.registry, {
+    out: (l = "") => void output.push(l),
+    err: () => {},
+    now: () => new Date("2026-01-15T10:00:00Z"),
+  })
+  const run = (name: string, ...args: string[]) => {
+    ctx.reload()
+    return ctx.registry.commands.get(name)!.run(args, ctx)
+  }
+  const git = (...args: string[]) => execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim()
+  return { root, ctx, output, run, git, cleanup: () => rmSync(root, { recursive: true, force: true }) }
+}
+
+test("a branch's own claim is read from its branch, not from a stale copy the reader's disk carries", async () => {
+  const p = tempProject([things, coordination()], { git: true })
+  const w = worktree(p, "w")
+  try {
+    createItem(p.ctx, p.ctx.registry.types.get("things")!, "Alpha")
+    createItem(p.ctx, p.ctx.registry.types.get("things")!, "Beta")
+    p.git("add", "-A")
+    p.git("commit", "-q", "-m", "items")
+    w.git("merge", "-q", "--ff-only", "main")
+    await w.run("claim", "alpha")
+    w.git("add", "-A")
+    w.git("commit", "-q", "-m", "claim alpha")
+    p.git("merge", "-q", "--ff-only", "w") // the first batch lands: main's disk now carries w's claim file
+    await w.run("claim", "beta")
+    w.git("add", "-A")
+    w.git("commit", "-q", "-m", "claim beta")
+    const seen = readClaims(p.ctx).find((c) => c.branch === "w")
+    assert.deepEqual([seen?.items.map((e) => e.ref).sort(), seen?.local], [["things/alpha", "things/beta"], false])
+  } finally {
+    w.cleanup()
     p.cleanup()
   }
 })
