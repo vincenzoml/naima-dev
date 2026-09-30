@@ -144,6 +144,27 @@ export function buildRegistry(plugins: Plugin[], opts: RegistryOptions = {}): Re
 
   const all = new Map([...points.values()].map(({ point }) => [point.id, collect(point)]))
   const of = <T>(id: string): Contribution<T>[] => (all.get(id) ?? []) as Contribution<T>[]
+
+  // What a plugin says it reads of another's must be there: a vocabulary replaced or switched off fails loudly, here.
+  for (const p of plugins) {
+    for (const [id, refs] of Object.entries(p.uses ?? {})) {
+      const point = points.get(id)?.point
+      if (!point) throw new Error(`plugin "${p.name}" uses ${id}, which no loaded plugin declares as an extension point`)
+      for (const ref of refs) {
+        let found: Contribution | undefined
+        try {
+          found = lookup(of(id), point.noun, ref)
+        } catch (e) {
+          throw new Error(`plugin "${p.name}" uses ${point.noun} "${ref}": ${e instanceof Error ? e.message : String(e)}`)
+        }
+        if (!found) {
+          throw new Error(
+            `plugin "${p.name}" uses ${point.noun} "${ref}", which no loaded plugin declares — load the plugin that declares it, or switch "${p.name}" off too`,
+          )
+        }
+      }
+    }
+  }
   const ownName = (point: string, plugin: string, declared: string): string => rename[point]?.[`${plugin}/${declared}`] ?? declared
 
   const { types, fields, relations, dirs } = vocabulary({

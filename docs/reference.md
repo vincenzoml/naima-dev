@@ -749,6 +749,8 @@ Options, each with the default it takes when nothing sets it:
 
 **Extension points** it declares: `gates`.
 
+**Uses**, declared by other plugins: fields `fixedOn`, `runBy`, `humanBecause`; relations `verifies`, `verified-by`.
+
 ### naima gates
 
 Every gate, whoever declared it, and whether it holds; --check exits 1 if one does not.
@@ -822,6 +824,8 @@ Options, each with the default it takes when nothing sets it:
 | `paths` | `every file git tracks or would track (outside git, every file under the root but hidden directories, node_modules, dist and build)` | files or directories, from the project root, to scan instead of the whole project |
 | `extensions` | `[".ts", ".tsx", ".js", ".mjs", ".py", ".rs", ".go", ".java", ".c", ".h"]` | file extensions to scan |
 | `pattern` | `a comment (//, #, --, ;, *) followed by naima:beta <ref> <what>` | a regular expression with named groups ref and what, matched against each line |
+
+**Uses**, declared by other plugins: fields `closedFrom`.
 
 ### naima beta
 
@@ -956,6 +960,8 @@ Options, each with the default it takes when nothing sets it:
 | `featureTypes` | `["features"]` | item types whose items are features |
 | `documentedStatuses` | `["shipped"]` | statuses in which a feature must name its documentation |
 | `links` | `every markdown file git tracks or would track` | markdown files or directories, from the project root, to check instead of the whole project |
+
+**Uses**, declared by other plugins: types `features`.
 
 ### naima docs
 

@@ -296,6 +296,8 @@ const plugins: Command = {
     for (const p of ctx.registry.plugins) {
       ctx.out(`${p.name} — ${p.says}`)
       if (p.points?.length) ctx.out(`  ${"points".padEnd(10)} ${p.points.map((pt) => pt.id).join(", ")}`)
+      const uses = Object.entries(p.uses ?? {}).filter(([, refs]) => refs.length)
+      if (uses.length) ctx.out(`  ${"uses".padEnd(10)} ${uses.map(([id, refs]) => `${id} ${refs.join(", ")}`).join("; ")}`)
       for (const kind of ctx.registry.points.keys()) {
         const mine = ctx.registry.contributions(kind).filter((c) => c.plugin === p.name)
         // The short name a person types, and the qualified id when it differs from <plugin>/<name> or the short name is shared.

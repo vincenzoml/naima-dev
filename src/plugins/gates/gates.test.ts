@@ -19,6 +19,7 @@ const fixture = (): Plugin => ({
   fields: [
     { name: "fixedOn", kind: "date", says: "" },
     { name: "runBy", kind: "string", says: "" },
+    { name: "humanBecause", kind: "string", says: "" },
   ],
   relations: [
     { name: "verifies", inverse: "verified-by", says: "" },

@@ -272,6 +272,8 @@ export default function gates(options: Record<string, unknown> = {}): Plugin {
       },
     ],
     points: [gatesPoint],
+    // What it reads of the trackers' vocabulary: without it loaded, gates would decide on nothing.
+    uses: { fields: [FIXED_ON.name, RUN_BY.name, HUMAN_BECAUSE.name], relations: ["verifies", "verified-by"] },
     contributes: { gates: defs },
     migrations: [moveGates],
     rank: [{ name: "gate", score: (i) => (onGates(i).length ? 0 : 4) }],

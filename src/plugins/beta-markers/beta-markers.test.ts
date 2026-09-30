@@ -19,6 +19,8 @@ const proofs: Plugin = {
       initialStatus: "open",
     },
   ],
+  // What beta-markers uses of whatever plugin archives items: plugins never import each other, so a stand-in declares it.
+  fields: [{ name: "closedFrom", kind: "string", says: "" }],
 }
 
 // Markers are assembled here so this file never contains one itself.

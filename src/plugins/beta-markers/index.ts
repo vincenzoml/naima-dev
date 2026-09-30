@@ -181,5 +181,7 @@ export default function betaMarkers(options: Record<string, unknown> = {}): Plug
     checks: [check],
     commands: [command],
     summary: [summary],
+    // A marker written before its item was archived finds it through the archive's record of where it came from.
+    uses: { fields: [CLOSED_FROM.name] },
   }
 }

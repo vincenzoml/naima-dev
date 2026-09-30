@@ -149,6 +149,8 @@ export function renderReference(ctx: Context): string {
     if (p.about) L.push("", p.about)
     if (p.options?.length) L.push("", "Options, each with the default it takes when nothing sets it:", ...optionsTable(p.options, "Option"))
     if (p.points?.length) L.push("", `**Extension points** it declares: ${p.points.map((pt) => code(pt.id)).join(", ")}.`)
+    const uses = Object.entries(p.uses ?? {}).filter(([, refs]) => refs.length)
+    if (uses.length) L.push("", `**Uses**, declared by other plugins: ${uses.map(([id, refs]) => `${id} ${refs.map(code).join(", ")}`).join("; ")}.`)
     if (p.name === "core") { for (const c of cliCommands) L.push(...commandSection(c)) }
     for (const point of points) {
       const mine = programs(point).filter((c) => c.plugin === p.name)
@@ -373,6 +375,7 @@ export default function docs(options: Record<string, unknown> = {}): Plugin {
       },
     ],
     checks: [documented, referenceCurrent, featuresDocumented, linksResolve],
+    uses: { types: opts.featureTypes },
     commands: [command],
   }
 }

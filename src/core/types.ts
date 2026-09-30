@@ -250,6 +250,12 @@ export interface Plugin {
   contributes?: Record<string, readonly unknown[]>
   /** Points it contributes to only when a loaded plugin declares them: without one, those contributions are dropped rather than refused. */
   optional?: string[]
+  /**
+   * What it reads that another plugin declares, by point id: `{ fields: ["fixedOn"], relations: ["verifies"] }`.
+   * Each name must resolve when the project loads, or loading fails naming it — so replacing or switching off the
+   * plugin that declares it is an error, never a silent no-op.
+   */
+  uses?: Record<string, readonly string[]>
 }
 
 type Json = Record<string, unknown>

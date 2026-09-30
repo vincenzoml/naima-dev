@@ -44,6 +44,7 @@ says the same thing and is typed.
 | `points` | extension points it declares ([below](#extension-points)) |
 | `contributes` | contributions to any point, by point id: `{ "gates": [...] }` |
 | `optional` | points it contributes to only when some loaded plugin declares them; without one those contributions are dropped instead of refused |
+| `uses` | what it reads that another plugin declares, by point: `{ fields: ["fixedOn"], relations: ["verifies"] }` ([below](#cooperation-without-imports)) |
 
 The core's points, each also a typed key of the manifest:
 
@@ -272,6 +273,16 @@ plugin lists every gate contributed to its `gates` point, including the
 verifier's `properties` gate (a contribution the verifier makes `optional`,
 so it is dropped when no gates plugin is loaded); `triage` and `gates` each add a `rank` term and the core
 sums them.
+
+What one plugin reads of another's vocabulary it declares in `uses`, by
+point: the `gates` plugin uses the fields `fixedOn`, `runBy` and
+`humanBecause` and the relations `verifies` and `verified-by`; `beta-markers`
+uses `closedFrom`; `docs` uses its feature types. Each name must resolve —
+a short name, or a qualified id — when the project loads, or loading fails
+naming it and who uses it: switching off or replacing the plugin that
+declares it is a loud error, never a silently empty gate. `naima plugins`
+and the reference list each plugin's uses.
+
 
 ## The verifier contract
 
