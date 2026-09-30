@@ -11,15 +11,25 @@ export const ATTACHMENTS = "attachments"
 
 const STOP_WORDS = new Set(["a", "an", "the", "of", "to", "in", "on", "and", "or", "is", "are", "be", "for", "with", "it", "its"])
 
+/**
+ * The words of a title, in any script: lowercased, compatibility-normalised,
+ * with the accents of Latin letters dropped (so "Café" is "cafe") and every
+ * other letter and digit kept. What slugs and the duplicate check compare.
+ */
+export function titleWords(text: string): string[] {
+  return text
+    .normalize("NFKD")
+    .replace(/(\p{Script=Latin})\p{M}+/gu, "$1")
+    .normalize("NFC")
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean)
+}
+
 /** A readable directory name. Slugs may change; ids may not. */
 export function slugify(text: string, maxWords = 7): string {
-  const words = text
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[^a-z0-9\s-]/g, " ")
-    .split(/[\s-]+/)
-    .filter((w) => w && !STOP_WORDS.has(w))
-  return words.slice(0, maxWords).join("-").slice(0, 60).replace(/-+$/, "") || "item"
+  const words = titleWords(text).filter((w) => !STOP_WORDS.has(w))
+  return [...words.slice(0, maxWords).join("-")].slice(0, 60).join("").replace(/-+$/, "") || "item"
 }
 
 export function uniqueSlug(slug: string, taken: Set<string>): string {

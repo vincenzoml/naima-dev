@@ -5,7 +5,7 @@ import { existsSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 import { formatCheck } from "./format.ts"
 import { fieldError, fieldsOf } from "./fields.ts"
-import { README, isUuid } from "./item.ts"
+import { README, isUuid, titleWords } from "./item.ts"
 import { label } from "./lifecycle.ts"
 import type { Check, Context, Finding } from "./types.ts"
 
@@ -105,7 +105,7 @@ const duplicates: Check = {
     const groups = new Map<string, string[]>()
     for (const item of ctx.repo.items) {
       if (typeof item.meta.title !== "string") continue
-      const key = `${item.type}:${item.meta.title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()}`
+      const key = `${item.type}:${titleWords(item.meta.title).join(" ")}`
       groups.set(key, [...(groups.get(key) ?? []), item.meta.id])
     }
     const out: Finding[] = []

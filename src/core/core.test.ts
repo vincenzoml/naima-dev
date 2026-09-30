@@ -173,3 +173,23 @@ test("a date field holds only a real calendar date", () => {
     p.cleanup()
   }
 })
+
+test("non-Latin titles keep their letters: distinct slugs, and no false duplicates", () => {
+  assert.equal(slugify("Café au lait"), "cafe-au-lait")
+  assert.equal(slugify("Экспорт теряет альфа-канал"), "экспорт-теряет-альфа-канал")
+  assert.equal(slugify("导出丢失透明通道"), "导出丢失透明通道")
+  assert.equal(slugify("がぎぐ"), "がぎぐ")
+  const p = tempProject([notes])
+  try {
+    const type = p.ctx.registry.types.get("notes")!
+    const a = createItem(p.ctx, type, "Экспорт теряет альфа-канал")
+    const b = createItem(p.ctx, type, "Импорт падает")
+    const c = createItem(p.ctx, type, "导出丢失透明通道")
+    assert.equal(new Set([a.slug, b.slug, c.slug]).size, 3)
+    assert.doesNotMatch(runChecks(p.ctx).notes.map((n) => n.message).join(), /possible duplicates/)
+    createItem(p.ctx, type, "ЭКСПОРТ теряет альфа канал")
+    assert.match(runChecks(p.ctx).notes.map((n) => n.message).join(), /possible duplicates/)
+  } finally {
+    p.cleanup()
+  }
+})
