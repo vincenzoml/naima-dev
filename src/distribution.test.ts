@@ -18,7 +18,6 @@ const NAIMA = dirname(dirname(fileURLToPath(import.meta.url)))
 
 if (spawnSync("deno", ["--version"]).status !== 0) throw new Error("deno is not on PATH: these tests run Naima through its launcher, under Deno")
 
-
 /** A world on disk: Naima's source as a git repository, and a host project. */
 function world() {
   const base = mkdtempSync(join(tmpdir(), "naima-dist-"))
@@ -145,8 +144,7 @@ test("naima update pulls, migrates and records the new commit; a normal run neve
       t.replace(
         "export const MIGRATIONS: readonly Migration[] = []",
         'export const MIGRATIONS: readonly Migration[] = [{ from: 1, says: "stamped", item: (m) => ({ ...m, stamped: true }), stale: (m) => m.stamped !== true }]',
-      ),
-    )
+      ))
 
     const check = naima(w.host, "check")
     assert.equal(check.code, 0, check.err)
@@ -181,14 +179,20 @@ test("alignment refuses rather than destroy or guess: local changes, an unreacha
     writeFileSync(join(programOf(w.host), "src", "marker.txt"), "my change\n")
     const dirty = naima(w.host, "check")
     assert.equal(dirty.code, 2)
-    assert.equal(dirty.err, "naima: naima-tracker/naima has uncommitted changes — publish them as a fork and set source in naima.json; Naima never overwrites them")
+    assert.equal(
+      dirty.err,
+      "naima: naima-tracker/naima has uncommitted changes — publish them as a fork and set source in naima.json; Naima never overwrites them",
+    )
     assert.equal(readFileSync(join(programOf(w.host), "src", "marker.txt"), "utf8"), "my change\n")
     rmSync(join(programOf(w.host), "src", "marker.txt"))
 
     setLock(w.host, { commit: "0123456789abcdef0123456789abcdef01234567" })
     const lost = naima(w.host, "check")
     assert.equal(lost.code, 2)
-    assert.equal(lost.err, `naima: commit 0123456789ab cannot be fetched from ${w.source} — its history was rewritten or the source is gone; record a commit it has`)
+    assert.equal(
+      lost.err,
+      `naima: commit 0123456789ab cannot be fetched from ${w.source} — its history was rewritten or the source is gone; record a commit it has`,
+    )
 
     setLock(w.host, { commit: w.head(), source: join(w.base, "nowhere") })
     rmSync(programOf(w.host), { recursive: true, force: true })

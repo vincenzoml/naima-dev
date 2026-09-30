@@ -2,21 +2,50 @@
 // in the core; tests may also import ./testing.ts.
 
 export type * from "./types.ts"
-export { parse, str, strs, bool, pairs, positiveInt, usageError, type Flags, type Parsed } from "./args.ts"
-export { fieldError, parseFieldValue, fieldsOf, appliesTo, enumRank, fieldValue, setFieldValue, type FieldRef, type ValueOf } from "./fields.ts"
-export { slugify, uniqueSlug, isUuid, today, writeJson, readReadme, saveMeta, createItem, moveItem, listDirs, META, README, ATTACHMENTS } from "./item.ts"
+export { bool, type Flags, pairs, parse, type Parsed, positiveInt, str, strs, usageError } from "./args.ts"
+export { appliesTo, enumRank, fieldError, type FieldRef, fieldsOf, fieldValue, parseFieldValue, setFieldValue, type ValueOf } from "./fields.ts"
+export { ATTACHMENTS, createItem, isUuid, listDirs, META, moveItem, README, readReadme, saveMeta, slugify, today, uniqueSlug, writeJson } from "./item.ts"
 export { storedLinks } from "./repo.ts"
 export { groupBy } from "./collections.ts"
-export { EXIT, NaimaError, isInternal, message } from "./errors.ts"
-export { walkFiles, isRegularFile, writeFileAtomic, NEVER_SOURCE } from "./files.ts"
-export { statusDef, isOpen, proves, isEvidenceType, linked, urgency, byUrgency, label } from "./lifecycle.ts"
-export { setFields, addLink, renderBoard, typeOrThrow } from "./base.ts"
-export { runChecks, type CheckReport } from "./check.ts"
-export { gitPath, filesAt, currentBranch, allRefNames, projectFiles, refsWorthReading, readAcrossBranches, isGitRepo, toplevel, trunk, type AcrossOptions, type BranchFile } from "./git.ts"
-export { readConfig, parseConfig, parseLock, programOf, loadPlugins, CARRY_MODES, type Lock } from "./config.ts"
-export { EXCLUDE_FILES, exclusions, type Exclusion } from "./excludes.ts"
-export { FORMAT, MIGRATIONS, migrate, formatCheck, formatRefusal, type Migration } from "./format.ts"
-export { findData, trackerOf, ABOUT, HOME, TRACKER_README, TRACKER_DIR, DATA_DIR, PROGRAM_DIR, DATA_FILE, DEFAULT_DATA, DEFAULT_PROGRAM, DIST_BRANCH, RELAUNCH, real, globalOptions } from "./layout.ts"
-export { createContext, consoleIO, type IO, type Place } from "./context.ts"
+export { EXIT, isInternal, message, NaimaError } from "./errors.ts"
+export { isRegularFile, NEVER_SOURCE, walkFiles, writeFileAtomic } from "./files.ts"
+export { byUrgency, isEvidenceType, isOpen, label, linked, proves, statusDef, urgency } from "./lifecycle.ts"
+export { addLink, renderBoard, setFields, typeOrThrow } from "./base.ts"
+export { type CheckReport, runChecks } from "./check.ts"
+export {
+  type AcrossOptions,
+  allRefNames,
+  type BranchFile,
+  currentBranch,
+  filesAt,
+  gitPath,
+  isGitRepo,
+  projectFiles,
+  readAcrossBranches,
+  refsWorthReading,
+  toplevel,
+  trunk,
+} from "./git.ts"
+export { CARRY_MODES, loadPlugins, type Lock, parseConfig, parseLock, programOf, readConfig } from "./config.ts"
+export { EXCLUDE_FILES, type Exclusion, exclusions } from "./excludes.ts"
+export { FORMAT, formatCheck, formatRefusal, migrate, type Migration, MIGRATIONS } from "./format.ts"
+export {
+  ABOUT,
+  DATA_DIR,
+  DATA_FILE,
+  DEFAULT_DATA,
+  DEFAULT_PROGRAM,
+  DIST_BRANCH,
+  findData,
+  globalOptions,
+  HOME,
+  PROGRAM_DIR,
+  real,
+  RELAUNCH,
+  TRACKER_DIR,
+  TRACKER_README,
+  trackerOf,
+} from "./layout.ts"
+export { consoleIO, createContext, type IO, type Place } from "./context.ts"
 export { buildRegistry } from "./registry.ts"
-export { runCli, openProject, cliCommands, type CliOptions } from "./cli.ts"
+export { cliCommands, type CliOptions, openProject, runCli } from "./cli.ts"

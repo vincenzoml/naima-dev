@@ -16,7 +16,24 @@
 
 import { readFileSync } from "node:fs"
 import { join, relative } from "node:path"
-import { NEVER_SOURCE, type Check, type Command, type Context, type Finding, type Item, type Plugin, type SummarySection, bool, fieldValue, isOpen, label, parse, projectFiles, proves, walkFiles } from "../../core/index.ts"
+import {
+  bool,
+  type Check,
+  type Command,
+  type Context,
+  fieldValue,
+  type Finding,
+  isOpen,
+  type Item,
+  label,
+  NEVER_SOURCE,
+  parse,
+  type Plugin,
+  projectFiles,
+  proves,
+  type SummarySection,
+  walkFiles,
+} from "../../core/index.ts"
 
 export interface Marker {
   file: string
@@ -107,10 +124,11 @@ export default function betaMarkers(options: Record<string, unknown> = {}): Plug
         .filter((s) => s.state !== "unproven")
         .map((s): Finding => ({
           level: "problem",
-          message:
-            s.state === "dangling"
-              ? `${where(s.marker)}: beta marker names "${s.marker.ref}", ${s.why?.startsWith("no item matches") ? "which is no item" : `which does not resolve: ${s.why}`}`
-              : `${where(s.marker)}: beta marker outlived its proof — ${label(s.item as Item)} is ${s.item?.meta.status}; remove the marker`,
+          message: s.state === "dangling"
+            ? `${where(s.marker)}: beta marker names "${s.marker.ref}", ${
+              s.why?.startsWith("no item matches") ? "which is no item" : `which does not resolve: ${s.why}`
+            }`
+            : `${where(s.marker)}: beta marker outlived its proof — ${label(s.item as Item)} is ${s.item?.meta.status}; remove the marker`,
         })),
   }
 
@@ -118,8 +136,8 @@ export default function betaMarkers(options: Record<string, unknown> = {}): Plug
     name: "beta",
     says: "list what is marked as shipped without proof, and the state of each proof",
     usage: "beta [--check]",
-  options: [{ name: "--check", says: "exit 1 when a marker is stale or dangling" }],
-  examples: ["beta", "beta --check"],
+    options: [{ name: "--check", says: "exit 1 when a marker is stale or dangling" }],
+    examples: ["beta", "beta --check"],
     run(args, ctx) {
       const p = parse(args, { check: { type: "boolean" } })
       const states = audit(ctx, opts)
@@ -148,9 +166,17 @@ export default function betaMarkers(options: Record<string, unknown> = {}): Plug
       "A marker names its item as any item reference; a `type/slug` written before the item was archived still finds it in the archive. " +
       "A marker is wrong in two ways: it names nothing (dangling, said with why), or it outlives its proof — the item it names has passed or is no longer open (stale). Both fail `naima check`: a stale marker teaches readers that markers mean nothing.",
     options: [
-      { name: "paths", says: "files or directories, from the project root, to scan instead of the whole project", default: "every file git tracks or would track (outside git, every file under the root but hidden directories, node_modules, dist and build)" },
+      {
+        name: "paths",
+        says: "files or directories, from the project root, to scan instead of the whole project",
+        default: "every file git tracks or would track (outside git, every file under the root but hidden directories, node_modules, dist and build)",
+      },
       { name: "extensions", says: "file extensions to scan", default: '[".ts", ".tsx", ".js", ".mjs", ".py", ".rs", ".go", ".java", ".c", ".h"]' },
-      { name: "pattern", says: "a regular expression with named groups ref and what, matched against each line", default: "a comment (//, #, --, ;, *) followed by naima:beta <ref> <what>" },
+      {
+        name: "pattern",
+        says: "a regular expression with named groups ref and what, matched against each line",
+        default: "a comment (//, #, --, ;, *) followed by naima:beta <ref> <what>",
+      },
     ],
     checks: [check],
     commands: [command],

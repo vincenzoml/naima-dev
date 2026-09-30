@@ -5,7 +5,7 @@
 // dynamic import() and require().
 
 import assert from "node:assert/strict"
-import { existsSync, readFileSync, readdirSync } from "node:fs"
+import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { dirname, join, relative, resolve } from "node:path"
 import { test } from "node:test"
 import { fileURLToPath } from "node:url"
@@ -100,14 +100,23 @@ test("a plugin, wherever it lives, imports only the core's public API and its ow
 })
 
 /** The contract's own words: the kinds of contribution a plugin declares. A plugin named after one ("gates") does not own the word. */
-const CONTRACT = ["types", "fields", "relations", "dirs", "checks", "commands", "views", "summary", "rank", "gates", "verifiers", "options"].flatMap((k) => [k, k.replace(/s$/, "")])
+const CONTRACT = ["types", "fields", "relations", "dirs", "checks", "commands", "views", "summary", "rank", "gates", "verifiers", "options"].flatMap((
+  k,
+) => [k, k.replace(/s$/, "")])
 
 /** The names first-party plugins declare and the core does not: the vocabulary the core must not speak. */
 function pluginVocabulary(): Set<string> {
   const core = new Set<string>([...CONTRACT, ...(corePlugin.fields ?? []).map((f) => f.name), ...(corePlugin.relations ?? []).map((r) => r.name)])
   const names = new Set<string>()
   for (const p of firstParty({ gates: {} })) {
-    for (const n of [p.name, ...(p.types ?? []).flatMap((t) => [t.id, t.dir]), ...(p.fields ?? []).map((f) => f.name), ...(p.relations ?? []).map((r) => r.name)]) {
+    for (
+      const n of [
+        p.name,
+        ...(p.types ?? []).flatMap((t) => [t.id, t.dir]),
+        ...(p.fields ?? []).map((f) => f.name),
+        ...(p.relations ?? []).map((r) => r.name),
+      ]
+    ) {
       if (!core.has(n)) names.add(n)
     }
   }

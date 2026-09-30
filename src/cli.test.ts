@@ -4,14 +4,14 @@
 // carrying, and the permissions — is in distribution.test.ts.
 
 import assert from "node:assert/strict"
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { test } from "node:test"
 import { fileURLToPath } from "node:url"
 import { firstParty } from "./builtins.ts"
 import { gitIn, removeTemp } from "./core/testing.ts"
-import { ABOUT, FORMAT, TRACKER_README, runCli } from "./core/index.ts"
+import { ABOUT, FORMAT, runCli, TRACKER_README } from "./core/index.ts"
 
 const NAIMA = dirname(dirname(fileURLToPath(import.meta.url)))
 
@@ -62,7 +62,10 @@ test("init writes naima-tracker/ and nothing else, locked to the Naima that runs
     assert.deepEqual(data, { format: FORMAT, source: git("remote", "get-url", "origin"), commit: git("rev-parse", "HEAD"), carry: "clone" })
     assert.equal(readFileSync(join(h.root, "naima-tracker", "README.md"), "utf8"), TRACKER_README)
     assert.equal(readFileSync(join(h.root, "naima-tracker", ".gitignore"), "utf8"), "/naima/\n")
-    assert.equal(h.git("status", "--porcelain", "--untracked-files=all"), ["?? naima-tracker/.gitignore", "?? naima-tracker/README.md", "?? naima-tracker/naima-data/naima.json"].join("\n"))
+    assert.equal(
+      h.git("status", "--porcelain", "--untracked-files=all"),
+      ["?? naima-tracker/.gitignore", "?? naima-tracker/README.md", "?? naima-tracker/naima-data/naima.json"].join("\n"),
+    )
     assert.equal((await naima(h.root, ["init"])).code, 0)
     assert.equal(h.git("status", "--porcelain", "--untracked-files=all").split("\n").length, 3)
   } finally {
@@ -133,7 +136,12 @@ test("newer data is refused in one line, and nothing is written", async () => {
     const r = await naima(h.root, ["new", "bugs", "x"])
     assert.equal(r.code, 2)
     assert.equal(r.out, "")
-    assert.equal(r.err, `naima: naima.json is format ${FORMAT + 1}, newer than the format ${FORMAT} this Naima reads — it was written by a newer Naima: record that Naima's commit`)
+    assert.equal(
+      r.err,
+      `naima: naima.json is format ${
+        FORMAT + 1
+      }, newer than the format ${FORMAT} this Naima reads — it was written by a newer Naima: record that Naima's commit`,
+    )
     assert.ok(!existsSync(join(h.root, "naima-tracker", "naima-data", "bugs")))
   } finally {
     h.cleanup()
@@ -146,7 +154,8 @@ test("a third-party plugin runs only from inside the program; a first-party name
     assert.equal((await naima(h.root, ["init"])).code, 0)
     const program = join(h.base, "fork")
     mkdirSync(join(program, "plugins"), { recursive: true })
-    const plugin = `export default (o) => ({ name: "hello", says: "demo", commands: [{ name: "hello", says: "", usage: "hello", run: (_a, ctx) => { ctx.out("hello " + o.who); return 0 } }] })\n`
+    const plugin =
+      `export default (o) => ({ name: "hello", says: "demo", commands: [{ name: "hello", says: "", usage: "hello", run: (_a, ctx) => { ctx.out("hello " + o.who); return 0 } }] })\n`
     writeFileSync(join(program, "plugins", "hello.mjs"), plugin)
     writeFileSync(join(h.root, "hello.mjs"), plugin)
     const file = join(h.root, "naima-tracker", "naima-data", "naima.json")
@@ -240,7 +249,10 @@ test("list, unlink, view, types and help each do what their usage says", async (
     assert.equal((await naima(h.root, ["list", "bugs", "--open"])).out.split("\n").at(-1), "1 item")
     assert.equal((await naima(h.root, ["list", "nope"])).code, 2)
 
-    assert.match((await naima(h.root, ["unlink", "export-drops-alpha", "blocked-by", "write-release-notes"])).out, /^removed bugs\/export-drops-alpha blocked-by todos\/write-release-notes$/)
+    assert.match(
+      (await naima(h.root, ["unlink", "export-drops-alpha", "blocked-by", "write-release-notes"])).out,
+      /^removed bugs\/export-drops-alpha blocked-by todos\/write-release-notes$/,
+    )
     assert.doesNotMatch((await naima(h.root, ["show", "export-drops-alpha"])).out, /waits on/)
     const again = await naima(h.root, ["unlink", "export-drops-alpha", "blocked-by", "write-release-notes"])
     assert.deepEqual([again.code, again.err], [2, 'naima: bugs/export-drops-alpha stores no "blocked-by" link to todos/write-release-notes'])

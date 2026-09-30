@@ -1,10 +1,24 @@
 import assert from "node:assert/strict"
 import { spawn } from "node:child_process"
-import { existsSync, mkdirSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { test } from "node:test"
 import { fileURLToPath } from "node:url"
-import { FORMAT, addLink, buildRegistry, createItem, fieldError, findData, parseConfig, parseFieldValue, runChecks, setFields, slugify, uniqueSlug, type Plugin } from "./index.ts"
+import {
+  addLink,
+  buildRegistry,
+  createItem,
+  fieldError,
+  findData,
+  FORMAT,
+  parseConfig,
+  parseFieldValue,
+  type Plugin,
+  runChecks,
+  setFields,
+  slugify,
+  uniqueSlug,
+} from "./index.ts"
 import { corePlugin } from "./base.ts"
 import { tempProject } from "./testing.ts"
 
@@ -35,14 +49,23 @@ test("slugs are readable, bounded and unique", () => {
 test("the registry refuses a name declared twice", () => {
   assert.throws(() => buildRegistry([corePlugin, notes, { ...notes, name: "other" }]), /type "notes" is declared by both/)
   assert.throws(() => buildRegistry([corePlugin, { name: "x", says: "", relations: [{ name: "r", inverse: "q", says: "" }] }]), /inverse "q"/)
-  assert.throws(() => buildRegistry([corePlugin, { name: "x", says: "", fields: [{ name: "f", kind: "string", says: "", appliesTo: ["nope"] }] }]), /no plugin declares/)
+  assert.throws(
+    () => buildRegistry([corePlugin, { name: "x", says: "", fields: [{ name: "f", kind: "string", says: "", appliesTo: ["nope"] }] }]),
+    /no plugin declares/,
+  )
 })
 
 const LOCK = { source: "https://example.invalid/naima.git", commit: "a".repeat(40) }
 
 test("naima.json: the format, the lock, gates and third-party plugins; nothing to switch on", () => {
   assert.deepEqual(parseConfig({ format: FORMAT, ...LOCK }), { format: FORMAT, ...LOCK, carry: "clone", program: "../naima", gates: {}, plugins: [] })
-  const c = parseConfig({ format: FORMAT, ...LOCK, carry: "vendored", gates: { v1: {} }, plugins: ["plugins/a.ts", { name: "plugins/b.ts", options: { k: 1 } }] })
+  const c = parseConfig({
+    format: FORMAT,
+    ...LOCK,
+    carry: "vendored",
+    gates: { v1: {} },
+    plugins: ["plugins/a.ts", { name: "plugins/b.ts", options: { k: 1 } }],
+  })
   assert.equal(c.carry, "vendored")
   assert.deepEqual(c.plugins, [{ name: "plugins/a.ts", options: {} }, { name: "plugins/b.ts", options: { k: 1 } }])
   assert.throws(() => parseConfig({ ...LOCK }), /has no format/)
@@ -100,7 +123,17 @@ test("check reports every broken invariant instead of crashing", () => {
     p.ctx.reload()
     const report = runChecks(p.ctx)
     const text = messages(report)
-    for (const expected of [/shares its id/, /status "weird"/, /size "XXL"/, /relation "nope"/, /which is no item/, /malformed link/, /broken: meta.json is not a JSON object/]) {
+    for (
+      const expected of [
+        /shares its id/,
+        /status "weird"/,
+        /size "XXL"/,
+        /relation "nope"/,
+        /which is no item/,
+        /malformed link/,
+        /broken: meta.json is not a JSON object/,
+      ]
+    ) {
       assert.match(text, expected)
     }
     assert.match(text, /STRAY\/ belongs to no loaded type or plugin/)
@@ -162,7 +195,9 @@ test("a status is only one the type declares itself, never an Object.prototype k
 test("a date field holds only a real calendar date", () => {
   const date = { name: "due", kind: "date" as const, says: "" }
   for (const ok of ["2024", "2024-02", "2024-02-29", "2000-02-29", "2023-12-31"]) assert.equal(fieldError(date, ok), null, ok)
-  for (const bad of ["2024-13-99", "2024-00", "2024-13", "2023-02-29", "2024-04-31", "2024-01-00", "1900-02-29"]) assert.match(fieldError(date, bad) ?? "", /is not a date/, bad)
+  for (const bad of ["2024-13-99", "2024-00", "2024-13", "2023-02-29", "2024-04-31", "2024-01-00", "1900-02-29"]) {
+    assert.match(fieldError(date, bad) ?? "", /is not a date/, bad)
+  }
   const p = tempProject([notes])
   try {
     const item = createItem(p.ctx, p.ctx.registry.types.get("notes")!, "One")
@@ -212,8 +247,12 @@ test("new never reuses a directory: a slug taken in another case, or by a concur
 
     // Eight processes open the same title at once: eight items, eight directories.
     const cli = join(dirname(dirname(fileURLToPath(import.meta.url))), "cli.ts")
-    const runs = Array.from({ length: 8 }, () =>
-      new Promise<number>((done) => spawn("deno", ["run", "-A", cli, "--data", p.ctx.trackerRoot, "new", "bugs", "Same title"], { stdio: "ignore" }).on("close", (c) => done(c ?? -1))),
+    const runs = Array.from(
+      { length: 8 },
+      () =>
+        new Promise<number>((done) =>
+          spawn("deno", ["run", "-A", cli, "--data", p.ctx.trackerRoot, "new", "bugs", "Same title"], { stdio: "ignore" }).on("close", (c) => done(c ?? -1))
+        ),
     )
     assert.deepEqual(await Promise.all(runs), Array(8).fill(0))
     const dirs = readdirSync(join(p.ctx.trackerRoot, "bugs"))
@@ -348,13 +387,22 @@ test("a plugin cannot take a name the entry point answers, nor a check, summary 
   const cmd = (name: string) => ({ name, says: "x", usage: name, run: () => 0 })
   const reserved = ["init", "update", "carry", "guide", "help"]
   for (const name of reserved) {
-    assert.throws(() => buildRegistry([corePlugin, { name: "p", says: "", commands: [cmd(name)] }], { reserved }), new RegExp(`command "${name}" is answered by the entry point`))
+    assert.throws(
+      () => buildRegistry([corePlugin, { name: "p", says: "", commands: [cmd(name)] }], { reserved }),
+      new RegExp(`command "${name}" is answered by the entry point`),
+    )
   }
   const check = { name: "links", says: "x", run: () => [] }
   assert.throws(() => buildRegistry([corePlugin, { name: "p", says: "", checks: [check] }]), /check "links" is declared by both "core" and "p"/)
-  assert.throws(() => buildRegistry([corePlugin, { name: "p", says: "", summary: [{ name: "items", render: () => [] }] }]), /summary section "items" is declared by both "core" and "p"/)
+  assert.throws(
+    () => buildRegistry([corePlugin, { name: "p", says: "", summary: [{ name: "items", render: () => [] }] }]),
+    /summary section "items" is declared by both "core" and "p"/,
+  )
   const term = { name: "t", score: () => 0 }
-  assert.throws(() => buildRegistry([corePlugin, { name: "p", says: "", rank: [term] }, { name: "q", says: "", rank: [term] }]), /rank term "t" is declared by both "p" and "q"/)
+  assert.throws(
+    () => buildRegistry([corePlugin, { name: "p", says: "", rank: [term] }, { name: "q", says: "", rank: [term] }]),
+    /rank term "t" is declared by both "p" and "q"/,
+  )
 })
 
 test("the registry and the config cannot be changed once the project is loaded", () => {

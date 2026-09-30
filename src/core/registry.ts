@@ -55,7 +55,9 @@ export function buildRegistry(plugins: Plugin[], opts: RegistryOptions = {}): Re
     for (const f of p.fields ?? []) put(registry.fields, f.name, f, "field", p.name)
     for (const r of p.relations ?? []) put(registry.relations, r.name, r, "relation", p.name)
     for (const c of p.commands ?? []) {
-      if (reserved.has(c.name)) throw new Error(`command "${c.name}" is answered by the entry point before any plugin loads, so "${p.name}" can never run it — rename it`)
+      if (reserved.has(c.name)) {
+        throw new Error(`command "${c.name}" is answered by the entry point before any plugin loads, so "${p.name}" can never run it — rename it`)
+      }
       put(registry.commands, c.name, c, "command", p.name)
     }
     for (const v of p.views ?? []) put(registry.views, v.name, v, "view", p.name)

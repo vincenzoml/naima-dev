@@ -18,18 +18,18 @@
 import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs"
 import { dirname, join, relative, resolve } from "node:path"
 import {
-  DEFAULT_DATA,
+  bool,
   type Check,
+  cliCommands,
   type Command,
   type Context,
-  type Finding,
-  type OptionDoc,
-  type Plugin,
-  bool,
-  cliCommands,
+  DEFAULT_DATA,
   fieldValue,
+  type Finding,
   label,
+  type OptionDoc,
   parse,
+  type Plugin,
   projectFiles,
   walkFiles,
   writeFileAtomic,
@@ -81,7 +81,10 @@ const FLAG = /--[a-z][a-z0-9-]*/g
 export function documentationGaps(ctx: Context): string[] {
   const out: string[] = []
   const blank = (s: unknown): boolean => typeof s !== "string" || !s.trim()
-  const commands = [...cliCommands.map((c) => ({ c, owner: "core" })), ...ctx.registry.plugins.flatMap((p) => (p.commands ?? []).map((c) => ({ c, owner: p.name })))]
+  const commands = [
+    ...cliCommands.map((c) => ({ c, owner: "core" })),
+    ...ctx.registry.plugins.flatMap((p) => (p.commands ?? []).map((c) => ({ c, owner: p.name }))),
+  ]
   for (const p of ctx.registry.plugins) if (blank(p.says)) out.push(`plugin "${p.name}" does not say what it is`)
   for (const { c, owner } of commands) {
     const where = `command "${c.name}" (${owner})`
@@ -95,14 +98,18 @@ export function documentationGaps(ctx: Context): string[] {
       if (blank(o.says)) out.push(`${where}: option ${o.name} does not say what it does`)
     }
   }
-  for (const p of ctx.registry.plugins) for (const o of p.options ?? []) if (blank(o.says)) out.push(`plugin "${p.name}": option ${o.name} does not say what it does`)
+  for (const p of ctx.registry.plugins) {
+    for (const o of p.options ?? []) if (blank(o.says)) out.push(`plugin "${p.name}": option ${o.name} does not say what it does`)
+  }
   for (const t of ctx.registry.types.values()) {
     if (blank(t.says)) out.push(`type "${t.id}" does not say what it is`)
     for (const [name, s] of Object.entries(t.statuses)) if (blank(s.says)) out.push(`type "${t.id}": status "${name}" does not say what it means`)
   }
   for (const f of ctx.registry.fields.values()) {
     if (blank(f.says)) out.push(`field "${f.name}" does not say what it holds`)
-    if (f.kind === "enum") for (const [v, says] of Object.entries(f.values ?? {})) if (blank(says)) out.push(`field "${f.name}": value "${v}" does not say what it means`)
+    if (f.kind === "enum") {
+      for (const [v, says] of Object.entries(f.values ?? {})) if (blank(says)) out.push(`field "${f.name}": value "${v}" does not say what it means`)
+    }
   }
   for (const r of ctx.registry.relations.values()) if (blank(r.says)) out.push(`relation "${r.name}" does not say what it means`)
   for (const c of ctx.registry.checks) if (blank(c.says)) out.push(`check "${c.name}" does not say what it holds`)
@@ -125,7 +132,12 @@ const sentence = (s: string): string => {
 
 function optionsTable(options: OptionDoc[], what: string): string[] {
   if (!options.length) return []
-  return ["", `| ${what} | Default | What it does |`, "|---|---|---|", ...options.map((o) => `| ${code(o.name)} | ${o.default !== undefined ? code(o.default) : ""} | ${cell(o.says)} |`)]
+  return [
+    "",
+    `| ${what} | Default | What it does |`,
+    "|---|---|---|",
+    ...options.map((o) => `| ${code(o.name)} | ${o.default !== undefined ? code(o.default) : ""} | ${cell(o.says)} |`),
+  ]
 }
 
 function commandSection(c: Pick<Command, "name" | "says" | "usage" | "options" | "examples">): string[] {
@@ -169,22 +181,39 @@ export function renderReference(ctx: Context): string {
     L.push("", `## ${p.name}`, "", sentence(p.says))
     if (p.about) L.push("", p.about)
     if (p.options?.length) L.push("", "Options, each with the default it takes when nothing sets it:", ...optionsTable(p.options, "Option"))
-    if (p.name === "core") for (const c of cliCommands) L.push(...commandSection(c))
+    if (p.name === "core") { for (const c of cliCommands) L.push(...commandSection(c)) }
     for (const c of p.commands ?? []) L.push(...commandSection(c))
     for (const t of p.types ?? []) {
-      L.push("", `### type: ${t.id}`, "", `${t.title}: ${t.says}. Items live in ${code(`${DEFAULT_DATA}/${t.dir}/`)}; a new one starts as ${code(t.initialStatus)}${t.creatable === false ? "; it is an archive: items arrive by being moved there, never by being opened" : ""}.`)
+      L.push(
+        "",
+        `### type: ${t.id}`,
+        "",
+        `${t.title}: ${t.says}. Items live in ${code(`${DEFAULT_DATA}/${t.dir}/`)}; a new one starts as ${code(t.initialStatus)}${
+          t.creatable === false ? "; it is an archive: items arrive by being moved there, never by being opened" : ""
+        }.`,
+      )
       L.push("", "| Status | Category | Proves | Meaning |", "|---|---|---|---|")
       for (const [name, s] of Object.entries(t.statuses)) L.push(`| ${code(name)} | ${s.category} | ${s.proves ? "yes" : ""} | ${cell(s.says)} |`)
     }
     if (p.fields?.length) {
       L.push("", "**Fields**", "", "| Field | Kind | Applies to | Meaning | Values |", "|---|---|---|---|---|")
       for (const f of p.fields) {
-        const values = f.configured ? "set by the project's configuration" : f.values ? Object.entries(f.values).map(([v, s]) => `${code(v)} ${cell(s)}`).join("; ") : ""
+        const values = f.configured
+          ? "set by the project's configuration"
+          : f.values
+          ? Object.entries(f.values).map(([v, s]) => `${code(v)} ${cell(s)}`).join("; ")
+          : ""
         L.push(`| ${code(f.name)} | ${f.kind} | ${f.appliesTo ? f.appliesTo.join(", ") : "every type"} | ${cell(f.says)} | ${values} |`)
       }
     }
     if (p.relations?.length) {
-      L.push("", "**Link relations** — only the direction written is stored; the inverse is derived when read.", "", "| Relation | Inverse | Reads as |", "|---|---|---|")
+      L.push(
+        "",
+        "**Link relations** — only the direction written is stored; the inverse is derived when read.",
+        "",
+        "| Relation | Inverse | Reads as |",
+        "|---|---|---|",
+      )
       for (const rel of p.relations) L.push(`| ${code(rel.name)} | ${code(rel.inverse)} | ${cell(rel.says)} |`)
     }
     if (p.checks?.length) {
@@ -315,7 +344,8 @@ export default function docs(options: Record<string, unknown> = {}): Plugin {
 
   const documented: Check = {
     name: "documented",
-    says: "every loaded plugin, command (with an example and every option), type, status, field, value, relation, check, view, gate and verifier carries its documentation",
+    says:
+      "every loaded plugin, command (with an example and every option), type, status, field, value, relation, check, view, gate and verifier carries its documentation",
     run: (ctx) => documentationGaps(ctx).map((message): Finding => ({ level: "problem", message: `undocumented: ${message}` })),
   }
 
@@ -327,14 +357,17 @@ export default function docs(options: Record<string, unknown> = {}): Plugin {
       return referencesOf(opts.reference).flatMap((ref): Finding[] => {
         const path = join(ctx.root, ref)
         if (!existsSync(path)) return [{ level: "problem", message: `${ref} does not exist — naima docs --write ${ref}` }]
-        return readFileSync(path, "utf8") === text ? [] : [{ level: "problem", message: `${ref} is out of date with the manifests — naima docs --write ${ref}` }]
+        return readFileSync(path, "utf8") === text
+          ? []
+          : [{ level: "problem", message: `${ref} is out of date with the manifests — naima docs --write ${ref}` }]
       })
     },
   }
 
   const featuresDocumented: Check = {
     name: "features-documented",
-    says: "a feature in a documented status names its documentation in `docs`, and every name there resolves to a markdown file, and a heading when it names one",
+    says:
+      "a feature in a documented status names its documentation in `docs`, and every name there resolves to a markdown file, and a heading when it names one",
     run(ctx) {
       const out: Finding[] = []
       for (const item of ctx.repo.items.filter((i) => opts.featureTypes.includes(i.type))) {
@@ -353,7 +386,8 @@ export default function docs(options: Record<string, unknown> = {}): Plugin {
 
   const linksResolve: Check = {
     name: "links-resolve",
-    says: "every relative link in every markdown file of the project (or under the links option) points at a file, and a heading (ATX or setext) when it names one",
+    says:
+      "every relative link in every markdown file of the project (or under the links option) points at a file, and a heading (ATX or setext) when it names one",
     run: (ctx) => brokenLinks(ctx.root, opts.links, ctx.program).map((message): Finding => ({ level: "problem", message })),
   }
 
@@ -399,10 +433,18 @@ export default function docs(options: Record<string, unknown> = {}): Plugin {
       "**The tracker**: an item of a feature type in a documented status names its documentation in `docs` (`path` or `path#heading`, from the project root), and every name resolves to a markdown file, and to a heading in it when it names one. " +
       "**The prose**: every relative link in every markdown file git tracks resolves, so a flow an instruction names exists.",
     options: [
-      { name: "reference", says: "the reference file `naima check` holds current with the manifests; `naima docs --check <path>` holds any file without it", default: "none" },
+      {
+        name: "reference",
+        says: "the reference file `naima check` holds current with the manifests; `naima docs --check <path>` holds any file without it",
+        default: "none",
+      },
       { name: "featureTypes", says: "item types whose items are features", default: '["features"]' },
       { name: "documentedStatuses", says: "statuses in which a feature must name its documentation", default: '["shipped"]' },
-      { name: "links", says: "markdown files or directories, from the project root, to check instead of the whole project", default: "every markdown file git tracks or would track" },
+      {
+        name: "links",
+        says: "markdown files or directories, from the project root, to check instead of the whole project",
+        default: "every markdown file git tracks or would track",
+      },
     ],
     fields: [
       {

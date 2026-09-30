@@ -6,7 +6,7 @@
 // read time from every ref worth reading. Nothing in this module writes.
 
 import { spawnSync } from "node:child_process"
-import { existsSync, readFileSync, readdirSync, realpathSync } from "node:fs"
+import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs"
 import { join, relative, sep } from "node:path"
 import { isRegularFile, walkFiles } from "./files.ts"
 
@@ -111,7 +111,10 @@ export function currentBranch(root: string): string {
  */
 export function trunk(root: string): string | null {
   const refs = new Map<string, string>()
-  for (const line of (gitOrNull(root, "for-each-ref", "--format=%(refname) %(symref)", "refs/remotes/origin/HEAD", "refs/heads/main", "refs/heads/master") ?? "").split("\n")) {
+  for (
+    const line of (gitOrNull(root, "for-each-ref", "--format=%(refname) %(symref)", "refs/remotes/origin/HEAD", "refs/heads/main", "refs/heads/master") ?? "")
+      .split("\n")
+  ) {
     const [name, target = ""] = line.trim().split(" ")
     if (name) refs.set(name, target)
   }
@@ -214,7 +217,11 @@ function treeEntries(tree: Buffer): { mode: string; name: string; sha: string }[
     const space = tree.indexOf(32, at)
     const nul = tree.indexOf(0, space)
     if (space === -1 || nul === -1) break
-    out.push({ mode: tree.subarray(at, space).toString("utf8"), name: tree.subarray(space + 1, nul).toString("utf8"), sha: tree.subarray(nul + 1, nul + 21).toString("hex") })
+    out.push({
+      mode: tree.subarray(at, space).toString("utf8"),
+      name: tree.subarray(space + 1, nul).toString("utf8"),
+      sha: tree.subarray(nul + 1, nul + 21).toString("hex"),
+    })
     at = nul + 21
   }
   return out
@@ -235,7 +242,7 @@ function filesOnRefs(root: string, refs: string[], dir: string, ext: string): { 
     (listed[i] ?? []).flatMap((e) => {
       const blob = blobs[next++]
       return blob?.type === "blob" ? [{ ref, name: e.name, text: blob.data.toString("utf8"), local: false }] : []
-    }),
+    })
   )
   return { onRefs, onHead: new Set(files(head).map((e) => e.name)) }
 }

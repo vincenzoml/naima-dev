@@ -9,20 +9,20 @@ import {
   type Check,
   type Command,
   type Context,
-  type Finding,
-  type Item,
-  type Plugin,
-  type SummarySection,
   fieldValue,
+  type Finding,
   isOpen,
+  type Item,
   label,
   linked,
   moveItem,
   parse,
+  type Plugin,
   proves,
   readReadme,
   saveMeta,
   setFieldValue,
+  type SummarySection,
   today,
   typeOrThrow,
   usageError,
@@ -101,7 +101,11 @@ const humanSaysWhy: Check = {
   run: (ctx) =>
     ctx.repo.items
       .filter((i) => fieldValue(i, RUN_BY) === "human" && isOpen(ctx, i) && fieldValue(i, HUMAN_BECAUSE) === undefined)
-      .map((i): Finding => ({ level: "problem", message: `${label(i)} is handed to a person without saying why — set humanBecause, or runBy if an agent can do it`, item: i })),
+      .map((i): Finding => ({
+        level: "problem",
+        message: `${label(i)} is handed to a person without saying why — set humanBecause, or runBy if an agent can do it`,
+        item: i,
+      })),
 }
 
 const close: Command = {

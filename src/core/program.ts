@@ -6,7 +6,7 @@
 // have, is refused, never reset. None ever pulls on its own: only `naima
 // update` asks the source where its main is.
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync } from "node:fs"
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync } from "node:fs"
 import { basename, dirname, join, resolve } from "node:path"
 import { isLocalSource, posixRelative } from "./config.ts"
 import { writeFileAtomic } from "./files.ts"
@@ -95,7 +95,9 @@ export function align(t: Target): boolean {
   }
   const fresh = !isRepo(t.program)
   if (fresh) {
-    if (existsSync(t.program) && readdirSync(t.program).length) throw new Error(`${where(t)} exists and is not a clone — move it away, or set carry in naima.json`)
+    if (existsSync(t.program) && readdirSync(t.program).length) {
+      throw new Error(`${where(t)} exists and is not a clone — move it away, or set carry in naima.json`)
+    }
     cloneProgram(t)
   } else {
     refuseLocalWork(t)
@@ -185,7 +187,9 @@ export function ignoreProgram(t: Target, ignored: boolean): string | null {
 
 /** Stage `paths` (absolute), deletions included; a path that neither exists nor is tracked is skipped. */
 export function stage(root: string, ...paths: string[]): void {
-  const rels = paths.map((p) => posixRelative(root, p)).filter((rel) => existsSync(join(root, rel)) || runGit(root, ["ls-files", "--error-unmatch", "--", rel]).ok)
+  const rels = paths.map((p) => posixRelative(root, p)).filter((rel) =>
+    existsSync(join(root, rel)) || runGit(root, ["ls-files", "--error-unmatch", "--", rel]).ok
+  )
   if (rels.length) mustGit(root, "add", "--all", "--", ...rels)
 }
 

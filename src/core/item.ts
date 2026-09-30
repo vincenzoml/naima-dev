@@ -1,7 +1,7 @@
 // Items on disk: one directory each, `meta.json` for fields, `README.md` for prose.
 
 import { randomUUID } from "node:crypto"
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { writeFileAtomic } from "./files.ts"
 import type { Context, Item, Meta, TypeDef } from "./types.ts"
@@ -38,7 +38,7 @@ export function uniqueSlug(slug: string, taken: Set<string>): string {
   const lower = new Set([...taken].map((s) => s.toLowerCase()))
   const free = (s: string): boolean => !lower.has(s.toLowerCase())
   if (free(slug)) return slug
-  for (let n = 2; ; n++) if (free(`${slug}-${n}`)) return `${slug}-${n}`
+  for (let n = 2;; n++) if (free(`${slug}-${n}`)) return `${slug}-${n}`
 }
 
 /**
@@ -63,8 +63,7 @@ function claimDir(base: string, slug: string): string {
   }
 }
 
-export const isUuid = (s: unknown): s is string =>
-  typeof s === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(s)
+export const isUuid = (s: unknown): s is string => typeof s === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(s)
 
 export const today = (ctx: Context): string => ctx.now().toISOString().slice(0, 10)
 
@@ -100,8 +99,7 @@ export function listDirs(path: string): string[] {
     .sort()
 }
 
-const defaultTemplate = (title: string): string =>
-  `# ${title}\n\nDescribe it here.\n`
+const defaultTemplate = (title: string): string => `# ${title}\n\nDescribe it here.\n`
 
 /** Open a new item. Writes only inside its own new directory. */
 export function createItem(ctx: Context, type: TypeDef, title: string, fields: Record<string, unknown> = {}): Item {

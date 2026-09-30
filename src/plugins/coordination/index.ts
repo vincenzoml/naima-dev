@@ -11,27 +11,27 @@ import { randomUUID } from "node:crypto"
 import { mkdirSync, readFileSync, unlinkSync } from "node:fs"
 import { join } from "node:path"
 import {
+  allRefNames,
+  bool,
   type BranchFile,
   type Check,
   type Command,
   type Context,
-  type Finding,
-  type Item,
-  type Plugin,
-  type SummarySection,
-  allRefNames,
-  bool,
   currentBranch,
   filesAt,
+  type Finding,
+  type Item,
   label,
   parse,
+  type Plugin,
   positiveInt,
   readAcrossBranches,
   str,
+  type SummarySection,
   today,
+  usageError,
   writeFileAtomic,
   writeJson,
-  usageError,
 } from "../../core/index.ts"
 
 export const CLAIMS = "claims"
@@ -223,7 +223,8 @@ const claims: Command = {
 
 const prune: Command = {
   name: "prune",
-  says: "list (or with --write remove) claim files naming a branch git no longer has; one only another ref carries is listed with that ref, to be dropped there",
+  says:
+    "list (or with --write remove) claim files naming a branch git no longer has; one only another ref carries is listed with that ref, to be dropped there",
   usage: "prune [--write]",
   options: [{ name: "--write", says: "remove the stale claim files instead of listing them" }],
   examples: ["prune", "prune --write"],
@@ -239,13 +240,19 @@ const prune: Command = {
     const here = stale.filter((c) => c.local)
     const elsewhere = stale.filter((c) => !c.local)
     for (const c of here) ctx.out(`  ${c.branch}  ${c.items.length} items  ${c.file}`)
-    for (const c of elsewhere) ctx.out(`  ${c.branch}  ${c.items.length} items  ${c.file}  on ${c.ref}: drop it there (git switch ${c.ref}, naima prune --write)`)
+    for (const c of elsewhere) {
+      ctx.out(`  ${c.branch}  ${c.items.length} items  ${c.file}  on ${c.ref}: drop it there (git switch ${c.ref}, naima prune --write)`)
+    }
     if (!write) {
       ctx.out("nothing removed — run again with --write")
       return 0
     }
     for (const c of here) unlinkSync(join(ctx.root, rel(ctx, CLAIMS), c.file))
-    ctx.out(`removed ${here.length} here${elsewhere.length ? `; ${elsewhere.length} must be dropped on its ref` : ""} — commit the deletions on ${currentBranch(ctx.root)}`)
+    ctx.out(
+      `removed ${here.length} here${elsewhere.length ? `; ${elsewhere.length} must be dropped on its ref` : ""} — commit the deletions on ${
+        currentBranch(ctx.root)
+      }`,
+    )
     return 0
   },
 }
@@ -289,7 +296,12 @@ const claimsResolve: Check = {
   run: (ctx) =>
     readClaims(ctx)
       .filter((c) => c.local)
-      .flatMap((c) => c.items.filter((e) => !ctx.repo.byId.has(e.id)).map((e): Finding => ({ level: "note", message: `claim ${c.file} names ${e.ref} (${e.id}), which is not here` }))),
+      .flatMap((c) =>
+        c.items.filter((e) => !ctx.repo.byId.has(e.id)).map((e): Finding => ({
+          level: "note",
+          message: `claim ${c.file} names ${e.ref} (${e.id}), which is not here`,
+        }))
+      ),
 }
 
 const whereWeWere: SummarySection = {
@@ -298,7 +310,11 @@ const whereWeWere: SummarySection = {
     const [newest, ...rest] = readPasses(ctx)
     if (!newest) return []
     const sameDay = rest.filter((p) => p.date === newest.date).length
-    return [`  ${newest.date}  ${newest.branch}`, ...newest.body.split("\n").slice(0, 8).map((l) => `  ${l}`), ...(sameDay ? [`  (+${sameDay} more that day — naima pass --list)`] : [])]
+    return [
+      `  ${newest.date}  ${newest.branch}`,
+      ...newest.body.split("\n").slice(0, 8).map((l) => `  ${l}`),
+      ...(sameDay ? [`  (+${sameDay} more that day — naima pass --list)`] : []),
+    ]
   },
 }
 

@@ -57,7 +57,19 @@ function world(name = "project") {
 }
 
 test("the environment allow-list keeps Naima's, git's, ssh's and the locale's variables, and nothing else", () => {
-  const kept = allowedEnv({ HOME: "/h", PATH: "/bin", NAIMA_DATA: "d", GIT_SSH_COMMAND: "ssh", SSH_AUTH_SOCK: "s", LC_ALL: "C", https_proxy: "p", Path: "w", AWS_SECRET_ACCESS_KEY: "no", GITHUB_TOKEN: "no", OPENAI_API_KEY: "no" })
+  const kept = allowedEnv({
+    HOME: "/h",
+    PATH: "/bin",
+    NAIMA_DATA: "d",
+    GIT_SSH_COMMAND: "ssh",
+    SSH_AUTH_SOCK: "s",
+    LC_ALL: "C",
+    https_proxy: "p",
+    Path: "w",
+    AWS_SECRET_ACCESS_KEY: "no",
+    GITHUB_TOKEN: "no",
+    OPENAI_API_KEY: "no",
+  })
   assert.deepEqual(Object.keys(kept).sort(), ["GIT_SSH_COMMAND", "HOME", "LC_ALL", "NAIMA_DATA", "PATH", "Path", "SSH_AUTH_SOCK", "https_proxy"])
 })
 

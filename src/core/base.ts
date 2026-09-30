@@ -332,8 +332,7 @@ const counts = {
 export const corePlugin: Plugin = {
   name: "core",
   says: "items, fields, links and the invariants every project has",
-  about:
-    "An item is a directory under `<tracker>/<TYPE>/<slug>/`: `README.md` for the prose, `meta.json` for the fields, `attachments/` for the evidence. " +
+  about: "An item is a directory under `<tracker>/<TYPE>/<slug>/`: `README.md` for the prose, `meta.json` for the fields, `attachments/` for the evidence. " +
     "`meta.json` always holds `id` (a permanent uuid), `title` and `status` (one the item's type declares), and optionally `links`, a list of `{ rel, id }`. The slug may change; the id may not, and links hold ids. " +
     "An item reference on the command line is an id, `type/slug`, a slug, or a fragment of a slug that matches one item. " +
     "Fields are typed by the plugin that declares them — `string`, `strings` (comma-separated on the command line), `date` (YYYY, YYYY-MM or YYYY-MM-DD), `enum` (values in rank order), `boolean`, `number`, `object` (a JSON object, written as JSON on the command line) — and unknown fields are kept and not checked. " +

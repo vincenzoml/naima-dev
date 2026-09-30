@@ -3,7 +3,7 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "n
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { test } from "node:test"
-import { createItem, runChecks, type Plugin, type Verifier } from "../../core/index.ts"
+import { createItem, type Plugin, runChecks, type Verifier } from "../../core/index.ts"
 import { tempProject } from "../../core/testing.ts"
 import { exampleRegex } from "./adapters/example-regex.ts"
 import verifier, { readRun } from "./index.ts"
@@ -95,7 +95,12 @@ test("an adapter outside the contract gives a property in error with a readable 
   try {
     const { ctx } = p
     writeFileSync(join(p.root, "m"), "")
-    for (const [id, output] of [["pass", /verdict "pass", outside the contract/], ["silent", /no string output/], ["nothing", /not a result/], ["throws", /a string, not an Error/]] as const) {
+    for (
+      const [id, output] of [["pass", /verdict "pass", outside the contract/], ["silent", /no string output/], ["nothing", /not a result/], [
+        "throws",
+        /a string, not an Error/,
+      ]] as const
+    ) {
       const item = createItem(ctx, ctx.registry.types.get("properties")!, `by ${id}`, { verifier: id, model: "m", property: "p" })
       assert.equal(await p.run("verify", item.slug), 1, id)
       const after = ctx.repo.resolve(item.slug)
@@ -115,18 +120,25 @@ test("a property holds only for what was run: a changed property, verifier, mode
     const { ctx } = p
     writeFileSync(join(p.root, "model.txt"), "alpha\nbeta\n")
     writeFileSync(join(p.root, "copy.txt"), "alpha\nbeta\n")
-    const prop = createItem(ctx, ctx.registry.types.get("properties")!, "has beta", { verifier: "example-regex", model: "model.txt", property: "some beta", verifierOptions: { depth: 1 } })
+    const prop = createItem(ctx, ctx.registry.types.get("properties")!, "has beta", {
+      verifier: "example-regex",
+      model: "model.txt",
+      property: "some beta",
+      verifierOptions: { depth: 1 },
+    })
     assert.equal(await p.run("verify", prop.slug), 0)
     const problems = () => runChecks(ctx).problems.map((f) => f.message).join("\n")
     assert.equal(problems(), "")
     const path = join(prop.dir, "meta.json")
     const held = JSON.parse(readFileSync(path, "utf8"))
-    for (const [change, why] of [
-      [{ property: "some gamma" }, /holds for property "some beta", not "some gamma"/],
-      [{ verifier: "other" }, /holds by verifier "example-regex", not "other"/],
-      [{ model: "copy.txt" }, /holds on model model\.txt, not copy\.txt/],
-      [{ verifierOptions: { depth: 2 } }, /holds with other verifierOptions/],
-    ] as const) {
+    for (
+      const [change, why] of [
+        [{ property: "some gamma" }, /holds for property "some beta", not "some gamma"/],
+        [{ verifier: "other" }, /holds by verifier "example-regex", not "other"/],
+        [{ model: "copy.txt" }, /holds on model model\.txt, not copy\.txt/],
+        [{ verifierOptions: { depth: 2 } }, /holds with other verifierOptions/],
+      ] as const
+    ) {
       writeFileSync(path, JSON.stringify({ ...held, ...change }))
       p.ctx.reload()
       assert.match(problems(), why)
@@ -144,7 +156,22 @@ test("a property's inputs are checked: its options are a declared field, its pat
     writeFileSync(join(p.root, "m"), "x\n")
     const type = ctx.registry.types.get("properties")!
     assert.equal(ctx.registry.fields.get("verifierOptions")?.kind, "object")
-    assert.equal(await p.run("new", "properties", "has options", "--set", 'verifierOptions={"depth":2}', "--set", "verifier=example-regex", "--set", "model=m", "--set", "property=some x"), 0)
+    assert.equal(
+      await p.run(
+        "new",
+        "properties",
+        "has options",
+        "--set",
+        'verifierOptions={"depth":2}',
+        "--set",
+        "verifier=example-regex",
+        "--set",
+        "model=m",
+        "--set",
+        "property=some x",
+      ),
+      0,
+    )
     assert.deepEqual(ctx.repo.resolve("has-options").meta["verifierOptions"], { depth: 2 })
     await assert.rejects(p.run("set", "has-options", "verifierOptions=[1]"), /verifierOptions: "\[1\]" is not a JSON object/)
 

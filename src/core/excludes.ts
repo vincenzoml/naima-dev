@@ -14,7 +14,21 @@ import { join } from "node:path"
 export const EXCLUDE_FILES = ["deno.json", "deno.jsonc", "tsconfig.json", ".prettierignore"] as const
 
 /** Prettier's configuration files: one of them present means the project runs prettier. */
-const PRETTIER = [".prettierrc", ".prettierrc.json", ".prettierrc.yaml", ".prettierrc.yml", ".prettierrc.json5", ".prettierrc.js", ".prettierrc.cjs", ".prettierrc.mjs", ".prettierrc.toml", "prettier.config.js", "prettier.config.cjs", "prettier.config.mjs", "prettier.config.ts"]
+const PRETTIER = [
+  ".prettierrc",
+  ".prettierrc.json",
+  ".prettierrc.yaml",
+  ".prettierrc.yml",
+  ".prettierrc.json5",
+  ".prettierrc.js",
+  ".prettierrc.cjs",
+  ".prettierrc.mjs",
+  ".prettierrc.toml",
+  "prettier.config.js",
+  "prettier.config.cjs",
+  "prettier.config.mjs",
+  "prettier.config.ts",
+]
 
 export interface Exclusion {
   /** The host file, from the project root. */
@@ -66,7 +80,9 @@ export function exclusions(root: string, program: string): Exclusion[] {
     if (existsSync(join(root, file))) out.push({ file, ...jsonExclude(join(root, file), dir, []) })
   }
   // tsc drops its default exclusions once `exclude` is given, so a new list keeps node_modules.
-  if (existsSync(join(root, "tsconfig.json"))) out.push({ file: "tsconfig.json", ...jsonExclude(join(root, "tsconfig.json"), dir.slice(0, -1), ["node_modules"]) })
+  if (existsSync(join(root, "tsconfig.json"))) {
+    out.push({ file: "tsconfig.json", ...jsonExclude(join(root, "tsconfig.json"), dir.slice(0, -1), ["node_modules"]) })
+  }
   const ignore = join(root, ".prettierignore")
   if (existsSync(ignore) || PRETTIER.some((f) => existsSync(join(root, f)))) {
     const text = existsSync(ignore) ? readFileSync(ignore, "utf8") : ""

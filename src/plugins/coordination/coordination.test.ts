@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { existsSync, readdirSync, rmSync } from "node:fs"
 import { join } from "node:path"
 import { test } from "node:test"
-import { DEFAULT_DATA, DEFAULT_PROGRAM, createContext, createItem, type Plugin } from "../../core/index.ts"
+import { createContext, createItem, DEFAULT_DATA, DEFAULT_PROGRAM, type Plugin } from "../../core/index.ts"
 import { gitIn, tempProject } from "../../core/testing.ts"
 import coordination, { readClaims, readPasses } from "./index.ts"
 

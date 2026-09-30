@@ -35,8 +35,10 @@ export const isLocalSource = (source: string): boolean => source.startsWith("fil
  * directory git happens to run in.
  */
 export function sourceRefusal(source: string): string | null {
-  if (source.startsWith("-")) return "must not start with \"-\": git would read it as an option"
-  if (isLocalSource(source) && !source.startsWith("file:") && !isAbsolute(source)) return "a path on this disk must be absolute: a relative one resolves against wherever git runs"
+  if (source.startsWith("-")) return 'must not start with "-": git would read it as an option'
+  if (isLocalSource(source) && !source.startsWith("file:") && !isAbsolute(source)) {
+    return "a path on this disk must be absolute: a relative one resolves against wherever git runs"
+  }
   return null
 }
 
@@ -47,7 +49,9 @@ export function sourceRefusal(source: string): string | null {
  */
 export function parseLock(raw: Record<string, unknown>): Lock {
   const { source, commit } = raw
-  if (typeof source !== "string" || !source.trim()) throw new Error(`${DATA_FILE}: source must be the git URL (or absolute path) of the Naima this project runs`)
+  if (typeof source !== "string" || !source.trim()) {
+    throw new Error(`${DATA_FILE}: source must be the git URL (or absolute path) of the Naima this project runs`)
+  }
   const refusal = sourceRefusal(source)
   if (refusal) throw new Error(`${DATA_FILE}: source ${refusal}`)
   if (typeof commit !== "string" || !COMMIT.test(commit)) throw new Error(`${DATA_FILE}: commit must be the full hash of the Naima commit this project runs`)
@@ -133,7 +137,9 @@ export async function loadPlugins(program: string, config: Config, firstParty: s
     const path = resolve(program, entry.name)
     const inside = relative(program, path)
     if (isAbsolute(entry.name) || !inside || inside.startsWith("..") || isAbsolute(inside)) {
-      throw new Error(`${DATA_FILE}: plugin "${entry.name}" is not a path inside the program — code runs only from the program; carry the plugin in a fork of Naima`)
+      throw new Error(
+        `${DATA_FILE}: plugin "${entry.name}" is not a path inside the program — code runs only from the program; carry the plugin in a fork of Naima`,
+      )
     }
     const mod = (await import(pathToFileURL(path).href)) as { default?: unknown }
     if (typeof mod.default !== "function") throw new Error(`plugin "${entry.name}" has no default-exported factory`)

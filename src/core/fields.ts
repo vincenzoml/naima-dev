@@ -83,7 +83,11 @@ export interface FieldRef<K extends FieldKind = FieldKind> {
 }
 
 /** The value a field of kind K holds. */
-export type ValueOf<K extends FieldKind> = K extends "strings" ? string[] : K extends "boolean" ? boolean : K extends "number" ? number : K extends "object" ? Record<string, unknown> : string
+export type ValueOf<K extends FieldKind> = K extends "strings" ? string[]
+  : K extends "boolean" ? boolean
+  : K extends "number" ? number
+  : K extends "object" ? Record<string, unknown>
+  : string
 
 const isKind = (kind: FieldKind, v: unknown): boolean => {
   switch (kind) {

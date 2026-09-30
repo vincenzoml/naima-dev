@@ -12,7 +12,7 @@
 // when that file is byte-identical, before the report is made.
 
 import { spawnSync } from "node:child_process"
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
@@ -79,14 +79,23 @@ if (import.meta.main) {
     // The copies must still exist when they are compared: the tests keep their temporary projects (NAIMA_KEEP_TEMP), under a TMPDIR removed at the end.
     const env = { ...process.env, NAIMA_KEEP_TEMP: "1", TMPDIR: temps, TMP: temps, TEMP: temps }
     // The test run's own output is kept back: it names every copy's path, which is what this script resolves.
-    const test = spawnSync("deno", ["test", "-A", `--coverage=${dir}`, "src/"], { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], env, maxBuffer: 1 << 28 })
+    const test = spawnSync("deno", ["test", "-A", `--coverage=${dir}`, "src/"], {
+      cwd: ROOT,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      env,
+      maxBuffer: 1 << 28,
+    })
     if (test.status !== 0) {
       process.stderr.write(test.stdout + test.stderr)
       throw new Error("the tests failed; no coverage report")
     }
     const { mapped, dropped } = remap(dir)
     console.error(`coverage: ${mapped} records of copied sources mapped back to this repository; ${dropped} of files outside it dropped`)
-    const report = spawnSync("deno", ["coverage", ...(lcov ? ["--lcov"] : []), "--exclude=\\.test\\.ts$", "--exclude=/scripts/", dir], { cwd: ROOT, stdio: ["ignore", "inherit", "inherit"] })
+    const report = spawnSync("deno", ["coverage", ...(lcov ? ["--lcov"] : []), "--exclude=\\.test\\.ts$", "--exclude=/scripts/", dir], {
+      cwd: ROOT,
+      stdio: ["ignore", "inherit", "inherit"],
+    })
     Deno.exitCode = report.status ?? 1
   } finally {
     rmSync(work, { recursive: true, force: true })

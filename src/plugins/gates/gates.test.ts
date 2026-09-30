@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { createItem, runChecks, typeOrThrow, type Plugin } from "../../core/index.ts"
+import { createItem, type Plugin, runChecks, typeOrThrow } from "../../core/index.ts"
 import { tempProject } from "../../core/testing.ts"
 import gates from "./index.ts"
 

@@ -1,10 +1,10 @@
 // Reading the tracker: every registered type directory, every item in it.
 // Nothing here writes; the context reads it again after every write.
 
-import { existsSync, readFileSync, readdirSync } from "node:fs"
+import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { message } from "./errors.ts"
-import { META, listDirs } from "./item.ts"
+import { listDirs, META } from "./item.ts"
 import type { Finding, Item, Link, Meta, Registry, Repo, ResolvedLink } from "./types.ts"
 
 /** The well-formed links an item stores. Malformed ones are reported by `check`, never followed. */
@@ -18,7 +18,9 @@ function notItems(typeDir: string, where: string): Finding[] {
   if (!existsSync(typeDir)) return []
   return readdirSync(typeDir, { withFileTypes: true }).flatMap((e): Finding[] => {
     if (e.isSymbolicLink()) return [{ level: "problem", message: `${where}/${e.name}: a symbolic link, not read as an item — an item is a directory` }]
-    if (e.isDirectory() && e.name.startsWith("_")) return [{ level: "problem", message: `${where}/${e.name}: not read as an item — a name starting with _ is never an item; rename it or move it out` }]
+    if (e.isDirectory() && e.name.startsWith("_")) {
+      return [{ level: "problem", message: `${where}/${e.name}: not read as an item — a name starting with _ is never an item; rename it or move it out` }]
+    }
     return []
   })
 }
@@ -73,8 +75,7 @@ export function loadRepo(trackerRoot: string, registry: Registry): Repo {
   const resolve = (ref: string): Item => {
     // An empty fragment is a fragment of every slug: it must never pick "the only item".
     if (!ref.trim()) throw new Error("no item named: an item reference cannot be empty")
-    const exact =
-      byId.get(ref) ??
+    const exact = byId.get(ref) ??
       items.find((i) => `${i.type}/${i.slug}` === ref) ??
       items.find((i) => `${registry.types.get(i.type)?.dir}/${i.slug}` === ref)
     if (exact) return exact

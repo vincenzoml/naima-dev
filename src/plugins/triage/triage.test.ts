@@ -2,14 +2,21 @@ import assert from "node:assert/strict"
 import { writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { test } from "node:test"
-import { byUrgency, createItem, runChecks, type Plugin } from "../../core/index.ts"
+import { byUrgency, createItem, type Plugin, runChecks } from "../../core/index.ts"
 import { tempProject } from "../../core/testing.ts"
 import triage, { confidenceFrom } from "./index.ts"
 
 const things: Plugin = {
   name: "things",
   says: "test type",
-  types: [{ id: "things", dir: "THINGS", title: "Things", says: "", statuses: { open: { category: "open", says: "" }, done: { category: "done", says: "" } }, initialStatus: "open" }],
+  types: [{
+    id: "things",
+    dir: "THINGS",
+    title: "Things",
+    says: "",
+    statuses: { open: { category: "open", says: "" }, done: { category: "done", says: "" } },
+    initialStatus: "open",
+  }],
 }
 
 test("set stamps a human decision; derive never touches effort or a decided item", async () => {
@@ -57,7 +64,16 @@ test("confidence is read off the page's own words", () => {
 })
 
 test("negated evidence is not evidence: a page that could not reproduce it is unclear, not measured", async () => {
-  for (const text of ["Could not be reproduced on main.", "We were unable to reproduce it", "It has never been reproduced", "Not yet verified by anyone", "cannot confirm the crash", "wasn't measured"]) {
+  for (
+    const text of [
+      "Could not be reproduced on main.",
+      "We were unable to reproduce it",
+      "It has never been reproduced",
+      "Not yet verified by anyone",
+      "cannot confirm the crash",
+      "wasn't measured",
+    ]
+  ) {
     assert.equal(confidenceFrom(text), "unclear", text)
   }
   assert.equal(confidenceFrom("Reproduced on main, and not only there"), "measured")
@@ -90,7 +106,10 @@ test("each triage subcommand answers a misuse with its own usage", async () => {
     await assert.rejects(p.run("triage", "set", "x"), /^NaimaError: usage: naima triage set <item> field=value\.\.\.$/)
     await assert.rejects(p.run("triage", "missing", "extra"), /^NaimaError: usage: naima triage missing$/)
     await assert.rejects(p.run("triage", "derive", "extra"), /^NaimaError: usage: naima triage derive \[--write\]$/)
-    await assert.rejects(p.run("triage", "nope"), /^NaimaError: usage: naima triage \| triage set <item> field=value\.\.\. \| triage missing \| triage derive \[--write\]$/)
+    await assert.rejects(
+      p.run("triage", "nope"),
+      /^NaimaError: usage: naima triage \| triage set <item> field=value\.\.\. \| triage missing \| triage derive \[--write\]$/,
+    )
   } finally {
     p.cleanup()
   }

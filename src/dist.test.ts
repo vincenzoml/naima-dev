@@ -5,14 +5,27 @@
 
 import assert from "node:assert/strict"
 import { spawnSync } from "node:child_process"
-import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, readlinkSync, renameSync, rmSync, symlinkSync, writeFileSync, copyFileSync } from "node:fs"
+import {
+  copyFileSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  readlinkSync,
+  renameSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join, posix } from "node:path"
 import { test } from "node:test"
 import { fileURLToPath } from "node:url"
 import { GUIDE_PAGES } from "./core/cli.ts"
 import { DIST_BRANCH } from "./core/index.ts"
-import { MANIFEST, TRAILER, buildDist, globRegex, parseManifest, selectRuntime, sourceCommit } from "../scripts/dist.ts"
+import { buildDist, globRegex, MANIFEST, parseManifest, selectRuntime, sourceCommit, TRAILER } from "../scripts/dist.ts"
 import { gitIn as git, removeTemp } from "./core/testing.ts"
 
 const NAIMA = dirname(dirname(fileURLToPath(import.meta.url)))
@@ -26,7 +39,19 @@ const shipped = selectRuntime(manifest, tracked)
 const inDist = new Set(shipped)
 
 /** What only developing Naima needs: none of it reaches a project. */
-const DEV_ONLY = [/\.test\.ts$/, /^src\/core\/testing\.ts$/, /^AGENTS\.md$/, /^CLAUDE\.md$/, /^\.claude\//, /^\.github\//, /^deno\.jsonc?$/, /^package\.json$/, /^dist\.json$/, /^scripts\//, /^naima-tracker\//]
+const DEV_ONLY = [
+  /\.test\.ts$/,
+  /^src\/core\/testing\.ts$/,
+  /^AGENTS\.md$/,
+  /^CLAUDE\.md$/,
+  /^\.claude\//,
+  /^\.github\//,
+  /^deno\.jsonc?$/,
+  /^package\.json$/,
+  /^dist\.json$/,
+  /^scripts\//,
+  /^naima-tracker\//,
+]
 
 test("the glob language: ** spans directories, * stays inside one", () => {
   assert.ok(globRegex("src/**/*.ts").test("src/cli.ts"))
@@ -41,7 +66,9 @@ test("the dist holds only what runs Naima: no test, no fixture, no CI, no agent 
   for (const f of shipped) for (const dev of DEV_ONLY) assert.ok(!dev.test(f), `${f} ships, and it is development-only (${dev})`)
   assert.equal(shipped.filter((f) => f.endsWith(".test.ts")).length, 0)
   assert.equal(shipped.filter((f) => f.startsWith("naima-tracker/")).length, 0)
-  for (const f of ["naima.ts", "src/cli.ts", "src/launcher.ts", "LICENSE", "NOTICE", ...GUIDE_PAGES.map(([, p]) => p)]) assert.ok(inDist.has(f), `${f} must ship`)
+  for (const f of ["naima.ts", "src/cli.ts", "src/launcher.ts", "LICENSE", "NOTICE", ...GUIDE_PAGES.map(([, p]) => p)]) {
+    assert.ok(inDist.has(f), `${f} must ship`)
+  }
   const runtime = tracked.filter((f) => /^src\/.*\.ts$/.test(f) && !f.endsWith(".test.ts") && f !== "src/core/testing.ts")
   assert.deepEqual(runtime.filter((f) => !inDist.has(f)), [], "every runtime module ships")
 })
@@ -123,7 +150,11 @@ test("the dist commit: the allowlisted files of a main commit, traced by its tra
     assert.equal(git(repo, "rev-parse", `${next.commit}^`), first.commit, "the dist grows linearly: never rewritten")
     assert.equal(sourceCommit(repo, next.commit), git(repo, "rev-parse", "HEAD"))
     const late = buildDist(repo, main)
-    assert.deepEqual({ created: late.created, commit: late.commit }, { created: false, commit: next.commit }, "a late run for an older commit never moves the dist back")
+    assert.deepEqual(
+      { created: late.created, commit: late.commit },
+      { created: false, commit: next.commit },
+      "a late run for an older commit never moves the dist back",
+    )
   } finally {
     removeTemp(base)
   }
@@ -164,7 +195,9 @@ function world() {
   return { base, source, host, cleanup: () => removeTemp(base) }
 }
 
-test("a project clones the dist: its program holds exactly the allowlist, and init, check, new, guide, a new worktree and update all work on it", { skip: !hasDeno && "deno is not on PATH" }, () => {
+test("a project clones the dist: its program holds exactly the allowlist, and init, check, new, guide, a new worktree and update all work on it", {
+  skip: !hasDeno && "deno is not on PATH",
+}, () => {
   const w = world()
   try {
     git(w.host, "clone", "-q", "--branch", DIST_BRANCH, "--", w.source, "naima-tracker/naima")
@@ -230,7 +263,9 @@ test("a project locked to a commit of main keeps working, and naima update moves
   }
 })
 
-test("a program is cloned from this disk even when the dist commit is only a remote-tracking ref there, as in Naima's own repository", { skip: !hasDeno && "deno is not on PATH" }, () => {
+test("a program is cloned from this disk even when the dist commit is only a remote-tracking ref there, as in Naima's own repository", {
+  skip: !hasDeno && "deno is not on PATH",
+}, () => {
   const w = world()
   try {
     git(w.host, "clone", "-q", "--branch", DIST_BRANCH, "--", w.source, "naima-tracker/naima")

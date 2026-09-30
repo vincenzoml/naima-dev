@@ -14,22 +14,22 @@ import { existsSync, readFileSync } from "node:fs"
 import { isAbsolute, join, relative, resolve } from "node:path"
 import {
   ATTACHMENTS,
+  bool,
   type Check,
   type Command,
   type Context,
+  fieldValue,
   type Finding,
   type GateDef,
   type Item,
-  type Plugin,
-  type Verdict,
-  type VerifyResult,
-  bool,
-  fieldValue,
   label,
   parse,
+  type Plugin,
   saveMeta,
   setFieldValue,
   usageError,
+  type Verdict,
+  type VerifyResult,
   writeFileAtomic,
   writeJson,
 } from "../../core/index.ts"
@@ -62,7 +62,12 @@ export function inContract(id: string, result: unknown): VerifyResult {
   if (!result || typeof result !== "object") return { verdict: "error", output: `adapter "${id}" returned ${String(result)}, not a result` }
   const { verdict, output, counterexample } = result as Record<string, unknown>
   if (!VERDICTS.includes(verdict as Verdict)) {
-    return { verdict: "error", output: `adapter "${id}" returned verdict ${JSON.stringify(verdict)}, outside the contract (${VERDICTS.join(", ")})${typeof output === "string" ? `: ${output}` : ""}` }
+    return {
+      verdict: "error",
+      output: `adapter "${id}" returned verdict ${JSON.stringify(verdict)}, outside the contract (${VERDICTS.join(", ")})${
+        typeof output === "string" ? `: ${output}` : ""
+      }`,
+    }
   }
   if (typeof output !== "string") return { verdict: "error", output: `adapter "${id}" returned verdict ${String(verdict)} with no string output` }
   return { verdict: verdict as Verdict, output, ...(typeof counterexample === "string" ? { counterexample } : {}) }
@@ -72,7 +77,11 @@ const sha256 = (path: string): string => createHash("sha256").update(readFileSyn
 
 /** JSON with every object's keys sorted: the same options always hash the same. */
 const canonical = (v: unknown): string =>
-  Array.isArray(v) ? `[${v.map(canonical).join(",")}]` : v && typeof v === "object" ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${canonical((v as Record<string, unknown>)[k])}`).join(",")}}` : JSON.stringify(v) ?? "null"
+  Array.isArray(v)
+    ? `[${v.map(canonical).join(",")}]`
+    : v && typeof v === "object"
+    ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${canonical((v as Record<string, unknown>)[k])}`).join(",")}}`
+    : JSON.stringify(v) ?? "null"
 
 /** The options a property is verified with: its `verifierOptions` object, or none. */
 const optionsOf = (item: Item): Record<string, unknown> => {
@@ -150,7 +159,17 @@ export async function verifyItem(ctx: Context, item: Item): Promise<Verdict> {
   }
   const at = ctx.now().toISOString()
   const stamp = at.replace(/[:.]/g, "-")
-  const record: RunRecord = { verifier: id, model, modelSha256: hash, property, optionsSha256: optionsHash(options), verdict: result.verdict, output: result.output, at, ...(result.counterexample !== undefined ? { counterexample: result.counterexample } : {}) }
+  const record: RunRecord = {
+    verifier: id,
+    model,
+    modelSha256: hash,
+    property,
+    optionsSha256: optionsHash(options),
+    verdict: result.verdict,
+    output: result.output,
+    at,
+    ...(result.counterexample !== undefined ? { counterexample: result.counterexample } : {}),
+  }
   const name = `run-${stamp}.json`
   writeJson(join(item.dir, ATTACHMENTS, name), record)
   if (result.counterexample !== undefined) writeFileAtomic(join(item.dir, ATTACHMENTS, `counterexample-${stamp}.txt`), result.counterexample + "\n")
@@ -196,7 +215,8 @@ const verifiers: Command = {
 
 const evidence: Check = {
   name: "property-evidence",
-  says: "a property names a known verifier and an existing model; one that holds carries a run of its current property, verifier, model and options, on the model as it is now",
+  says:
+    "a property names a known verifier and an existing model; one that holds carries a run of its current property, verifier, model and options, on the model as it is now",
   run(ctx) {
     const out: Finding[] = []
     const problem = (item: Item, message: string) => out.push({ level: "problem", message: `${label(item)}: ${message}`, item })

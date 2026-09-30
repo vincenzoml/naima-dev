@@ -14,7 +14,7 @@
 import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { DATA_FILE } from "./layout.ts"
-import { META, listDirs } from "./item.ts"
+import { listDirs, META } from "./item.ts"
 import { writeFileAtomic } from "./files.ts"
 import { label } from "./lifecycle.ts"
 import type { Check, Finding } from "./types.ts"
@@ -45,7 +45,9 @@ export const isFormat = (v: unknown): v is number => typeof v === "number" && Nu
 /** Why data of format `format` is not this Naima's to act on, or null when it is. Read after the file name. */
 export function formatRefusal(format: unknown, reads = FORMAT): string | null {
   if (!isFormat(format)) return "has no format: it is not Naima data (docs/format.md)"
-  if (format > reads) return `is format ${format}, newer than the format ${reads} this Naima reads — it was written by a newer Naima: record that Naima's commit`
+  if (format > reads) {
+    return `is format ${format}, newer than the format ${reads} this Naima reads — it was written by a newer Naima: record that Naima's commit`
+  }
   if (format < reads) return `is format ${format}, older than the format ${reads} this Naima reads — naima update migrates it`
   return null
 }
@@ -87,7 +89,7 @@ export function migrate(data: string, migrations: readonly Migration[] = MIGRATI
   })
   for (const step of steps) {
     if (step.config) config = step.config(config)
-    if (step.item) for (const i of items) i.meta = step.item(i.meta)
+    if (step.item) { for (const i of items) i.meta = step.item(i.meta) }
   }
   // Read everything before writing anything: a migration that throws leaves the data as it was.
   for (const i of items) {
@@ -108,7 +110,9 @@ export function formatCheck(migrations: readonly Migration[] = MIGRATIONS): Chec
       for (const m of migrations) {
         if (!m.stale) continue
         for (const item of ctx.repo.items) {
-          if (m.stale(item.meta)) out.push({ level: "problem", message: `${label(item)} is still in format ${m.from} (${m.says}) — naima update migrates it`, item })
+          if (m.stale(item.meta)) {
+            out.push({ level: "problem", message: `${label(item)} is still in format ${m.from} (${m.says}) — naima update migrates it`, item })
+          }
         }
       }
       return out

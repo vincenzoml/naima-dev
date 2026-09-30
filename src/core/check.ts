@@ -7,7 +7,7 @@ import { groupBy } from "./collections.ts"
 import { message } from "./errors.ts"
 import { formatCheck } from "./format.ts"
 import { fieldError, fieldsOf } from "./fields.ts"
-import { README, isUuid, titleWords } from "./item.ts"
+import { isUuid, README, titleWords } from "./item.ts"
 import { label } from "./lifecycle.ts"
 import { storedLinks } from "./repo.ts"
 import type { Check, Context, Finding, Item } from "./types.ts"
@@ -17,7 +17,8 @@ const note = (message: string): Finding => ({ level: "note", message })
 
 const readable: Check = {
   name: "readable",
-  says: "every item directory has a README.md and a meta.json that parses to an object whose id, title and status are strings; no symbolic link or _-prefixed directory sits unread among the items",
+  says:
+    "every item directory has a README.md and a meta.json that parses to an object whose id, title and status are strings; no symbolic link or _-prefixed directory sits unread among the items",
   run: (ctx) => [
     ...ctx.repo.unreadable,
     ...ctx.repo.items.filter((i) => !existsSync(join(i.dir, README))).map((i) => problem(`${label(i)}: no ${README}`, i)),
@@ -89,7 +90,11 @@ const links: Check = {
           const other = ctx.repo.byId.get(link.id) as Item
           const inverse = ctx.registry.relations.get(link.rel)?.inverse
           const twice = inverse !== undefined && storedLinks(other.meta).some((l) => l.rel === inverse && l.id === item.meta.id)
-          if (twice && item.meta.id < other.meta.id) out.push(problem(`${where}: both directions of one link are stored — ${link.rel} ${label(other)}, and its inverse on ${label(other)}; unlink one`, item))
+          if (twice && item.meta.id < other.meta.id) {
+            out.push(
+              problem(`${where}: both directions of one link are stored — ${link.rel} ${label(other)}, and its inverse on ${label(other)}; unlink one`, item),
+            )
+          }
         }
       }
     }

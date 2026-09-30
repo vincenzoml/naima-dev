@@ -160,6 +160,10 @@ if (import.meta.main) {
     for (const f of runtimeTree(repo, git(repo, ["rev-parse", "--verify", `${rev}^{commit}`])).files) console.log(f)
   } else {
     const built = buildDist(repo, rev, option("--branch") ?? DIST_BRANCH)
-    console.log(`${built.created ? "built" : "unchanged"} ${option("--branch") ?? DIST_BRANCH} ${built.commit} (tree ${built.tree}, ${built.files.length} files) from ${rev}`)
+    console.log(
+      `${built.created ? "built" : "unchanged"} ${
+        option("--branch") ?? DIST_BRANCH
+      } ${built.commit} (tree ${built.tree}, ${built.files.length} files) from ${rev}`,
+    )
   }
 }

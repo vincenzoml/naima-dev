@@ -35,5 +35,6 @@ export const message = (e: unknown): string => (e instanceof Error ? e.message :
  * wrote on purpose.
  */
 export function isInternal(e: unknown): boolean {
-  return !(e instanceof Error) || e instanceof TypeError || e instanceof RangeError || e instanceof ReferenceError || e instanceof SyntaxError || e instanceof EvalError || e instanceof URIError
+  return !(e instanceof Error) || e instanceof TypeError || e instanceof RangeError || e instanceof ReferenceError || e instanceof SyntaxError ||
+    e instanceof EvalError || e instanceof URIError
 }

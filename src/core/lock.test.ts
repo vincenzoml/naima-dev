@@ -16,7 +16,15 @@ test("a source git would read as an option is refused, and so is a relative path
 })
 
 test("URLs, scp-like addresses, file: URLs and absolute paths are sources", () => {
-  for (const source of ["https://github.com/vincenzoml/naima.git", "ssh://git@example.com/naima.git", "git@github.com:vincenzoml/naima.git", "file:///srv/naima.git", "/srv/naima"]) {
+  for (
+    const source of [
+      "https://github.com/vincenzoml/naima.git",
+      "ssh://git@example.com/naima.git",
+      "git@github.com:vincenzoml/naima.git",
+      "file:///srv/naima.git",
+      "/srv/naima",
+    ]
+  ) {
     assert.equal(lock(source).source, source)
   }
 })

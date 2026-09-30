@@ -6,14 +6,27 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs"
 import { dirname, join, relative, resolve } from "node:path"
 import { corePlugin } from "./base.ts"
-import { CARRY_MODES, type Lock, loadPlugins, parseLock, posixRelative, programDir, readConfig, readRaw, sourceRefusal, writeRaw } from "./config.ts"
-import { type IO, type Place, consoleIO, createContext } from "./context.ts"
+import { CARRY_MODES, loadPlugins, type Lock, parseLock, posixRelative, programDir, readConfig, readRaw, sourceRefusal, writeRaw } from "./config.ts"
+import { consoleIO, createContext, type IO, type Place } from "./context.ts"
 import { FORMAT, formatRefusal, isFormat, migrate } from "./format.ts"
 import { bool, parse } from "./args.ts"
 import { gitOrNull, toplevel } from "./git.ts"
 import { exclusions } from "./excludes.ts"
-import { DATA_DIR, DATA_FILE, DEFAULT_DATA, DIST_BRANCH, PROGRAM_DIR, RELAUNCH, TRACKER_DIR, TRACKER_README, findData, globalOptions, real, trackerOf } from "./layout.ts"
-import { type Target, align, carry, ignoreProgram, localWork, refuseLocalWork, remoteHead, short, stage, vendor } from "./program.ts"
+import {
+  DATA_DIR,
+  DATA_FILE,
+  DEFAULT_DATA,
+  DIST_BRANCH,
+  findData,
+  globalOptions,
+  PROGRAM_DIR,
+  real,
+  RELAUNCH,
+  TRACKER_DIR,
+  TRACKER_README,
+  trackerOf,
+} from "./layout.ts"
+import { align, carry, ignoreProgram, localWork, refuseLocalWork, remoteHead, short, stage, type Target, vendor } from "./program.ts"
 import { EXIT, isInternal, message } from "./errors.ts"
 import { buildRegistry } from "./registry.ts"
 import type { Carry, Command, Config, Context, Plugin } from "./types.ts"
@@ -45,14 +58,20 @@ export async function openProject(place: Place, opts: Pick<CliOptions, "programR
 export const cliCommands: Omit<Command, "run">[] = [
   {
     name: "init",
-    says: `make this git repository a Naima project: create ${TRACKER_DIR}/ — its README.md, its .gitignore and ${DATA_DIR}/${DATA_FILE}, locked to the source and commit of the Naima that runs it, which must be committed and pushed; print the line that keeps the program out of each host tool configuration it finds (deno.json, tsconfig.json, .prettierignore); nothing outside ${TRACKER_DIR}/ is touched unless --write-excludes is given`,
+    says:
+      `make this git repository a Naima project: create ${TRACKER_DIR}/ — its README.md, its .gitignore and ${DATA_DIR}/${DATA_FILE}, locked to the source and commit of the Naima that runs it, which must be committed and pushed; print the line that keeps the program out of each host tool configuration it finds (deno.json, tsconfig.json, .prettierignore); nothing outside ${TRACKER_DIR}/ is touched unless --write-excludes is given`,
     usage: "init [--write-excludes]",
-    options: [{ name: "--write-excludes", says: "also write those lines into the host's own files: deno.json and tsconfig.json when they are plain JSON, .prettierignore; a file with comments is left to be edited by hand" }],
+    options: [{
+      name: "--write-excludes",
+      says:
+        "also write those lines into the host's own files: deno.json and tsconfig.json when they are plain JSON, .prettierignore; a file with comments is left to be edited by hand",
+    }],
     examples: ["init", "init --write-excludes"],
   },
   {
     name: "update",
-    says: `move the lock to the head of the source's ${DIST_BRANCH} branch — its main, when the source publishes no ${DIST_BRANCH}: fetch it, migrate the data forward if its format moved, and record the new commit, as one change to commit; the only command that asks the source anything`,
+    says:
+      `move the lock to the head of the source's ${DIST_BRANCH} branch — its main, when the source publishes no ${DIST_BRANCH}: fetch it, migrate the data forward if its format moved, and record the new commit, as one change to commit; the only command that asks the source anything`,
     usage: "update [--check]",
     options: [{ name: "--check", says: `only say whether the source's ${DIST_BRANCH} (or main) has moved past the locked commit; exit 1 when it has` }],
     examples: ["update --check", "update"],
@@ -95,7 +114,14 @@ function locate(opts: CliOptions, flag: string | undefined): (Place & { lock: Lo
   return { root: toplevel(data) ?? dirname(dirname(data)), data, program: programDir(data, lock), lock, raw }
 }
 
-const targetOf = (place: Place, lock: Lock): Target => ({ root: place.root, tracker: trackerOf(place.data), program: place.program, source: lock.source, commit: lock.commit, carry: lock.carry })
+const targetOf = (place: Place, lock: Lock): Target => ({
+  root: place.root,
+  tracker: trackerOf(place.data),
+  program: place.program,
+  source: lock.source,
+  commit: lock.commit,
+  carry: lock.carry,
+})
 
 /** A URL with its credentials removed: a token in a clone's origin must never reach a committed naima.json. */
 export function withoutCredentials(source: string): string {
@@ -142,14 +168,18 @@ async function init(args: string[], opts: CliOptions, io: IO): Promise<number> {
   const commit = runningCommit(opts.programRoot)
   const origin = commit && gitOrNull(opts.programRoot, "remote", "get-url", "origin")
   if (!commit || !origin) {
-    throw new Error(`this Naima is not a clone with an origin: naima init records the source and commit of the Naima that runs it — git clone --branch ${DIST_BRANCH} <source> ${TRACKER_DIR}/naima, and run init from there`)
+    throw new Error(
+      `this Naima is not a clone with an origin: naima init records the source and commit of the Naima that runs it — git clone --branch ${DIST_BRANCH} <source> ${TRACKER_DIR}/naima, and run init from there`,
+    )
   }
   const source = withoutCredentials(origin)
   const refusal = sourceRefusal(source)
   if (refusal) throw new Error(`the origin of ${opts.programRoot} cannot be a lock's source: it ${refusal}`)
   // Everyone else must be able to fetch what is locked: nothing uncommitted, nothing its origin lacks.
   const work = localWork({ root, tracker, program: opts.programRoot, source, commit, carry: "clone" })
-  if (work) throw new Error(`the Naima that runs init has ${work}, so nobody else could run the commit it would lock — push it to its origin, or clone a pushed one`)
+  if (work) {
+    throw new Error(`the Naima that runs init has ${work}, so nobody else could run the commit it would lock — push it to its origin, or clone a pushed one`)
+  }
   mkdirSync(data, { recursive: true })
   const readme = join(tracker, "README.md")
   if (!existsSync(readme)) writeFileSync(readme, TRACKER_README)
@@ -255,7 +285,9 @@ export async function runCli(argv: string[], opts: CliOptions): Promise<number> 
       if (moved || real(opts.programRoot) !== real(place.program)) return RELAUNCH
     }
     if (command === "update" || command === "carry") {
-      if (!opts.launched) throw new Error(`naima ${command} moves the program, so it runs through the launcher: deno run -A ${TRACKER_DIR}/naima/naima.ts ${command}`)
+      if (!opts.launched) {
+        throw new Error(`naima ${command} moves the program, so it runs through the launcher: deno run -A ${TRACKER_DIR}/naima/naima.ts ${command}`)
+      }
       return command === "update" ? update(args, place, place.lock, place.raw, io) : carryCommand(args, place, place.lock, place.raw, io)
     }
     const ctx = await openProject(place, opts, io)

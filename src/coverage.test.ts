@@ -1,7 +1,7 @@
 // scripts/coverage.ts: a run's coverage of a copy of this source is counted for the file it copies.
 
 import assert from "node:assert/strict"
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs"
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { test } from "node:test"

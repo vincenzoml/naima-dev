@@ -15,25 +15,25 @@
 // them all, whoever declared them.
 
 import {
-  DATA_FILE,
-  DEFAULT_DATA,
+  bool,
   type Check,
   type Command,
   type Context,
+  DATA_FILE,
+  DEFAULT_DATA,
+  fieldValue,
   type Finding,
   type GateDef,
   type GateResult,
-  type Item,
-  type Plugin,
-  type SummarySection,
-  bool,
-  fieldValue,
   groupBy,
   isEvidenceType,
   isOpen,
+  type Item,
   label,
   linked,
   parse,
+  type Plugin,
+  type SummarySection,
 } from "../../core/index.ts"
 
 export interface GateConfig {
@@ -118,7 +118,9 @@ const queue: Command = {
       return who === "agent" || who === "agent-hands" ? "agent" : who || "unclassified"
     })
     const noCode = open.filter((i) => !owesOnlyProof(ctx, i)).length
-    ctx.out(`${gate ?? "all gates"}: ${open.length} open — ${["agent", "human", "build", "unclassified"].map((b) => `${b} ${by.get(b)?.length ?? 0}`).join(", ")}`)
+    ctx.out(
+      `${gate ?? "all gates"}: ${open.length} open — ${["agent", "human", "build", "unclassified"].map((b) => `${b} ${by.get(b)?.length ?? 0}`).join(", ")}`,
+    )
     ctx.out(`  with no code yet: ${noCode}; owing only proof: ${open.length - noCode}`)
     if (bool(p, "human")) {
       for (const i of [...(by.get("human") ?? []), ...(by.get("build") ?? [])]) {
@@ -154,10 +156,9 @@ export default function gates(options: Record<string, unknown> = {}): Plugin {
     configured: true,
     title: c.title,
     says: c.says ?? "",
-    decides:
-      (c.holdsOn ?? "code") === "code"
-        ? `blocked by every open item with gate=${name} that still owes code: no fixedOn, and not itself a proving gesture. Fixed items and open proving gestures are owed, not blocking.`
-        : `blocked by every open item with gate=${name}, proof included.`,
+    decides: (c.holdsOn ?? "code") === "code"
+      ? `blocked by every open item with gate=${name} that still owes code: no fixedOn, and not itself a proving gesture. Fixed items and open proving gestures are owed, not blocking.`
+      : `blocked by every open item with gate=${name}, proof included.`,
     evaluate: (ctx) => evaluateGate(ctx, name, c.holdsOn ?? "code"),
   }))
   const status: SummarySection = {
@@ -177,7 +178,8 @@ export default function gates(options: Record<string, unknown> = {}): Plugin {
     options: [
       {
         name: "gates",
-        says: `the \`gates\` key of \`${DEFAULT_DATA}/${DATA_FILE}\`: gate name → { "title", "says", "holdsOn" }. holdsOn "code" (the default) waits for code, not proof: a fixed item that owes only its proving gesture, and the gestures themselves, are owed but do not block. holdsOn "proof": every open item on the gate blocks it.`,
+        says:
+          `the \`gates\` key of \`${DEFAULT_DATA}/${DATA_FILE}\`: gate name → { "title", "says", "holdsOn" }. holdsOn "code" (the default) waits for code, not proof: a fixed item that owes only its proving gesture, and the gestures themselves, are owed but do not block. holdsOn "proof": every open item on the gate blocks it.`,
         default: "{}",
       },
     ],

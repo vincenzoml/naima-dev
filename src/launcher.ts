@@ -15,7 +15,20 @@
 import { existsSync } from "node:fs"
 import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
-import { DATA_FILE, EXCLUDE_FILES, PROGRAM_DIR, RELAUNCH, TRACKER_DIR, findData, globalOptions, message, programOf, real, toplevel, trackerOf } from "./core/index.ts"
+import {
+  DATA_FILE,
+  EXCLUDE_FILES,
+  findData,
+  globalOptions,
+  message,
+  PROGRAM_DIR,
+  programOf,
+  real,
+  RELAUNCH,
+  toplevel,
+  TRACKER_DIR,
+  trackerOf,
+} from "./core/index.ts"
 
 /** Alignment, an update and its migration: at most three hand-overs, and one to spare. */
 const MAX_RUNS = 4
@@ -28,10 +41,41 @@ const MAX_RUNS = 4
  * the list is enforced by giving the program only these variables.
  */
 export const ENV = {
-  names: ["HOME", "USER", "LOGNAME", "PATH", "SHELL", "TERM", "LANG", "TZ", "TMPDIR", "TMP", "TEMP", "NO_COLOR", "FORCE_COLOR", "DISPLAY",
-    "XDG_CONFIG_HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME", "XDG_RUNTIME_DIR", "GNUPGHOME",
-    "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "ALL_PROXY",
-    "SYSTEMROOT", "WINDIR", "COMSPEC", "PATHEXT", "USERPROFILE", "APPDATA", "LOCALAPPDATA", "HOMEDRIVE", "HOMEPATH", "PROGRAMDATA"],
+  names: [
+    "HOME",
+    "USER",
+    "LOGNAME",
+    "PATH",
+    "SHELL",
+    "TERM",
+    "LANG",
+    "TZ",
+    "TMPDIR",
+    "TMP",
+    "TEMP",
+    "NO_COLOR",
+    "FORCE_COLOR",
+    "DISPLAY",
+    "XDG_CONFIG_HOME",
+    "XDG_CACHE_HOME",
+    "XDG_DATA_HOME",
+    "XDG_RUNTIME_DIR",
+    "GNUPGHOME",
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "NO_PROXY",
+    "ALL_PROXY",
+    "SYSTEMROOT",
+    "WINDIR",
+    "COMSPEC",
+    "PATHEXT",
+    "USERPROFILE",
+    "APPDATA",
+    "LOCALAPPDATA",
+    "HOMEDRIVE",
+    "HOMEPATH",
+    "PROGRAMDATA",
+  ],
   prefixes: ["NAIMA_", "GIT_", "SSH_", "LC_", "DENO_"],
 } as const
 
@@ -47,7 +91,11 @@ export function permissions(p: { root: string; tracker: string; data: string | n
   const list = (paths: (string | null)[]) => {
     const all = [...new Set(paths.filter((x): x is string => x !== null).map(real))]
     const comma = all.find((x) => x.includes(","))
-    if (comma) throw new Error(`the path ${comma} holds a comma, which Deno's permission flags cannot express (they split on commas) — move the project, or the program, to a path without one`)
+    if (comma) {
+      throw new Error(
+        `the path ${comma} holds a comma, which Deno's permission flags cannot express (they split on commas) — move the project, or the program, to a path without one`,
+      )
+    }
     return all.join(",")
   }
   return [

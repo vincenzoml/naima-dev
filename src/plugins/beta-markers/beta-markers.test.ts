@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { mkdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { test } from "node:test"
-import { createItem, moveItem, runChecks, setFields, type Plugin } from "../../core/index.ts"
+import { createItem, moveItem, type Plugin, runChecks, setFields } from "../../core/index.ts"
 import { tempProject } from "../../core/testing.ts"
 import betaMarkers from "./index.ts"
 

@@ -3,11 +3,11 @@
 // the only format, and the mechanism must already hold.
 
 import assert from "node:assert/strict"
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs"
+import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join, relative } from "node:path"
 import { test } from "node:test"
-import { FORMAT, MIGRATIONS, createItem, formatCheck, formatRefusal, migrate, runChecks, type Migration } from "./index.ts"
+import { createItem, FORMAT, formatCheck, formatRefusal, migrate, type Migration, MIGRATIONS, runChecks } from "./index.ts"
 import { tempProject } from "./testing.ts"
 
 /** Format 1 → 2 renames the item field `area` to `where`; 2 → 3 adds `carry` to naima.json. */
@@ -37,10 +37,12 @@ function files(dir: string): Record<string, string> {
 function formatOneData(): string {
   const data = mkdtempSync(join(tmpdir(), "naima-format-"))
   writeFileSync(join(data, "naima.json"), `{"source":"s","format":1,"commit":"${"a".repeat(40)}","gates":{}}`)
-  for (const [slug, meta] of [
-    ["alpha", { title: "Alpha", id: "1", status: "open", area: "export" }],
-    ["beta", { id: "2", title: "Beta", status: "open" }],
-  ] as const) {
+  for (
+    const [slug, meta] of [
+      ["alpha", { title: "Alpha", id: "1", status: "open", area: "export" }],
+      ["beta", { id: "2", title: "Beta", status: "open" }],
+    ] as const
+  ) {
     mkdirSync(join(data, "bugs", slug), { recursive: true })
     writeFileSync(join(data, "bugs", slug, "meta.json"), JSON.stringify(meta))
   }
@@ -76,9 +78,18 @@ test("newer data is refused and left as it was; a migration that throws writes n
   try {
     const before = files(data)
     writeFileSync(join(data, "naima.json"), JSON.stringify({ format: 4 }))
-    assert.throws(() => migrate(data, fixture), /^Error: naima\.json is format 4, newer than the format 3 this Naima reads — it was written by a newer Naima: record that Naima's commit$/)
+    assert.throws(
+      () => migrate(data, fixture),
+      /^Error: naima\.json is format 4, newer than the format 3 this Naima reads — it was written by a newer Naima: record that Naima's commit$/,
+    )
     writeFileSync(join(data, "naima.json"), before["naima.json"] ?? "")
-    const broken: Migration[] = [fixture[0] as Migration, { from: 2, says: "throws", config: () => { throw new Error("boom") } }]
+    const broken: Migration[] = [fixture[0] as Migration, {
+      from: 2,
+      says: "throws",
+      config: () => {
+        throw new Error("boom")
+      },
+    }]
     assert.throws(() => migrate(data, broken), /boom/)
     assert.deepEqual(files(data), before)
     assert.throws(() => migrate(data, [{ from: 2, says: "gap" }]), /no gap/)

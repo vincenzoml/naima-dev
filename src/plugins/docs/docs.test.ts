@@ -105,7 +105,10 @@ test("relative links in the configured markdown resolve", () => {
   const p = tempProject([docs({ links: ["docs"] }), features])
   try {
     mkdirSync(join(p.root, "docs"))
-    writeFileSync(join(p.root, "docs", "a.md"), "# A\n\n## Two words\n\n[ok](b.md) [ok](#two-words) [web](https://x.invalid) `[code](nope.md)`\n\n```\n[fenced](nope.md)\n```\n")
+    writeFileSync(
+      join(p.root, "docs", "a.md"),
+      "# A\n\n## Two words\n\n[ok](b.md) [ok](#two-words) [web](https://x.invalid) `[code](nope.md)`\n\n```\n[fenced](nope.md)\n```\n",
+    )
     writeFileSync(join(p.root, "docs", "b.md"), "# B\n\n[bad](missing.md) [bad anchor](a.md#nope)\n")
     const problems = runChecks(p.ctx).problems.map((f) => f.message)
     assert.equal(problems.length, 2, problems.join("\n"))
@@ -143,7 +146,12 @@ test("a feature's docs name a markdown file: a bare #heading, an empty entry or 
     await p.run("new", "features", "Export keeps alpha", "--set", "status=shipped")
     mkdirSync(join(p.root, "guide"))
     writeFileSync(join(p.root, "notes.txt"), "export keeps alpha\n")
-    for (const [value, why] of [["#x", /docs #x — names no file/], ["guide", /docs guide — is a directory, not a markdown file/], ["guide#x", /docs guide#x — is a directory/], ["notes.txt", /docs notes\.txt — is not a markdown file/]] as const) {
+    for (
+      const [value, why] of [["#x", /docs #x — names no file/], ["guide", /docs guide — is a directory, not a markdown file/], [
+        "guide#x",
+        /docs guide#x — is a directory/,
+      ], ["notes.txt", /docs notes\.txt — is not a markdown file/]] as const
+    ) {
       await p.run("set", "export-keeps-alpha", `docs=${value}`)
       assert.match(runChecks(p.ctx).problems.map((f) => f.message).join("\n"), why, value)
     }
