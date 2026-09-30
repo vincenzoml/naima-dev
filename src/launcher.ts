@@ -2,7 +2,7 @@
 // all it does is work out where things are, then run the program under Deno
 // with only these (docs/install.md says why each one exists):
 //
-//   read    the repository, and the program wherever it is
+//   read    the repository, the program wherever it is, and the data directory of every other worktree
 //   write   the tracker folder (naima-tracker/), and the data and program if moved out of it
 //   run     git, and nothing else
 //   env     an allow-list of the environment (ENV below): what git needs, and Naima's own
@@ -13,7 +13,7 @@
 // the program directory's own code, which is the locked commit.
 
 import { existsSync } from "node:fs"
-import { dirname, join, resolve } from "node:path"
+import { dirname, isAbsolute, join, relative, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import {
   DATA_FILE,
@@ -28,6 +28,7 @@ import {
   toplevel,
   TRACKER_DIR,
   trackerOf,
+  worktrees,
 } from "./core/index.ts"
 
 /** Alignment, an update and its migration: at most three hand-overs, and one to spare. */
@@ -86,8 +87,13 @@ export function allowedEnv(env: Record<string, string>): Record<string, string> 
   return Object.fromEntries(Object.entries(env).filter(([name]) => keep(name)))
 }
 
-/** The permissions the program runs with, as Deno flags. Throws when a path cannot be said in one: Deno splits the lists on commas. */
-export function permissions(p: { root: string; tracker: string; data: string | null; program: string; entry: string; hostFiles?: string[] }): string[] {
+/**
+ * The permissions the program runs with, as Deno flags. Throws when a path cannot be said in one: Deno splits the lists on commas.
+ * `worktrees` are the other worktrees' data directories: read-only, and one with a comma is left out — it is read from its branch.
+ */
+export function permissions(
+  p: { root: string; tracker: string; data: string | null; program: string; entry: string; hostFiles?: string[]; worktrees?: string[] },
+): string[] {
   const list = (paths: (string | null)[]) => {
     const all = [...new Set(paths.filter((x): x is string => x !== null).map(real))]
     const comma = all.find((x) => x.includes(","))
@@ -99,11 +105,22 @@ export function permissions(p: { root: string; tracker: string; data: string | n
     return all.join(",")
   }
   return [
-    `--allow-read=${list([p.root, p.data, p.program, p.entry])}`,
+    `--allow-read=${list([p.root, p.data, p.program, p.entry, ...(p.worktrees ?? []).map(real).filter((x) => !x.includes(","))])}`,
     `--allow-write=${list([p.tracker, p.data, p.program, ...(p.hostFiles ?? [])])}`,
     "--allow-run=git",
     "--allow-env",
   ]
+}
+
+/**
+ * The data directory of every other worktree of the project, where each one's uncommitted records are: the
+ * cross-branch views read them from disk (docs/flows/worktree-isolation.md). Only when the data is inside the project.
+ */
+function otherWorktrees(root: string, data: string | null): string[] {
+  if (!data) return []
+  const inside = relative(real(root), real(data))
+  if (!inside || inside.startsWith("..") || isAbsolute(inside)) return []
+  return worktrees(root).filter((w) => !w.self).map((w) => join(w.path, inside))
 }
 
 /** The host files the run may write outside the tracker folder: only `init --write-excludes` has any. */
@@ -125,11 +142,12 @@ export async function launch(args: string[], cwd: string): Promise<number> {
   const tracker = data ? trackerOf(data) : join(root, TRACKER_DIR)
   const program = data && existsSync(join(data, DATA_FILE)) ? programOf(data) : join(tracker, PROGRAM_DIR)
   const env = { ...allowedEnv(Deno.env.toObject()), NAIMA_LAUNCHED: "1", ...(data ? { NAIMA_DATA: data } : {}) }
+  const others = otherWorktrees(root, data)
   let entry = existsSync(join(program, "src", "cli.ts")) ? program : own
   for (let run = 0; run < MAX_RUNS; run++) {
     let flags: string[]
     try {
-      flags = permissions({ root, tracker, data, program, entry, hostFiles: hostFiles(parsed.rest, root) })
+      flags = permissions({ root, tracker, data, program, entry, hostFiles: hostFiles(parsed.rest, root), worktrees: others })
     } catch (e) {
       console.error(`naima: ${message(e)}`)
       return 2

@@ -72,6 +72,8 @@ joins a gate by carrying `gate: <name>`. How each gate decides is in the
 
 State that belongs to no single branch — who is working on what, where each
 session left off — is written as one file per session on that session's own
-branch, and recombined when read from the trunk, every unmerged branch and
-every worktree's working copy. Two sessions never edit one file. The flows
+branch, and recombined when read from every local branch: the trunk and every
+unmerged branch, each read from the disk of the worktree that stands on it,
+uncommitted files included, or from its ref when none does. Remote-tracking
+refs are not read. Two sessions never edit one file. The flows
 that go with it: [flows](flows/README.md).

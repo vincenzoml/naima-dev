@@ -66,8 +66,14 @@ its own state:
 | where each session left off | `<tracker>/PASSES/<date>-<uuid>.md` | `naima pass --list`, `naima summary` |
 | an item's place on a board | the item's own `section` field | `naima board` |
 
-The views read the trunk, every branch not merged into it, and whatever each
-worktree is standing on, uncommitted files included.
+The views read every local branch: the trunk, every branch not merged into
+it, and whatever each worktree stands on. A branch checked out in a worktree
+is read from that worktree's disk, uncommitted files included — so two
+workers' uncommitted claims on one item are seen by each other and by the
+trunk — and a file deleted there and not yet committed is gone from every
+view. A branch no worktree stands on is read from its ref, as committed.
+Remote-tracking refs are not read: a branch that exists only on another
+machine is seen once it is fetched and checked out, or merged.
 
 ### 5. The smell
 

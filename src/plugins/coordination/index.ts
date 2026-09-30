@@ -357,7 +357,7 @@ export default function coordination(): Plugin {
     about:
       "No session writes a file another session writes. A claim is one file per branch, `claims/<uuid>.json`; a session note is one file per session, `passes/<date>-<uuid>.md`. " +
       "Both are written on the writer's own branch and never staged or committed by the tool: commit them with the work. " +
-      "`claims`, `pass --list` and `summary` recombine them at read time from the trunk, every branch not merged into it, and whatever each worktree stands on, uncommitted files included. " +
+      "`claims`, `pass --list` and `summary` recombine them at read time from every local branch — the trunk, every branch not merged into it, whatever each worktree stands on — each read from the disk of the worktree that stands on it, uncommitted files included, or from its ref when none does; remote-tracking refs are not read. " +
       "The trunk is the branch origin's HEAD names, else `main`, else `master`; without one, every local branch is read. A claim belongs to a branch, so on a detached HEAD `claim` is refused. " +
       "Several branches may claim one item: `claim` says who else holds it rather than refusing.",
     dirs: [CLAIMS, PASSES],

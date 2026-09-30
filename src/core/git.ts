@@ -143,28 +143,52 @@ const realOr = (path: string): string => {
   }
 }
 
+/** A worktree of the repository, as `git worktree list --porcelain` names it. */
+export interface Worktree {
+  path: string
+  /** The branch it stands on; null on a detached HEAD. */
+  branch: string | null
+  /** The commit it stands on. */
+  head: string | null
+  /** The worktree `root` is in. */
+  self: boolean
+}
+
+/** Every worktree with a working copy: never a bare entry, never one git reports prunable (its directory is gone). */
+export function worktrees(root: string): Worktree[] {
+  const self = realOr(root)
+  const out: Worktree[] = []
+  for (const block of (gitOrNull(root, "worktree", "list", "--porcelain") ?? "").split(/\n\n+/)) {
+    const path = block.match(/^worktree (.+)$/m)?.[1]
+    if (!path || /^(bare|prunable)\b/m.test(block)) continue
+    out.push({
+      path,
+      branch: block.match(/^branch refs\/heads\/(.+)$/m)?.[1] ?? null,
+      head: block.match(/^HEAD ([0-9a-f]+)$/m)?.[1] ?? null,
+      self: realOr(path) === self,
+    })
+  }
+  return out
+}
+
 /**
  * The refs worth reading: every local branch not merged into the trunk,
  * whatever each other worktree stands on, and the trunk itself — last, so that
  * a record's own branch is read before the older copy the trunk may carry. A
  * merged branch adds nothing the trunk does not already carry. Without a
  * trunk, every local branch. Never the detached HEAD of this worktree: its
- * disk is read instead.
+ * disk is read instead. Local branches only: a remote-tracking ref is not read.
  */
-export function refsWorthReading(root: string): string[] {
+export function refsWorthReading(root: string, trees: Worktree[] = worktrees(root)): string[] {
   const main = trunk(root)
   const refs = new Set<string>()
   const branches = main ? ["--no-merged", main, "refs/heads"] : ["refs/heads"]
   for (const line of (gitOrNull(root, "for-each-ref", "--format=%(refname:short)", ...branches) ?? "").split("\n")) {
     if (line.trim()) refs.add(line.trim())
   }
-  const self = realOr(root)
-  for (const block of (gitOrNull(root, "worktree", "list", "--porcelain") ?? "").split("\n\n")) {
-    const named = block.match(/^branch refs\/heads\/(.+)$/m)?.[1]
-    const head = block.match(/^HEAD ([0-9a-f]+)$/m)?.[1]
-    const path = block.match(/^worktree (.+)$/m)?.[1]
-    if (named) refs.add(named)
-    else if (head && (!path || realOr(path) !== self)) refs.add(head)
+  for (const w of trees) {
+    if (w.branch) refs.add(w.branch)
+    else if (w.head && !w.self) refs.add(w.head)
   }
   if (main) {
     refs.delete(main)
@@ -227,38 +251,52 @@ function treeEntries(tree: Buffer): { mode: string; name: string; sha: string }[
   return out
 }
 
-/**
- * Every `ext` file directly under `dir` on each ref, and the names this
- * worktree's HEAD holds there: one batch lists the trees, one reads the files.
- */
-function filesOnRefs(root: string, refs: string[], dir: string, ext: string): { onRefs: BranchFile[][]; onHead: Set<string> } {
-  const files = (t: { type: string; data: Buffer } | null | undefined) =>
-    t?.type === "tree" ? treeEntries(t.data).filter((e) => e.mode.startsWith("100") && e.name.endsWith(ext)) : []
-  const [head, ...trees] = objects(root, [`HEAD:${dir}`, ...refs.map((ref) => `${ref}:${dir}`)])
-  const listed = trees.map(files)
+type Entry = { mode: string; name: string; sha: string }
+
+/** The regular files named `*ext` in each tree object: `<ref>:<dir>`, one batch for all of them. */
+function treeFiles(root: string, names: string[], ext: string): Entry[][] {
+  return objects(root, names).map((t) => (t?.type === "tree" ? treeEntries(t.data).filter((e) => e.mode.startsWith("100") && e.name.endsWith(ext)) : []))
+}
+
+/** The contents of the listed files of each ref, one batch for all of them. */
+function readEntries(root: string, refs: string[], listed: Entry[][]): BranchFile[][] {
   const blobs = objects(root, listed.flat().map((e) => e.sha))
   let next = 0
-  const onRefs = refs.map((ref, i) =>
+  return refs.map((ref, i) =>
     (listed[i] ?? []).flatMap((e) => {
       const blob = blobs[next++]
       return blob?.type === "blob" ? [{ ref, name: e.name, text: blob.data.toString("utf8"), local: false }] : []
     })
   )
-  return { onRefs, onHead: new Set(files(head).map((e) => e.name)) }
 }
 
-export function filesHere(root: string, dir: string, ext: string, ref: string): BranchFile[] {
+/** Every `ext` file directly under `dir` on each ref, as committed there. */
+function filesOnRefs(root: string, refs: string[], dir: string, ext: string): BranchFile[][] {
+  return readEntries(root, refs, treeFiles(root, refs.map((ref) => `${ref}:${dir}`), ext))
+}
+
+/** Every `ext` file directly under `dir` of a working copy, as it is on disk now; `local` when it is this worktree's. */
+export function filesHere(root: string, dir: string, ext: string, ref: string, local = true): BranchFile[] {
   const abs = join(root, dir)
   if (!existsSync(abs)) return []
   return readdirSync(abs)
     .filter((n) => n.endsWith(ext))
     .sort()
-    .map((name) => ({ ref, name, text: readFileSync(join(abs, name), "utf8"), local: true }))
+    .map((name) => ({ ref, name, text: readFileSync(join(abs, name), "utf8"), local }))
+}
+
+/** Another worktree's files, or null when its disk cannot be read from here (a permission the run was not given). */
+function filesThere(path: string, dir: string, ext: string, ref: string): BranchFile[] | null {
+  try {
+    return filesHere(path, dir, ext, ref, false)
+  } catch {
+    return null
+  }
 }
 
 /** Every `ext` file directly under `dir` on one ref (`HEAD` included), as committed there. */
 export function filesAt(root: string, ref: string, dir: string, ext: string): BranchFile[] {
-  return isGitRepo(root) ? (filesOnRefs(root, [ref], gitPath(dir), ext).onRefs[0] ?? []) : []
+  return isGitRepo(root) ? (filesOnRefs(root, [ref], gitPath(dir), ext)[0] ?? []) : []
 }
 
 export interface AcrossOptions {
@@ -271,11 +309,14 @@ export interface AcrossOptions {
 }
 
 /**
- * Every file under `dir` (relative to `root`) on every ref worth reading, one
- * entry per file name. The branch this worktree stands on is read from disk,
- * not from its ref: the working tree is the newer truth, so a record written
- * and not yet committed is seen, and one deleted and not yet committed is not
- * — on any ref. A record another branch owns is read from that branch.
+ * Every file under `dir` (relative to `root`) on every local branch worth
+ * reading, one entry per file name. A branch checked out in a worktree is
+ * read from that worktree's disk, not from its ref: the working copy is the
+ * newer truth, so a record written and not yet committed is seen from every
+ * other worktree, and one deleted and not yet committed is not — on any ref.
+ * A branch no worktree stands on is read from its ref, and so is one whose
+ * worktree this run may not read. A record another branch owns is read from
+ * that branch, and is gone when that branch's worktree has deleted it.
  */
 export function readAcrossBranches(root: string, dir: string, ext: string, opts: AcrossOptions = {}): BranchFile[] {
   const seen = new Map<string, BranchFile>()
@@ -283,23 +324,54 @@ export function readAcrossBranches(root: string, dir: string, ext: string, opts:
   const inGit = gitPath(dir) // a ref's tree is read with forward slashes: a Windows path would name nothing
   const here = currentBranch(root)
   const local = filesHere(root, dir, ext, here)
-  const onDisk = new Set(local.map((f) => f.name))
+  /** Names each other worktree deleted from its branch and has not committed. */
+  const deletedOn = new Map<string, Set<string>>()
   if (isGitRepo(root)) {
-    const refs = refsWorthReading(root).filter((ref) => ref !== here)
-    const { onRefs, onHead } = filesOnRefs(root, refs, inGit, ext)
-    for (const files of onRefs) {
-      for (const f of files) {
-        if (onHead.has(f.name) && !onDisk.has(f.name)) continue // deleted here, not yet committed: gone everywhere
+    const trees = worktrees(root)
+    const refs = refsWorthReading(root, trees).filter((ref) => ref !== here)
+    // What each ref's worktree holds on disk, when one stands on it and can be read.
+    const disks = new Map<string, BranchFile[]>()
+    for (const w of trees) {
+      const ref = w.branch ?? w.head
+      if (w.self || !ref || !refs.includes(ref)) continue
+      const files = filesThere(w.path, dir, ext, ref)
+      if (files) disks.set(ref, files)
+    }
+    // One batch lists this worktree's HEAD and every ref; one more reads the refs no disk answered for.
+    const [head = [], ...listed] = treeFiles(root, [`HEAD:${inGit}`, ...refs.map((ref) => `${ref}:${inGit}`)], ext)
+    const committed = readEntries(root, refs, listed.map((entries, i) => (disks.has(refs[i] ?? "") ? [] : entries)))
+    // A name a working copy deleted and has not committed is gone everywhere: its owner removed it.
+    const deleted = new Set<string>()
+    const onDisk = (files: BranchFile[]) => new Set(files.map((f) => f.name))
+    const drop = (entries: Entry[], disk: Set<string>, ref?: string) =>
+      entries.forEach((e) => {
+        if (disk.has(e.name)) return
+        deleted.add(e.name)
+        if (ref !== undefined) deletedOn.set(ref, (deletedOn.get(ref) ?? new Set()).add(e.name))
+      })
+    drop(head, onDisk(local))
+    refs.forEach((ref, i) => {
+      const disk = disks.get(ref)
+      if (disk) drop(listed[i] ?? [], onDisk(disk), ref)
+    })
+    refs.forEach((ref, i) => {
+      for (const f of disks.get(ref) ?? committed[i] ?? []) {
+        if (deleted.has(f.name)) continue
         if (!seen.has(f.name)) seen.set(f.name, f)
         const mine = byRef.get(f.ref) ?? new Map<string, BranchFile>()
         byRef.set(f.ref, mine.set(f.name, f))
       }
-    }
+    })
   }
   for (const f of local) {
     const owner = opts.owner?.(f)
-    const owners = owner !== undefined && owner !== here ? byRef.get(owner)?.get(f.name) : undefined
-    seen.set(f.name, owners ?? f)
+    if (owner === undefined || owner === here) {
+      seen.set(f.name, f)
+      continue
+    }
+    // A copy of another branch's record: the owner's version wins, and so does the owner deleting it.
+    if (deletedOn.get(owner)?.has(f.name)) continue
+    seen.set(f.name, byRef.get(owner)?.get(f.name) ?? f)
   }
   return [...seen.values()]
 }

@@ -268,6 +268,25 @@ test("under the launcher's permissions Naima writes only under naima-tracker/ an
   }
 })
 
+test("under the launcher, the trunk reads another worktree's uncommitted claim from its disk", () => {
+  const w = world()
+  try {
+    bootstrap(w)
+    assert.equal(naima(w.host, "new", "bugs", "Alpha").code, 0)
+    git(w.host, "add", "-A")
+    git(w.host, "commit", "-q", "-m", "Track with Naima")
+    const wt = join(w.base, "wt")
+    git(w.host, "worktree", "add", "-q", "-b", "fix/alpha", wt)
+    const claim = launch(join(programOf(w.host), "naima.ts"), wt, "claim", "alpha")
+    assert.equal(claim.code, 0, claim.err)
+    const claims = naima(w.host, "claims")
+    assert.equal(claims.code, 0, claims.err)
+    assert.match(claims.out, /^fix\/alpha\n {2}bugs\/alpha {2}Alpha$/m, "not committed on fix/alpha, and seen from the trunk")
+  } finally {
+    w.cleanup()
+  }
+})
+
 test("naima carry round-trips clone → vendored → submodule → clone, the checks passing and the same commit running in each mode", () => {
   const w = world()
   try {

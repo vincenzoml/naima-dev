@@ -5,7 +5,7 @@ import { join, relative } from "node:path"
 import { test } from "node:test"
 import { gitCalls, gitOrNull, gitReason, mustGit, runGit } from "./git.ts"
 import { gitPath, projectFiles, readAcrossBranches, refsWorthReading, trunk, walkFiles } from "./index.ts"
-import { tempProject } from "./testing.ts"
+import { gitIn, tempProject } from "./testing.ts"
 
 test("records are recombined from every unmerged branch, with the working tree winning", () => {
   const p = tempProject([], { git: true })
@@ -158,5 +158,36 @@ test("one git wrapper: a missing ref and a missing git binary are told apart", (
     assert.throws(() => mustGit(p.root, "rev-parse", "--verify", "no-such-branch"), /^Error: git rev-parse: /)
   } finally {
     p.cleanup()
+  }
+})
+
+test("a branch checked out in another worktree is read from that worktree's disk, uncommitted files and deletions included", () => {
+  const p = tempProject([], { git: true })
+  const w1 = `${p.root}-w1`
+  const w2 = `${p.root}-w2`
+  try {
+    mkdirSync(join(p.root, "rec"))
+    writeFileSync(join(p.root, "rec", "old.txt"), "on main\n")
+    p.git("add", "-A")
+    p.git("commit", "-q", "-m", "old")
+    p.git("worktree", "add", "-q", "-b", "w1", w1)
+    p.git("worktree", "add", "-q", "-b", "w2", w2)
+    writeFileSync(join(w1, "rec", "one.txt"), "w1, not committed\n")
+    writeFileSync(join(w2, "rec", "two.txt"), "w2, not committed\n")
+    const names = (root: string) => readAcrossBranches(root, "rec", ".txt").map((f) => `${f.name}@${f.ref}${f.local ? " (here)" : ""}`).sort()
+    assert.deepEqual(names(p.root), ["old.txt@main (here)", "one.txt@w1", "two.txt@w2"], "the trunk sees both workers' uncommitted records")
+    assert.deepEqual(names(w1), ["old.txt@w1 (here)", "one.txt@w1 (here)", "two.txt@w2"], "and each worker sees the other's")
+    writeFileSync(join(w2, "rec", "mine.txt"), "w2's own\n")
+    gitIn(w2, "add", "-A")
+    gitIn(w2, "commit", "-q", "-m", "w2 records")
+    rmSync(join(w2, "rec", "mine.txt"))
+    assert.ok(!names(p.root).some((n) => n.startsWith("mine")), "committed on w2, deleted there and not yet committed: gone everywhere")
+    // A worktree whose directory is gone is read from its branch, as committed.
+    rmSync(w2, { recursive: true, force: true })
+    assert.deepEqual(names(p.root), ["mine.txt@w2", "old.txt@main (here)", "one.txt@w1", "two.txt@w2"], "read from its branch, as committed")
+  } finally {
+    p.cleanup()
+    rmSync(w1, { recursive: true, force: true })
+    rmSync(w2, { recursive: true, force: true })
   }
 })

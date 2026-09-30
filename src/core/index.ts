@@ -40,6 +40,8 @@ export {
   refsWorthReading,
   toplevel,
   trunk,
+  type Worktree,
+  worktrees,
 } from "./git.ts"
 export { CARRY_MODES, loadPlugins, type Lock, parseConfig, parseLock, programOf, readConfig } from "./config.ts"
 export { EXCLUDE_FILES, type Exclusion, exclusions } from "./excludes.ts"
