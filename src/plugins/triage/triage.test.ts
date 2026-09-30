@@ -56,6 +56,28 @@ test("urgency: impact before priority, effort breaks ties, done sinks", () => {
   }
 })
 
+test("an unset impact or priority counts as the middle of its scale, an unset effort as the largest size", () => {
+  const p = tempProject([things, triage()])
+  try {
+    const { ctx } = p
+    const type = ctx.registry.types.get("things")!
+    createItem(ctx, type, "sized XL", { impact: "high", priority: "now", effort: "XL" })
+    createItem(ctx, type, "sized L", { impact: "high", priority: "now", effort: "L" })
+    createItem(ctx, type, "unsized", { impact: "high", priority: "now" })
+    createItem(ctx, type, "impact high", { impact: "high", priority: "next", effort: "M" })
+    createItem(ctx, type, "impact medium", { impact: "medium", priority: "next", effort: "M" })
+    createItem(ctx, type, "impact unset", { priority: "next", effort: "M" })
+    const order = byUrgency(ctx, ctx.repo.items).map((i) => i.meta.title)
+    // Unsized ties with XL, and the slug breaks the tie: it never passes a sized L.
+    assert.ok(order.indexOf("sized L") < order.indexOf("unsized"), order.join(", "))
+    assert.ok(order.indexOf("sized XL") < order.indexOf("unsized"), order.join(", "))
+    // Unset impact sits between high and medium: the middle of blocker, high, medium, low.
+    assert.ok(order.indexOf("impact high") < order.indexOf("impact unset") && order.indexOf("impact unset") < order.indexOf("impact medium"), order.join(", "))
+  } finally {
+    p.cleanup()
+  }
+})
+
 test("confidence is read off the page's own words", () => {
   assert.equal(confidenceFrom("Reproduced twice and measured: 3.2 s"), "measured")
   assert.equal(confidenceFrom("The cause is a race"), "diagnosed")

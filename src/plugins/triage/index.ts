@@ -123,10 +123,18 @@ export function confidenceFrom(body: string): string {
   return "reported"
 }
 
+/** The rank an unset value takes: the middle of the field's scale, or its worst (last) value. */
+export function fallbackRank(name: string, as: "middle" | "worst"): number {
+  const last = Object.keys(field(name)?.values ?? {}).length - 1
+  return as === "worst" ? last : last / 2
+}
+
+// An unset impact or priority is not known to be either end, so it counts as the middle; an unset effort
+// counts as the largest size, so an item nobody has sized sinks instead of passing every sized L and XL.
 const rank: RankTerm[] = [
-  { name: "impact", score: (i) => enumRank(field("impact"), fieldValue(i, IMPACT), 2.5) * 1.5 },
-  { name: "priority", score: (i) => enumRank(field("priority"), fieldValue(i, PRIORITY), 2.5) * 1.2 },
-  { name: "effort", score: (i) => enumRank(field("effort"), fieldValue(i, EFFORT), 1.5) * 0.3 },
+  { name: "impact", score: (i) => enumRank(field("impact"), fieldValue(i, IMPACT), fallbackRank("impact", "middle")) * 1.5 },
+  { name: "priority", score: (i) => enumRank(field("priority"), fieldValue(i, PRIORITY), fallbackRank("priority", "middle")) * 1.2 },
+  { name: "effort", score: (i) => enumRank(field("effort"), fieldValue(i, EFFORT), fallbackRank("effort", "worst")) * 0.3 },
 ]
 
 const openItems = (ctx: Context): Item[] => ctx.repo.items.filter((i) => isOpen(ctx, i))
@@ -241,7 +249,7 @@ export default function triagePlugin(): Plugin {
     about:
       "Four fields rank an item, and no more. `effort` is never derived: nothing in a report says what a fix costs, and a size guessed from the wording is how an XL hides inside an S. " +
       '`triage derive` infers only `confidence`, from the page\'s own words — an evidence verb negated up to three words before it ("could not be reproduced") reads as `unclear`, never `measured` — and stamps `triagedBy: derived` so a value a person set is never overwritten. ' +
-      "Urgency is the sum of every plugin's rank terms, lower first; this plugin adds impact (×1.5), priority (×1.2) and effort (×0.3), each by its value's rank, unset counting as the middle.",
+      "Urgency is the sum of every plugin's rank terms, lower first; this plugin adds impact (×1.5), priority (×1.2) and effort (×0.3), each by its value's rank; an unset impact or priority counts as the middle of its scale, an unset effort as its largest size (XL), so an item nobody has sized sinks.",
     fields: FIELDS,
     rank,
     commands: [triage],
