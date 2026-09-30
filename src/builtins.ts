@@ -3,7 +3,7 @@
 // options, switches it off or replaces it. This file and cli.ts are the
 // composition root: the only modules that see both the core and the plugins.
 
-import type { FirstParty, Plugin, PluginOptions } from "./core/index.ts"
+import { apiFor, type FirstParty, type Plugin, type PluginOptions } from "./core/internal.ts"
 import betaMarkers from "./plugins/beta-markers/index.ts"
 import docs from "./plugins/docs/index.ts"
 import coordination from "./plugins/coordination/index.ts"
@@ -25,4 +25,4 @@ export const firstParty: readonly FirstParty[] = [
 
 /** Every first-party plugin's manifest, each made with its options in `options` (by plugin name) or none: for tests, which load them without a naima.json. */
 export const firstPartyPlugins = (options: Record<string, PluginOptions> = {}): Plugin[] =>
-  firstParty.map((p) => p.factory(options[p.name] ?? {}, { plugin: p.name, name: (_kind, declared) => declared }))
+  firstParty.map((p) => p.factory(options[p.name] ?? {}, apiFor(p.name, { rename: {} })))

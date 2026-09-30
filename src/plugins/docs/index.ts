@@ -26,6 +26,7 @@ import {
   type Command,
   commandSection,
   type Context,
+  CONTRACT,
   type Contribution,
   type ExtensionPoint,
   fieldValue,
@@ -39,7 +40,7 @@ import {
   table,
   walkFiles,
   writeFileAtomic,
-} from "../../core/index.ts"
+} from "../../core/api.ts"
 
 export interface DocsOptions {
   /** The reference file `naima check` holds current; unset, none. */
@@ -346,6 +347,7 @@ export default function docs(options: Record<string, unknown> = {}): Plugin {
   }
   return {
     name: "docs",
+    contract: CONTRACT,
     says: "every feature is documented as part of its implementation, and naima check holds it",
     about:
       "The rule: a feature is not done until its documentation is in the same change. It is always on, in three places, and nothing has to be configured for it. " +

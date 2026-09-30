@@ -6,10 +6,12 @@
 src/
   core/            the core: no item type, gate, verifier or workflow is named here
     types.ts       the contract (every interface a plugin sees)
+    contract.ts    the contract's version, which every manifest says it is written for
+    api.ts         the plugin API: what a plugin may call, and receives from its factory
+    internal.ts    the API and what only the entry point, the loader and the tests use
     points.ts      the core's own extension points: types, fields, relations, dirs, checks, commands, views, summary, rank, migrations
     manifest.ts    what a manifest contributes to a point, whichever way it says so
     markdown.ts    the markdown a point's documentation is written with
-    index.ts       the public API — the only core module a plugin imports
     item.ts        an item on disk: create, move, save
     repo.ts        reading the tracker; ids, reference resolution, inverse links
     fields.ts      field validation and parsing
@@ -24,7 +26,7 @@ src/
     files.ts       the one walker (regular files only, links never followed); writeFileAtomic
     layout.ts      naima-tracker/ and its names; finding the data directory
     config.ts      naima.json: the formats, the lock, the plugins table
-    plugins.ts     which plugins a project loads: first-party ones as they are, off or replaced; third-party ones
+    plugins.ts     which plugins a project loads, from pinned sources; the contract check; the API each factory is handed
     format.ts      the data formats, the core's and each plugin's; migrations; the one-format check
     migrations.ts  the core's own migrations
     project.ts     opening a project: naima.json, the plugins, their formats, the registry, the context
@@ -94,7 +96,8 @@ from its ref. Remote-tracking refs are not read.
 
 - The core imports only the `node:` built-ins that Deno, Node and Bun all
   provide, and itself. There are no dependencies.
-- A plugin imports only `core/index.ts` and its own files. Its tests may also
+- A plugin imports only `core/api.ts` — or nothing, using the API its
+  factory is handed — and its own files; never `core/internal.ts`. Its tests may also
   import `core/testing.ts`. Plugins never import each other: what one needs
   from another travels through the registry: a field, a relation, a status
   that `proves`, a contribution to an extension point another declares.

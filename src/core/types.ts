@@ -1,6 +1,8 @@
 // The contract. Everything a plugin can contribute, and everything the core
 // hands back to it, is declared here and nowhere else.
 
+import type { PluginApi } from "./api.ts"
+
 /** A typed cross-reference. `id` is always a permanent item id, never a slug. */
 export interface Link {
   rel: string
@@ -224,6 +226,8 @@ export interface WriteHook {
 export interface Plugin {
   name: string
   says: string
+  /** The contract it is written for (`CONTRACT` in core/api.ts). Absent: contract 1, the shape before it was said. */
+  contract?: number
   /** Longer documentation, in markdown: the concepts a reader needs before the reference. */
   about?: string
   /** The keys the plugin reads from its `options`, each with the default it infers. */
@@ -286,7 +290,8 @@ export interface PluginScope {
   name(kind: string, declared: string): string
 }
 
-export type PluginFactory = (options: PluginOptions, scope: PluginScope) => Plugin
+/** A plugin module's default export: its manifest, made from the options the project gives it and the API the core hands it. */
+export type PluginFactory = (options: PluginOptions, api: PluginApi) => Plugin
 
 /** A first-party plugin: its name and its factory, loaded unless the project switches it off or replaces it. */
 export interface FirstParty {
@@ -297,16 +302,23 @@ export interface FirstParty {
 /** How much a check's finding weighs in this project: off, a note, or a problem that fails `naima check`. */
 export type Severity = "off" | "note" | "problem"
 
+/**
+ * Where a plugin's code is, pinned: a path inside the program (locked with
+ * it); a file of the project, pinned by its sha256; or a module of a git
+ * repository, pinned by commit and fetched into the tracker folder.
+ */
+export type PluginSource = string | { path: string; sha256: string } | { git: string; commit: string; path: string }
+
 /** One entry of naima.json's `plugins` table: how the project configures the plugin of that name. */
 export interface PluginConfig {
   /** False switches the plugin off: it is not loaded. */
   enabled: boolean
   /** The plugin's own options, as it documents them. */
   options: PluginOptions
-  /** A third-party plugin's code: a path inside the program. */
-  source?: string
+  /** A third-party plugin's code. */
+  source?: PluginSource
   /** A first-party plugin's replacement: the code that runs under its name instead. */
-  replacedBy?: string
+  replacedBy?: PluginSource
   /** The severity of the plugin's checks, by check name, as the project weighs them. */
   checks: Record<string, Severity>
 }

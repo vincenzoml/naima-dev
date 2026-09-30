@@ -11,7 +11,7 @@ import { test } from "node:test"
 import { fileURLToPath } from "node:url"
 import { firstParty } from "./builtins.ts"
 import { gitIn, removeTemp } from "./core/testing.ts"
-import { ABOUT, FORMAT, runCli, TRACKER_README } from "./core/index.ts"
+import { ABOUT, FORMAT, runCli, TRACKER_README } from "./core/internal.ts"
 
 const NAIMA = dirname(dirname(fileURLToPath(import.meta.url)))
 

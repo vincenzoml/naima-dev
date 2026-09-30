@@ -22,7 +22,7 @@ import {
   setFields,
   slugify,
   uniqueSlug,
-} from "./index.ts"
+} from "./internal.ts"
 import { corePlugin } from "./base.ts"
 import { gitIn, tempProject } from "./testing.ts"
 
@@ -449,6 +449,12 @@ test("the registry and the config cannot be changed once the project is loaded",
     assert.throws(() => Object.assign(registry, { commands: new Map() }), TypeError)
     assert.throws(() => Object.assign(config.plugins, { v2: {} }), TypeError)
     assert.throws(() => Object.assign(config, { commit: "f".repeat(40) }), TypeError)
+    assert.throws(() => Object.assign(registry.commands.get("show") as object, { run: () => 0 }), TypeError, "no plugin replaces another's command")
+    assert.throws(
+      () => Object.assign(registry.types.get("notes")?.statuses ?? {}, { gone: {} }),
+      TypeError,
+      "nor adds to another's type behind the registry's back",
+    )
     assert.ok(registry.commands.has("show") && registry.types.has("notes"))
   } finally {
     p.cleanup()

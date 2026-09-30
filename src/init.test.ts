@@ -10,7 +10,7 @@ import { dirname, join } from "node:path"
 import { test } from "node:test"
 import { fileURLToPath } from "node:url"
 import { firstParty } from "./builtins.ts"
-import { type Plugin, runCli } from "./core/index.ts"
+import { type Plugin, runCli } from "./core/internal.ts"
 import { gitIn as git, removeTemp } from "./core/testing.ts"
 
 const NAIMA = dirname(dirname(fileURLToPath(import.meta.url)))

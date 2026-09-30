@@ -29,7 +29,7 @@ import {
   TRACKER_DIR,
   trackerOf,
   worktrees,
-} from "./core/index.ts"
+} from "./core/internal.ts"
 
 /** Alignment, an update and its migration: at most three hand-overs, and one to spare. */
 const MAX_RUNS = 4

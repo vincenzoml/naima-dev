@@ -4,7 +4,7 @@
 
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { buildRegistry, type Context, CORE_POINTS, type ExtensionPoint, type Plugin } from "./index.ts"
+import { buildRegistry, type Context, CORE_POINTS, type ExtensionPoint, type Plugin } from "./internal.ts"
 import { corePlugin } from "./base.ts"
 import { tempProject } from "./testing.ts"
 

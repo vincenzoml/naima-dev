@@ -1,6 +1,7 @@
 // The dependency rule, enforced: the core imports no plugin and names no
-// plugin's vocabulary, and a plugin imports only the core's public API (plus,
-// in tests, the core's test helper) and its own files. Every way a module can
+// plugin's vocabulary, and a plugin imports only the plugin API, core/api.ts
+// (plus, in tests, the core's test helper) and its own files — never
+// core/internal.ts, which holds what only the entry point and the loader use. Every way a module can
 // reach another is looked for: static and side-effect imports, re-exports,
 // dynamic import() and require().
 
@@ -50,7 +51,7 @@ function references(text: string): Reference[] {
 const rel = (p: string) => relative(ROOT, p).split("\\").join("/")
 const inside = (dir: string, path: string) => path === dir || path.startsWith(dir + "/") || path.startsWith(dir + "\\")
 const CORE = join(SRC, "core")
-const PUBLIC = join(CORE, "index.ts")
+const PUBLIC = join(CORE, "api.ts")
 const TEST_HELPER = join(CORE, "testing.ts")
 /** The one computed import the rule allows: the core loading a third-party plugin named in naima.json. */
 const PLUGIN_LOADER = join(CORE, "plugins.ts")
@@ -92,7 +93,7 @@ test("a plugin, wherever it lives, imports only the core's public API and its ow
         const target = resolve(dirname(file), r.spec)
         if (inside(own, target)) continue
         const allowed = target === PUBLIC || (/\.test\.ts$/.test(file) && target === TEST_HELPER)
-        assert.ok(allowed, `${rel(file)} imports ${rel(target)}; a plugin may import only core/index.ts`)
+        assert.ok(allowed, `${rel(file)} imports ${rel(target)}; a plugin may import only core/api.ts`)
       }
     }
   }
@@ -149,4 +150,23 @@ test("the scanner sees every way a module can reach another", () => {
   assert.deepEqual(specs('const x = require("../plugins/z")'), ["require ../plugins/z"])
   assert.deepEqual(namesIn('const hint = "todos"; const t = `bugs` // not "tests"', new Set(["todos", "bugs", "tests"])), ["todos", "bugs"])
   assert.ok(references(readFileSync(join(SRC, "builtins.ts"), "utf8")).some((r) => r.spec?.startsWith("./plugins/")))
+})
+
+test("the plugin API holds what a plugin may use, and nothing that loads, migrates or runs the program", async () => {
+  const api = await import("./core/api.ts")
+  const internal = await import("./core/internal.ts")
+  for (
+    const name of ["runCli", "openProject", "migrate", "buildRegistry", "composePlugins", "parseConfig", "createContext", "apiFor", "MIGRATIONS", "RELAUNCH"]
+  ) {
+    assert.ok(name in internal, `${name} is the core's`)
+    assert.ok(!(name in api), `${name} is not a plugin's to call: it stays out of core/api.ts`)
+  }
+  for (const name of ["createItem", "saveMeta", "fieldValue", "runChecks", "linked", "CONTRACT"]) assert.ok(name in api, `${name} is in the plugin API`)
+  const { apiFor } = internal
+  const injected = apiFor("mine", { rename: { fields: { "mine/size": "bytes" } } })
+  assert.equal(injected.plugin, "mine")
+  assert.equal(injected.name("fields", "size"), "bytes")
+  assert.equal(injected.contract, api.CONTRACT)
+  assert.ok(Object.isFrozen(injected), "a plugin cannot change what another plugin is handed")
+  assert.ok(!("runCli" in injected) && typeof injected.createItem === "function", "the same surface as core/api.ts")
 })

@@ -5,7 +5,7 @@
 import { dirname } from "node:path"
 import { fileURLToPath } from "node:url"
 import { firstParty } from "./builtins.ts"
-import { runCli } from "./core/index.ts"
+import { runCli } from "./core/internal.ts"
 
 /** The Naima that is running: the directory above src/. */
 const programRoot = dirname(dirname(fileURLToPath(import.meta.url)))

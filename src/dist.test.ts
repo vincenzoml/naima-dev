@@ -24,7 +24,7 @@ import { dirname, join, posix } from "node:path"
 import { test } from "node:test"
 import { fileURLToPath } from "node:url"
 import { GUIDE_PAGES } from "./core/cli.ts"
-import { DIST_BRANCH } from "./core/index.ts"
+import { DIST_BRANCH } from "./core/internal.ts"
 import { buildDist, globRegex, MANIFEST, parseManifest, selectRuntime, sourceCommit, TRAILER } from "../scripts/dist.ts"
 import { gitIn as git, removeTemp } from "./core/testing.ts"
 

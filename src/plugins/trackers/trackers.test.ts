@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { test } from "node:test"
-import { createItem, runChecks, setFields, typeOrThrow } from "../../core/index.ts"
+import { createItem, runChecks, setFields, typeOrThrow } from "../../core/api.ts"
 import { tempProject } from "../../core/testing.ts"
 import trackers, { lifecycle } from "./index.ts"
 
@@ -43,7 +43,7 @@ test("an archived item without proof fails the check; archives cannot be opened"
   try {
     await assert.rejects(() => p.run("new", "closed", "x"), /archive/)
     const bug = createItem(p.ctx, typeOrThrow(p.ctx, "bugs"), "Lost")
-    const { moveItem } = await import("../../core/index.ts")
+    const { moveItem } = await import("../../core/api.ts")
     setFields(p.ctx, bug, [["status", "wontfix"]])
     moveItem(p.ctx, bug, typeOrThrow(p.ctx, "closed"))
     const problems = runChecks(p.ctx).problems.map((f) => f.message).join()

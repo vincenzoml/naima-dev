@@ -11,7 +11,7 @@ import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { test } from "node:test"
 import { fileURLToPath } from "node:url"
-import { FORMAT, TRACKER_README } from "./core/index.ts"
+import { FORMAT, TRACKER_README } from "./core/internal.ts"
 import { gitIn as git, removeTemp } from "./core/testing.ts"
 
 const NAIMA = dirname(dirname(fileURLToPath(import.meta.url)))

@@ -22,6 +22,7 @@ import {
   code,
   type Command,
   type Context,
+  CONTRACT,
   type Contribution,
   DATA_FILE,
   DEFAULT_DATA,
@@ -41,7 +42,7 @@ import {
   refutes,
   type SummarySection,
   table,
-} from "../../core/index.ts"
+} from "../../core/api.ts"
 
 export interface GateResult {
   holds: boolean
@@ -249,6 +250,7 @@ export default function gates(options: Record<string, unknown> = {}): Plugin {
   }
   return {
     name: "gates",
+    contract: CONTRACT,
     says: "named release conditions backed by items",
     about:
       "A gate is the set of items that must be settled before something may happen — a release, a merge. An item joins a gate by carrying `gate: <name>`. " +

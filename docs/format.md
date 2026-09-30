@@ -61,7 +61,7 @@ the one whose `naima.json` carries `format`.
 | `carry` | no, `clone` | how the program is carried: `clone`, `vendored` or `submodule` (below) |
 | `verify` | no | `"signed"`: run a locked commit only when git verifies its signature ([install](install.md#every-run-aligns-the-program)) |
 | `program` | no, `../naima` | the program directory, relative to the data directory |
-| `plugins` | no, `{}` | plugin name → `{ "options", "enabled", "replacedBy", "source", "checks" }`, first-party plugins included: their options (the project's gates are the `gates` plugin's), switched off, replaced, added, their checks weighed ([configuration](config.md#the-plugins-table)) |
+| `plugins` | no, `{}` | plugin name → `{ "options", "enabled", "replacedBy", "source", "checks" }`, first-party plugins included: their options (the project's gates are the `gates` plugin's), switched off, replaced, added from a pinned source — a path inside the program, `{ "path", "sha256" }` or `{ "git", "commit", "path" }` — their checks weighed ([configuration](config.md#the-plugins-table)) |
 | `rename` | no, `{}` | kind → `{ "<plugin>/<name>": "<short name>" }`: the name a third-party plugin's contribution goes by, when two plugins would store the same one ([names](plugin-contract.md#names)) |
 | `extends` | no, `[]` | the project's own additive changes to the loaded plugins' types and fields: `{ "type", "statuses", "traits", "transitions" }` or `{ "field", "values", "appliesTo", "traits" }` ([extending](plugin-contract.md#extending-another-plugins-types-and-fields)) |
 

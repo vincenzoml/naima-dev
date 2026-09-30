@@ -4,7 +4,7 @@ import { tmpdir } from "node:os"
 import { join, relative } from "node:path"
 import { test } from "node:test"
 import { gitCalls, gitOrNull, gitReason, mustGit, runGit } from "./git.ts"
-import { gitPath, projectFiles, readAcrossBranches, refsWorthReading, trunk, walkFiles } from "./index.ts"
+import { gitPath, projectFiles, readAcrossBranches, refsWorthReading, trunk, walkFiles } from "./internal.ts"
 import { gitIn, tempProject } from "./testing.ts"
 
 test("records are recombined from every unmerged branch, with the working tree winning", () => {

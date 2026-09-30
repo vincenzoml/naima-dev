@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { test } from "node:test"
-import { byUrgency, createItem, type Plugin, runChecks } from "../../core/index.ts"
+import { byUrgency, createItem, type Plugin, runChecks } from "../../core/api.ts"
 import { tempProject } from "../../core/testing.ts"
 import triage, { confidenceFrom } from "./index.ts"
 

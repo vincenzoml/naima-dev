@@ -10,6 +10,7 @@ import { groupBy } from "./collections.ts"
 import { appliesTo, fieldValue, parseFieldValue } from "./fields.ts"
 import { ATTACHMENTS, createItem, readReadme, saveMeta, type WriteOptions } from "./item.ts"
 import { byUrgency, isOpen, label } from "./lifecycle.ts"
+import { CONTRACT } from "./contract.ts"
 import { shortOrId } from "./names.ts"
 import { flagsOf } from "./vocabulary.ts"
 import type { Command, Context, Contribution, Item, Plugin, SummarySection, TypeDef, View, WriteHook } from "./types.ts"
@@ -384,6 +385,7 @@ const statusMoves: WriteHook = {
 
 export const corePlugin: Plugin = {
   name: "core",
+  contract: CONTRACT,
   says: "items, fields, links and the invariants every project has",
   about: "An item is a directory under `<tracker>/<TYPE>/<slug>/`: `README.md` for the prose, `meta.json` for the fields, `attachments/` for the evidence. " +
     "`meta.json` always holds `id` (a permanent uuid), `title` and `status` (one the item's type declares), and optionally `links`, a list of `{ rel, id }`. The slug may change; the id may not, and links hold ids. " +

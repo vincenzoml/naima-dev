@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { groupBy } from "./index.ts"
+import { groupBy } from "./internal.ts"
 
 test("groupBy keeps key and item order, and is linear in the number of items", () => {
   assert.deepEqual([...groupBy([1, 2, 3, 4, 5], (n) => (n % 2 ? "odd" : "even"))], [["odd", [1, 3, 5]], ["even", [2, 4]]])

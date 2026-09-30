@@ -44,7 +44,7 @@ import {
 import { EXIT, isInternal, message, NaimaError } from "./errors.ts"
 import type { Carry, Command, Context } from "./types.ts"
 import { shortOrId } from "./names.ts"
-import { scopeOf } from "./plugins.ts"
+import { apiFor } from "./plugins.ts"
 
 export interface CliOptions extends OpenOptions {
   cwd: string
@@ -141,7 +141,7 @@ async function init(args: string[], opts: CliOptions, io: IO): Promise<number> {
   mkdirSync(data, { recursive: true })
   const readme = join(tracker, "README.md")
   if (!existsSync(readme)) writeFileSync(readme, TRACKER_README)
-  const formats = formatsFor(opts.firstParty.map((p) => p.factory({}, scopeOf(p.name, { rename: {} }))))
+  const formats = formatsFor(opts.firstParty.map((p) => p.factory({}, apiFor(p.name, { rename: {} }))))
   writeRaw(data, { format: FORMAT, ...(Object.keys(formats).length ? { formats } : {}), source, commit, carry: "clone" })
   ignoreProgram({ root, tracker, program, source, commit, carry: "clone" }, true)
   io.out(`wrote ${TRACKER_DIR}/: README.md, .gitignore, ${DATA_DIR}/${DATA_FILE} — locked to ${source} at ${short(commit)}`)
@@ -189,7 +189,7 @@ async function update(args: string[], opts: CliOptions, place: Place, lock: Lock
     return RELAUNCH // the new Naima finishes: it is the one that knows the new format
   }
   const from = raw["format"]
-  const { all } = await owed(raw, opts)
+  const { all } = await owed(raw, place, opts)
   const steps = migrate(place.data, MIGRATIONS, all.slice(1))
   for (const line of migrated(steps, from, all.slice(1))) io.out(line)
   const tracker = posixRelative(place.root, trackerOf(place.data))

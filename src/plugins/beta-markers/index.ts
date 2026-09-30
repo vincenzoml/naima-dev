@@ -21,6 +21,7 @@ import {
   type Check,
   type Command,
   type Context,
+  CONTRACT,
   fieldValue,
   type Finding,
   isOpen,
@@ -33,7 +34,7 @@ import {
   proves,
   type SummarySection,
   walkFiles,
-} from "../../core/index.ts"
+} from "../../core/api.ts"
 
 export interface Marker {
   file: string
@@ -159,6 +160,7 @@ export default function betaMarkers(options: Record<string, unknown> = {}): Plug
 
   return {
     name: "beta-markers",
+    contract: CONTRACT,
     says: "markers in the code for behaviour shipped without proof",
     about:
       "A marker is a comment in the project's own source naming the item whose passing would prove the marked behaviour: `// naima:beta tests/export-keeps-alpha  export of layered files is unproven`. " +

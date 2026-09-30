@@ -216,7 +216,9 @@ fork and `commit` to your commit (or run `naima update` once the fork's `main`
 has it). A fork with no `dist` branch is followed on its `main`; one that
 builds its own dist (`deno run -A scripts/dist.ts`, then push `dist`) is
 followed there. The whole team then runs that fork at that commit. A plugin of your own lives
-in the fork, and `plugins` names it by its path there ([configuration](config.md)).
+in the fork, and `plugins` names it by its path there — or, without a fork,
+in the project or its own git repository, pinned by its hash or commit
+([third-party plugins](config.md#third-party-plugins)).
 Improvements go back through pull requests. The data stays compatible as long
 as the fork keeps [the format](format.md).
 

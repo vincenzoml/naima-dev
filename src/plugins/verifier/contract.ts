@@ -2,7 +2,7 @@
 // plugin contributes one under `contributes.verifiers`; `naima verify` runs
 // the one a property names.
 
-import { code, type Context, type ExtensionPoint, table } from "../../core/index.ts"
+import { code, type Context, type ExtensionPoint, table } from "../../core/api.ts"
 
 export interface VerifyRequest {
   /** Absolute path of the model or specification file. */

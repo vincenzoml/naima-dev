@@ -18,6 +18,7 @@ import {
   type Check,
   type Command,
   type Context,
+  CONTRACT,
   fieldValue,
   type Finding,
   type Item,
@@ -30,7 +31,7 @@ import {
   writeFileAtomic,
   type WriteHook,
   writeJson,
-} from "../../core/index.ts"
+} from "../../core/api.ts"
 import { exampleRegex } from "./adapters/example-regex.ts"
 import { type Verdict, type Verifier, verifiersPoint, type VerifyResult } from "./contract.ts"
 
@@ -313,6 +314,7 @@ const allHold: Gate = {
 export default function verifier(): Plugin {
   return {
     name: "verifier",
+    contract: CONTRACT,
     says: "properties checked by formal-methods tools, with each run attached as evidence",
     about:
       "A `properties` item names a `verifier` (an adapter any plugin can contribute), a `model` file (a path from the project root) and a `property` in the verifier's own language. " +

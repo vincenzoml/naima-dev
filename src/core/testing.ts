@@ -13,6 +13,10 @@ import { DATA_FILE, DEFAULT_DATA, DEFAULT_PROGRAM } from "./layout.ts"
 import { buildRegistry, type RegistryOptions } from "./registry.ts"
 import type { Command, Context, Plugin } from "./types.ts"
 
+// What a plugin's tests need of the core beyond the plugin API: a context over a project they build by hand.
+export { createContext } from "./context.ts"
+export { DEFAULT_PROGRAM } from "./layout.ts"
+
 export interface TempProject {
   root: string
   ctx: Context

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { test } from "node:test"
 import { vendor } from "./program.ts"
-import { writeFileAtomic, writeJson } from "./index.ts"
+import { writeFileAtomic, writeJson } from "./internal.ts"
 import { gitIn } from "./testing.ts"
 
 test("a write replaces the file whole: new content lands beside it, then is renamed over it", () => {

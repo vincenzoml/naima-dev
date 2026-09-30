@@ -17,6 +17,7 @@ import {
   type Check,
   type Command,
   type Context,
+  CONTRACT,
   currentBranch,
   filesAt,
   type Finding,
@@ -33,7 +34,7 @@ import {
   writeFileAtomic,
   type WriteHook,
   writeJson,
-} from "../../core/index.ts"
+} from "../../core/api.ts"
 
 export const CLAIMS = "claims"
 export const PASSES = "passes"
@@ -353,6 +354,7 @@ const inHand: SummarySection = {
 export default function coordination(): Plugin {
   return {
     name: "coordination",
+    contract: CONTRACT,
     says: "claims and session notes, one file per session, recombined from every branch",
     about:
       "No session writes a file another session writes. A claim is one file per branch, `claims/<uuid>.json`; a session note is one file per session, `passes/<date>-<uuid>.md`. " +

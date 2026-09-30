@@ -15,6 +15,7 @@ import {
   byUrgency,
   type Command,
   type Context,
+  CONTRACT,
   enumRank,
   type FieldDef,
   fieldValue,
@@ -34,7 +35,7 @@ import {
   usageError,
   type View,
   type WriteHook,
-} from "../../core/index.ts"
+} from "../../core/api.ts"
 
 export const FIELDS: FieldDef[] = [
   {
@@ -266,6 +267,7 @@ const top: SummarySection = {
 export default function triagePlugin(): Plugin {
   return {
     name: "triage",
+    contract: CONTRACT,
     says: "priority, impact, effort, confidence; the urgency ranking built from them",
     about:
       "Four fields rank an item, and no more. `effort` is never derived: nothing in a report says what a fix costs, and a size guessed from the wording is how an XL hides inside an S. " +

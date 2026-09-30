@@ -16,7 +16,7 @@ function check(source: string): { ok: boolean; out: string } {
   const dir = mkdtempSync(join(tmpdir(), "naima-typecheck-"))
   try {
     const file = join(dir, "probe.ts")
-    writeFileSync(file, source.replaceAll("CORE", pathToFileURL(join(ROOT, "src", "core", "index.ts")).href))
+    writeFileSync(file, source.replaceAll("CORE", pathToFileURL(join(ROOT, "src", "core", "api.ts")).href))
     const r = spawnSync("deno", ["check", "--quiet", "--config", join(ROOT, "deno.json"), file], { encoding: "utf8", env: { ...process.env, NO_COLOR: "1" } })
     return { ok: r.status === 0, out: `${r.stdout}${r.stderr}` }
   } finally {

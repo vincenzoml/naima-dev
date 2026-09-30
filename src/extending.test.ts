@@ -10,7 +10,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { test } from "node:test"
 import { firstParty, firstPartyPlugins } from "./builtins.ts"
-import { buildRegistry, FORMAT, hasFlag, type Plugin, runCli, saveMeta } from "./core/index.ts"
+import { buildRegistry, FORMAT, hasFlag, type Plugin, runCli, saveMeta } from "./core/internal.ts"
 import { corePlugin } from "./core/base.ts"
 import { gitIn, removeTemp, tempProject } from "./core/testing.ts"
 

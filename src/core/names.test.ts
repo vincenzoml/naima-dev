@@ -4,7 +4,7 @@
 
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { buildRegistry, createItem, type Plugin, type PluginScope, runChecks, setFields } from "./index.ts"
+import { buildRegistry, createItem, type Plugin, type PluginScope, runChecks, setFields } from "./internal.ts"
 import { corePlugin } from "./base.ts"
 import { tempProject } from "./testing.ts"
 

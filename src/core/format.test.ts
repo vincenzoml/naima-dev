@@ -19,7 +19,7 @@ import {
   openProject,
   type Plugin,
   runChecks,
-} from "./index.ts"
+} from "./internal.ts"
 import { tempProject } from "./testing.ts"
 
 /** Format 1 → 2 renames the item field `area` to `where`; 2 → 3 adds `carry` to naima.json. */

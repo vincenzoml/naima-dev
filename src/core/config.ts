@@ -14,7 +14,7 @@ import { message } from "./errors.ts"
 import { writeFileAtomic } from "./files.ts"
 import { DATA_FILE, DEFAULT_PROGRAM } from "./layout.ts"
 import { FORMAT, formatRefusal, formatsOf } from "./format.ts"
-import type { Carry, Config, Extension, PluginConfig, PluginOptions, Severity } from "./types.ts"
+import type { Carry, Config, Extension, PluginConfig, PluginOptions, PluginSource, Severity } from "./types.ts"
 
 export const CARRY_MODES: readonly Carry[] = ["clone", "vendored", "submodule"]
 
@@ -113,6 +113,33 @@ const SEVERITIES = new Set<string>(["off", "note", "problem"])
 /** A plugin's name: what its contributions' qualified ids start with. */
 export const PLUGIN_NAME = /^[a-z][a-z0-9-]*$/
 
+const SHA256 = /^[0-9a-f]{64}$/
+const COMMIT_HASH = /^[0-9a-f]{40}$/
+
+/**
+ * Why `v` is not where a plugin's code is, or null: a path inside the
+ * program; `{ "path", "sha256" }`, a file of the project pinned by its hash;
+ * or `{ "git", "commit", "path" }`, a module of a repository pinned by commit.
+ */
+function sourceShape(v: unknown): string | null {
+  const shapes = 'is a path inside the program, { "path", "sha256" } — a file of the project and its hash — or { "git", "commit", "path" }'
+  if (typeof v === "string") return v.trim() ? null : shapes
+  if (!isObject(v)) return shapes
+  const keys = Object.keys(v).sort().join(",")
+  if (keys === "path,sha256") {
+    if (typeof v["path"] !== "string" || !v["path"].trim()) return "path must name a file of the project"
+    return typeof v["sha256"] === "string" && SHA256.test(v["sha256"]) ? null : "sha256 must be the file's sha256, 64 hex digits"
+  }
+  if (keys === "commit,git,path") {
+    if (typeof v["git"] !== "string" || !v["git"].trim()) return "git must be the URL, or absolute path, of the plugin's repository"
+    const refusal = sourceRefusal(v["git"])
+    if (refusal) return `git ${refusal}`
+    if (typeof v["commit"] !== "string" || !COMMIT_HASH.test(v["commit"])) return "commit must be the full hash of the commit it runs"
+    return typeof v["path"] === "string" && v["path"].trim() ? null : "path must name the module inside the repository"
+  }
+  return shapes
+}
+
 /** The `plugins` table: plugin name → its configuration. Which names are first-party is the loader's to say. */
 function parsePlugins(value: unknown): Record<string, PluginConfig> {
   if (value === undefined) return {}
@@ -131,7 +158,8 @@ function parsePlugins(value: unknown): Record<string, PluginConfig> {
     if (typeof enabled !== "boolean") throw new Error(`${where}.enabled must be true or false`)
     if (!isObject(options)) throw new Error(`${where}.options must be an object`)
     for (const [key, v] of [["source", source], ["replacedBy", replacedBy]] as const) {
-      if (v !== undefined && (typeof v !== "string" || !v.trim())) throw new Error(`${where}.${key} must be a path inside the program`)
+      const why = v === undefined ? null : sourceShape(v)
+      if (why) throw new Error(`${where}.${key} ${why}`)
     }
     if (source !== undefined && replacedBy !== undefined) {
       throw new Error(`${where}: source is a third-party plugin's, replacedBy a first-party one's — not both`)
@@ -143,8 +171,8 @@ function parsePlugins(value: unknown): Record<string, PluginConfig> {
     out[name] = {
       enabled,
       options: options as PluginOptions,
-      ...(typeof source === "string" ? { source } : {}),
-      ...(typeof replacedBy === "string" ? { replacedBy } : {}),
+      ...(source !== undefined ? { source: source as PluginSource } : {}),
+      ...(replacedBy !== undefined ? { replacedBy: replacedBy as PluginSource } : {}),
       checks: checks as Record<string, Severity>,
     }
   }

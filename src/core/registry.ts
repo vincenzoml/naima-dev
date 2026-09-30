@@ -15,7 +15,7 @@
 // be shared; the short name then stops resolving, and the qualified id names
 // each.
 
-import { FrozenMap, FrozenSet } from "./collections.ts"
+import { deepFreeze, FrozenMap, FrozenSet } from "./collections.ts"
 import { inOrder } from "./format.ts"
 import { contributionsOf, migrationsOf } from "./manifest.ts"
 import { CORE_POINTS, MANIFEST_KEYS } from "./points.ts"
@@ -86,6 +86,8 @@ export function buildRegistry(plugins: Plugin[], opts: RegistryOptions = {}): Re
   for (const p of plugins) {
     if (names.has(p.name)) throw new Error(`plugin "${p.name}" is loaded twice`)
     names.add(p.name)
+    // Frozen with everything it holds: once loaded, no plugin can change another's command, check or type.
+    deepFreeze(p)
   }
   const points = pointsOf(plugins)
 

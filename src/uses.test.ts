@@ -5,7 +5,7 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 import { firstPartyPlugins } from "./builtins.ts"
-import { buildRegistry, type Plugin } from "./core/index.ts"
+import { buildRegistry, type Plugin } from "./core/internal.ts"
 import { corePlugin } from "./core/base.ts"
 
 const without = (name: string): Plugin[] => firstPartyPlugins().filter((p) => p.name !== name)

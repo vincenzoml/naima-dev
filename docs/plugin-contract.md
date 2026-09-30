@@ -1,22 +1,34 @@
 # Plugin contract
 
-The interfaces are in [`src/core/types.ts`](../src/core/types.ts); this page
-says what each part is for.
+The interfaces are in [`src/core/types.ts`](../src/core/types.ts); what a
+plugin may call is [`src/core/api.ts`](../src/core/api.ts). This page says
+what each part is for.
 
 ## Shape
 
 ```ts
-import type { Plugin, PluginScope } from "../src/core/index.ts"   // a path inside the program
+import type { Plugin, PluginApi } from "../src/core/api.ts"   // types only: erased when it runs
 
-export default function myPlugin(options: Record<string, unknown>, scope: PluginScope): Plugin {
-  return { name: scope.plugin, says: "one line", /* contributions */ }
+export default function myPlugin(options: Record<string, unknown>, api: PluginApi): Plugin {
+  return { name: api.plugin, says: "one line", contract: api.contract, /* contributions */ }
 }
 ```
 
+A plugin module's default export is a **factory**: it takes the options the
+project gives it and the **plugin API**, and returns the manifest. The API is
+every function of `core/api.ts` — `createItem`, `saveMeta`, `fieldValue`,
+`linked`, `runChecks`, … — frozen, with the plugin's own scope: `api.plugin`,
+the name the project gives it, and `api.name(point, declared)`, the name its
+own contribution goes by after a [rename](#names). A plugin that uses only
+what it is handed imports nothing of the core, so it runs wherever it lives.
+A plugin inside the program may import `core/api.ts` instead; nothing may
+import `core/internal.ts`, which holds what only the entry point, the loader
+and the tests use (opening a project, composing plugins, the registry,
+migrations) — `src/arch.test.ts` fails on a plugin that does.
+
 The first-party plugins are loaded unless the project switches one off or
 replaces it. A third-party plugin is added under `plugins` in `naima.json`,
-by the path of its module inside the program — a fork of Naima that carries
-it — with optional `options`; a first-party plugin takes its options, and its
+with optional `options`; a first-party plugin takes its options, and its
 replacement, the same way ([configuration](config.md#the-plugins-table)):
 
 ```json
@@ -27,6 +39,42 @@ A plugin is registered under the name its entry has. The factory is called
 with the entry's `options`; a plugin that carries migrations must accept the
 options as they stand before its own migrations run, since it is loaded then
 to collect them.
+
+### Where a plugin's code is
+
+A `source` (or a `replacedBy`) is pinned, so what runs is what the project
+reviewed:
+
+| Source | Pinned by |
+|---|---|
+| `"plugins/mine.ts"` | a path inside the program, locked with it: a fork of Naima that carries the plugin |
+| `{ "path": "tools/mine.mjs", "sha256": "…" }` | a file of the project, and its sha256: a changed file is refused, naming its new hash, until the pin is updated |
+| `{ "git": "https://…", "commit": "…", "path": "index.mjs" }` | a module of a git repository, and the full commit: fetched once into `naima-tracker/plugins/<name>/`, which `naima-tracker/.gitignore` ignores; a checkout with local changes is refused |
+
+The pin covers the module it names: a plugin pinned by its sha256 is one
+self-contained file, since what it imports is not pinned with it; one pinned
+by commit may import anything in its repository.
+
+### The contract version
+
+A manifest says the contract it is written for: `contract`, the `CONTRACT`
+of `core/api.ts` it was built against — this core speaks **2**. A plugin
+written for a newer contract is refused when the project loads, naming both
+versions, instead of running against an API it does not know. One that says
+none is read as contract 1, the shape before `contract` existed, and keeps
+working: its top-level `gates` or `verifiers` are contributions to those
+points as any top-level key named after a point is.
+
+### What a plugin can and cannot do
+
+The registry and the configuration are frozen once the project is loaded,
+and so is every manifest, with everything it holds: a plugin reads another's
+contributions and cannot change or remove them. The API holds nothing that
+opens a project, loads code, migrates data or moves the program. This is an
+interface boundary, not a sandbox: a plugin is code in the same process, and
+the launcher's permissions (read the project, write the tracker folder, run
+`git` and the programs contributions declare) are what fence the process.
+A plugin from outside the program is trusted because the project pinned it.
 
 ## Contributions
 

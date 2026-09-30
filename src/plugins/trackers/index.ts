@@ -10,6 +10,7 @@ import {
   type Check,
   type Command,
   type Context,
+  CONTRACT,
   fieldValue,
   type Finding,
   isOpen,
@@ -28,7 +29,7 @@ import {
   today,
   typeOrThrow,
   usageError,
-} from "../../core/index.ts"
+} from "../../core/api.ts"
 
 const ABOUT = `Three words that are not synonyms:
 
@@ -194,6 +195,7 @@ const bugCounts: SummarySection = {
 export default function trackers(): Plugin {
   return {
     name: "trackers",
+    contract: CONTRACT,
     says: "bugs, todos, features, tests, and the archive of closed bugs",
     about: ABOUT,
     types: [

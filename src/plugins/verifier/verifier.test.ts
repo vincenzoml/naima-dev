@@ -3,7 +3,7 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "n
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { test } from "node:test"
-import { createItem, type Plugin, runChecks } from "../../core/index.ts"
+import { createItem, type Plugin, runChecks } from "../../core/api.ts"
 import { tempProject } from "../../core/testing.ts"
 import { exampleRegex } from "./adapters/example-regex.ts"
 import verifier, { readRun, type Verifier } from "./index.ts"

@@ -48,7 +48,7 @@ first-party plugin the table does not name is loaded as it is.
 | `options` | `{}` | the plugin's own options, as its reference documents them: the `gates` plugin's `gates`, the `docs` plugin's `reference`, `beta-markers`' `paths` |
 | `enabled` | `true` | `false` switches the plugin off: it is not loaded, and nothing it declares exists |
 | `replacedBy` | none | for a first-party plugin: the module that runs under its name instead — a fork, or an alternative |
-| `source` | none | for a third-party plugin, required: its module (below) |
+| `source` | none | for a third-party plugin, required: its module, pinned (below) |
 | `checks` | `{}` | check name → `off`, `note` or `problem`: how much each of the plugin's checks weighs here |
 
 The name is the project's: a plugin is registered under the name its entry
@@ -76,17 +76,31 @@ the `gates` plugin's own migration moves it here.
 
 ## Third-party plugins
 
-Code runs only from the program, never from the data or from a package. A
-third-party plugin is a module inside the program — in practice, in a fork of
-Naima ([modifying Naima](install.md#modifying-naima)) — named by its path
-there in its entry's `source`, with optional options:
+Code runs from a pinned source, never from the data or from a package. A
+third-party plugin's entry names it in `source`, with optional options:
 
 ```json
-{ "plugins": { "mine": { "source": "plugins/mine.ts" }, "other": { "source": "plugins/other.ts", "options": { "strict": true } } } }
+{
+  "plugins": {
+    "mine": { "source": "plugins/mine.ts" },
+    "tools": { "source": { "path": "tools/naima-plugin.mjs", "sha256": "…" }, "options": { "strict": true } },
+    "ops": { "source": { "git": "https://example.org/ops-plugin.git", "commit": "…", "path": "index.mjs" } }
+  }
+}
 ```
 
-A path that leaves the program is refused, and so is a `source` on a
-first-party name: it is already loaded, and `replacedBy` is how it is
-replaced. The module's default export is a factory that takes the options and
-returns the manifest ([plugin contract](plugin-contract.md)). Two plugins
-declaring the same name is an error when the project loads.
+- a **path inside the program**: a module a fork of Naima carries
+  ([modifying Naima](install.md#modifying-naima)); a path that leaves the
+  program is refused;
+- a **file of the project** with its **sha256**: refused, naming the new
+  hash, the moment the file changes, until the pin is updated;
+- a **git repository** at a full **commit**, with the module's path in it:
+  fetched once into `naima-tracker/plugins/<name>/`, ignored by git, and
+  refused when that checkout has local changes.
+
+`replacedBy` takes the same shapes. A `source` on a first-party name is
+refused: it is already loaded, and `replacedBy` is how it is replaced. The
+module's default export is a factory that takes the options and the plugin
+API and returns the manifest, which says the contract it is written for
+([plugin contract](plugin-contract.md#shape)). Two plugins declaring the
+same name is an error when the project loads.

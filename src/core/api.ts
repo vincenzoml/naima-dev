@@ -1,7 +1,19 @@
-// The public API of the core. Plugins import from this file and nothing else
-// in the core; tests may also import ./testing.ts.
+// The plugin API: everything a plugin may use of the core, and nothing else.
+// A plugin inside the program imports it from this file; any plugin — one a
+// project pins from outside the program too — receives the same functions as
+// the second argument of its factory, with its own scope, and so needs no
+// import at all. Everything the entry point, the loader and the tests use
+// besides is in ./internal.ts, which no plugin may import: src/arch.test.ts holds it.
 
 export type * from "./types.ts"
+import type * as Api from "./api.ts"
+import type { PluginScope } from "./types.ts"
+
+/** What a plugin's factory receives as its second argument: this whole API, with the plugin's own scope. */
+export type PluginApi = Omit<typeof Api, "CONTRACT" | "OLDEST_CONTRACT"> & PluginScope & { readonly contract: number }
+
+export { CONTRACT, OLDEST_CONTRACT } from "./contract.ts"
+
 export { bool, type Flags, pairs, parse, type Parsed, positiveInt, str, strs, usageError } from "./args.ts"
 export { appliesTo, enumRank, fieldError, type FieldRef, fieldsOf, fieldValue, fieldValues, parseFieldValue, setFieldValue, type ValueOf } from "./fields.ts"
 export {
@@ -44,33 +56,9 @@ export {
   type Worktree,
   worktrees,
 } from "./git.ts"
-export { CARRY_MODES, type Lock, parseConfig, parseLock, PLUGIN_NAME, programOf, readConfig } from "./config.ts"
-export { composePlugins } from "./plugins.ts"
-export { EXCLUDE_FILES, type Exclusion, exclusions } from "./excludes.ts"
-export { FORMAT, formatCheck, formatOf, formatRefusal, migrate, type Migration, MIGRATIONS, type Migrations, type Step } from "./format.ts"
-export {
-  ABOUT,
-  DATA_DIR,
-  DATA_FILE,
-  DEFAULT_DATA,
-  DEFAULT_PROGRAM,
-  DIST_BRANCH,
-  findData,
-  globalOptions,
-  HOME,
-  PROGRAM_DIR,
-  real,
-  RELAUNCH,
-  TRACKER_DIR,
-  TRACKER_README,
-  trackerOf,
-} from "./layout.ts"
-export { consoleIO, createContext, type IO, type Place } from "./context.ts"
-export { buildRegistry, type RegistryOptions } from "./registry.ts"
+export { DATA_FILE, DEFAULT_DATA, TRACKER_DIR } from "./layout.ts"
 export { cell, code, sentence, table } from "./markdown.ts"
-export { commandGaps, commandSection, CORE_POINTS, FIELD_KINDS, optionsTable } from "./points.ts"
-export { contributionsOf, migrationsOf } from "./manifest.ts"
+export { commandGaps, commandSection, FIELD_KINDS, optionsTable } from "./points.ts"
+export { contributionsOf } from "./manifest.ts"
 export { shortOrId } from "./names.ts"
-export { type CliOptions, runCli } from "./cli.ts"
 export { cliCommands } from "./entry.ts"
-export { type OpenOptions, openProject } from "./project.ts"

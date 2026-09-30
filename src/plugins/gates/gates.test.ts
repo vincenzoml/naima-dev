@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { type Context, createItem, type Plugin, runChecks, typeOrThrow } from "../../core/index.ts"
+import { type Context, createItem, type Plugin, runChecks, typeOrThrow } from "../../core/api.ts"
 import { tempProject } from "../../core/testing.ts"
 import gates, { type GateDef } from "./index.ts"
 
@@ -41,7 +41,7 @@ test("a code gate waits for code, a proof gate for everything", async () => {
     assert.deepEqual([v1.holds, v1.blocking.length, v1.owed.length], [false, 1, 1])
     assert.equal(await p.run("gates", "--check"), 1)
 
-    const { setFields } = await import("../../core/index.ts")
+    const { setFields } = await import("../../core/api.ts")
     setFields(ctx, ctx.repo.resolve(bug.slug), [["fixedOn", "2026-01-14"]])
     ctx.reload()
     v1 = gate(ctx, "v1").evaluate(ctx)
