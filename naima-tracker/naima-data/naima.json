@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "source": "https://github.com/vincenzoml/naima.git",
+  "commit": "7a5ef4691cf10553cae22a30f2335e1276bd9e9f",
+  "carry": "clone",
+  "gates": {
+    "first-public": {
+      "title": "First public release",
+      "says": "The repository opens to the public: licence chosen, Naima tracking itself through its own lock, the agent flows written.",
+      "holdsOn": "code"
+    }
+  }
+}
