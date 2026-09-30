@@ -4,7 +4,7 @@ import { tmpdir } from "node:os"
 import { join, relative } from "node:path"
 import { test } from "node:test"
 import { gitCalls } from "./git.ts"
-import { gitPath, projectFiles, readAcrossBranches, refsWorthReading, walkFiles } from "./index.ts"
+import { gitPath, projectFiles, readAcrossBranches, refsWorthReading, trunk, walkFiles } from "./index.ts"
 import { tempProject } from "./testing.ts"
 
 test("records are recombined from every unmerged branch, with the working tree winning", () => {
@@ -103,6 +103,42 @@ test("reading across branches starts a bounded number of git processes, however 
     assert.equal(readAcrossBranches(p.root, dir, ".json").length, 30)
     assert.equal(many, few, `2 branches took ${few} git processes, 10 took ${many}`)
     assert.ok(many <= 8, `${many} git processes for one read`)
+  } finally {
+    p.cleanup()
+  }
+})
+
+test("the trunk is origin's HEAD, main or master — and without any, every local branch is read; a detached HEAD is not a ref to read", () => {
+  const p = tempProject([], { git: true })
+  try {
+    const record = (branch: string, name: string) => {
+      p.git("checkout", "-q", "-b", branch)
+      mkdirSync(join(p.root, "rec"), { recursive: true })
+      writeFileSync(join(p.root, "rec", name), branch)
+      p.git("add", "-A")
+      p.git("commit", "-q", "-m", branch)
+    }
+    const names = () => readAcrossBranches(p.root, "rec", ".txt").map((f) => `${f.name}@${f.ref}`).sort()
+    p.git("branch", "-m", "main", "develop")
+    record("feature", "f.txt")
+    p.git("checkout", "-q", "develop")
+    assert.equal(trunk(p.root), null)
+    assert.deepEqual(names(), ["f.txt@feature"], "no main or master: every local branch is read")
+
+    p.git("update-ref", "refs/remotes/origin/develop", "develop")
+    p.git("symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/develop")
+    assert.equal(trunk(p.root), "develop")
+    assert.deepEqual(refsWorthReading(p.root), ["feature", "develop"])
+    assert.deepEqual(names(), ["f.txt@feature"])
+
+    // A commit made on a detached HEAD, its record deleted on disk: not read back from the HEAD's own sha.
+    p.git("checkout", "-q", "--detach", "develop")
+    mkdirSync(join(p.root, "rec"), { recursive: true })
+    writeFileSync(join(p.root, "rec", "d.txt"), "detached")
+    p.git("add", "-A")
+    p.git("commit", "-q", "-m", "detached")
+    rmSync(join(p.root, "rec", "d.txt"))
+    assert.deepEqual(names(), ["f.txt@feature"])
   } finally {
     p.cleanup()
   }

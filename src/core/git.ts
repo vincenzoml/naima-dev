@@ -6,7 +6,7 @@
 // read time from every ref worth reading. Nothing in this module writes.
 
 import { execFileSync } from "node:child_process"
-import { existsSync, readFileSync, readdirSync } from "node:fs"
+import { existsSync, readFileSync, readdirSync, realpathSync } from "node:fs"
 import { join, relative, sep } from "node:path"
 import { isRegularFile, walkFiles } from "./files.ts"
 
@@ -60,8 +60,19 @@ export function currentBranch(root: string): string {
   return git(root, "rev-parse", "--abbrev-ref", "HEAD") ?? "HEAD"
 }
 
-export function trunk(root: string): string {
-  return git(root, "rev-parse", "--verify", "--quiet", "main") !== null ? "main" : "master"
+/**
+ * The trunk: the local branch origin's HEAD names, else `main`, else
+ * `master`; null when there is none of them. One git process.
+ */
+export function trunk(root: string): string | null {
+  const refs = new Map<string, string>()
+  for (const line of (git(root, "for-each-ref", "--format=%(refname) %(symref)", "refs/remotes/origin/HEAD", "refs/heads/main", "refs/heads/master") ?? "").split("\n")) {
+    const [name, target = ""] = line.trim().split(" ")
+    if (name) refs.set(name, target)
+  }
+  const origin = refs.get("refs/remotes/origin/HEAD")?.replace(/^refs\/remotes\/origin\//, "")
+  if (origin && git(root, "rev-parse", "--verify", "--quiet", `refs/heads/${origin}`) !== null) return origin
+  return refs.has("refs/heads/main") ? "main" : refs.has("refs/heads/master") ? "master" : null
 }
 
 /** Every local and remote branch name, with remote prefixes also stripped. Answers "does this branch still exist". */
@@ -76,26 +87,41 @@ export function allRefNames(root: string): Set<string> {
   return out
 }
 
+const realOr = (path: string): string => {
+  try {
+    return realpathSync(path)
+  } catch {
+    return path
+  }
+}
+
 /**
  * The refs worth reading: every local branch not merged into the trunk,
- * whatever each worktree stands on, and the trunk itself — last, so that a
- * record's own branch is read before the older copy the trunk may carry. A
- * merged branch adds nothing the trunk does not already carry.
+ * whatever each other worktree stands on, and the trunk itself — last, so that
+ * a record's own branch is read before the older copy the trunk may carry. A
+ * merged branch adds nothing the trunk does not already carry. Without a
+ * trunk, every local branch. Never the detached HEAD of this worktree: its
+ * disk is read instead.
  */
 export function refsWorthReading(root: string): string[] {
   const main = trunk(root)
   const refs = new Set<string>()
-  for (const line of (git(root, "for-each-ref", "--format=%(refname:short)", "--no-merged", main, "refs/heads") ?? "").split("\n")) {
+  const branches = main ? ["--no-merged", main, "refs/heads"] : ["refs/heads"]
+  for (const line of (git(root, "for-each-ref", "--format=%(refname:short)", ...branches) ?? "").split("\n")) {
     if (line.trim()) refs.add(line.trim())
   }
+  const self = realOr(root)
   for (const block of (git(root, "worktree", "list", "--porcelain") ?? "").split("\n\n")) {
     const named = block.match(/^branch refs\/heads\/(.+)$/m)?.[1]
     const head = block.match(/^HEAD ([0-9a-f]+)$/m)?.[1]
+    const path = block.match(/^worktree (.+)$/m)?.[1]
     if (named) refs.add(named)
-    else if (head) refs.add(head)
+    else if (head && (!path || realOr(path) !== self)) refs.add(head)
   }
-  refs.delete(main)
-  if (git(root, "rev-parse", "--verify", "--quiet", main) !== null) refs.add(main)
+  if (main) {
+    refs.delete(main)
+    refs.add(main)
+  }
   return [...refs]
 }
 

@@ -122,6 +122,7 @@ const claim: Command = {
     if (!p.positionals.length) throw usageError(this)
     const items = p.positionals.map((r) => ctx.repo.resolve(r))
     const branch = currentBranch(ctx.root)
+    if (branch === "HEAD") throw new Error("HEAD is detached: a claim belongs to a branch — git switch -c <branch>, then claim")
     const all = readClaims(ctx)
     const mine = all.find((c) => c.local && c.branch === branch) ?? { branch, claimedAt: today(ctx), items: [], file: `${randomUUID()}.json`, local: true }
     const note = str(p, "note")
@@ -288,6 +289,7 @@ export default function coordination(): Plugin {
       "No session writes a file another session writes. A claim is one file per branch, `claims/<uuid>.json`; a session note is one file per session, `passes/<date>-<uuid>.md`. " +
       "Both are written on the writer's own branch and never staged or committed by the tool: commit them with the work. " +
       "`claims`, `pass --list` and `summary` recombine them at read time from the trunk, every branch not merged into it, and whatever each worktree stands on, uncommitted files included. " +
+      "The trunk is the branch origin's HEAD names, else `main`, else `master`; without one, every local branch is read. A claim belongs to a branch, so on a detached HEAD `claim` is refused. " +
       "Several branches may claim one item: `claim` says who else holds it rather than refusing.",
     dirs: [CLAIMS, PASSES],
     checks: [claimsResolve],

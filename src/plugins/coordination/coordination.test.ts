@@ -96,3 +96,17 @@ test("a count that is not a positive whole number is a usage error, not an empty
     p.cleanup()
   }
 })
+
+test("a claim belongs to a branch: on a detached HEAD it is refused", async () => {
+  const p = tempProject([things, coordination()], { git: true })
+  try {
+    const a = createItem(p.ctx, p.ctx.registry.types.get("things")!, "Alpha")
+    p.git("add", "-A")
+    p.git("commit", "-q", "-m", "items")
+    p.git("checkout", "-q", "--detach")
+    await assert.rejects(p.run("claim", a.slug), /HEAD is detached: a claim belongs to a branch/)
+    assert.ok(!existsSync(join(p.ctx.trackerRoot, "claims")))
+  } finally {
+    p.cleanup()
+  }
+})
