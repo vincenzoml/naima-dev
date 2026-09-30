@@ -122,3 +122,17 @@ test("anchors follow GitHub's rule, duplicates numbered", () => {
   assert.equal(anchor("Fixed, resolved, closed"), "fixed-resolved-closed")
   assert.deepEqual([...anchorsOf("# A\n## A\n```\n# not\n```\n")], ["a", "a-1"])
 })
+
+test("with nothing configured, every markdown file of the project is link-checked, and nothing git ignores", () => {
+  const p = tempProject([docs(), features], { git: true })
+  try {
+    writeFileSync(join(p.root, ".gitignore"), "scratch/\n")
+    mkdirSync(join(p.root, "scratch"))
+    writeFileSync(join(p.root, "scratch", "notes.md"), "[ignored](nowhere.md)\n")
+    writeFileSync(join(p.root, "README.md"), "# Read me\n\n[bad](missing.md)\n")
+    const problems = runChecks(p.ctx).problems.map((f) => f.message)
+    assert.deepEqual(problems, ["README.md:3: link missing.md — missing.md does not exist"], "every tracked markdown file, none that git ignores")
+  } finally {
+    p.cleanup()
+  }
+})

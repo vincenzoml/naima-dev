@@ -6,9 +6,9 @@ Every item — a bug, a task, a feature, a test, a property — is a directory
 under the tracker:
 
 ```
-tracker/<TYPE>/<slug>/README.md       the prose
-tracker/<TYPE>/<slug>/meta.json       the fields
-tracker/<TYPE>/<slug>/attachments/    the evidence
+naima/<type>/<slug>/README.md       the prose
+naima/<type>/<slug>/meta.json       the fields
+naima/<type>/<slug>/attachments/    the evidence
 ```
 
 `meta.json` always holds `id` (a permanent uuid), `title` and `status`; the

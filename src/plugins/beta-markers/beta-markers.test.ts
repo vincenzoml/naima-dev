@@ -46,3 +46,20 @@ test("a marker must name an open item and dies with its proof", async () => {
     p.cleanup()
   }
 })
+
+test("with nothing configured, every source file of the project is scanned, and nothing git ignores", () => {
+  const p = tempProject([proofs, betaMarkers()], { git: true })
+  try {
+    writeFileSync(join(p.root, ".gitignore"), "generated/\n")
+    mkdirSync(join(p.root, "lib", "deep"), { recursive: true })
+    mkdirSync(join(p.root, "generated"))
+    mkdirSync(join(p.root, "node_modules"))
+    writeFileSync(join(p.root, "lib", "deep", "a.py"), marker("tests/ghost", "anywhere in the project") + "\n")
+    writeFileSync(join(p.root, "generated", "b.ts"), marker("tests/ghost", "ignored by git") + "\n")
+    writeFileSync(join(p.root, "node_modules", "c.ts"), marker("tests/ghost", "a dependency") + "\n")
+    const problems = runChecks(p.ctx).problems.map((f) => f.message)
+    assert.deepEqual(problems, ['lib/deep/a.py:1: beta marker names "tests/ghost", which is no item'])
+  } finally {
+    p.cleanup()
+  }
+})

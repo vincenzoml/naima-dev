@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { test } from "node:test"
-import { addLink, buildRegistry, createItem, parseConfig, runChecks, setFields, slugify, uniqueSlug, type Plugin } from "./index.ts"
+import { addLink, buildRegistry, createItem, maxSatisfying, parseConfig, satisfies, runChecks, setFields, slugify, uniqueSlug, type Plugin } from "./index.ts"
 import { corePlugin } from "./base.ts"
 import { tempProject } from "./testing.ts"
 
@@ -36,11 +36,29 @@ test("the registry refuses a name declared twice", () => {
   assert.throws(() => buildRegistry([corePlugin, { name: "x", says: "", fields: [{ name: "f", kind: "string", says: "", appliesTo: ["nope"] }] }]), /no plugin declares/)
 })
 
-test("config: plugin entries are names or objects; trackerDir is relative", () => {
-  const c = parseConfig({ plugins: ["a", { name: "b", options: { k: 1 } }] })
-  assert.deepEqual(c, { trackerDir: "tracker", plugins: [{ name: "a", options: {} }, { name: "b", options: { k: 1 } }] })
-  assert.throws(() => parseConfig({ trackerDir: "/abs", plugins: [] }), /relative/)
-  assert.throws(() => parseConfig({ plugins: [3] }), /a plugin entry/)
+test("config: only the pin, gates and third-party plugins; nothing to switch on", () => {
+  assert.deepEqual(parseConfig({ naima: "^0.2.0" }), { pin: "^0.2.0", gates: {}, plugins: [] })
+  const c = parseConfig({ naima: "^0.2.0", gates: { v1: {} }, plugins: ["./a.mjs", { name: "b", options: { k: 1 } }] })
+  assert.deepEqual(c.plugins, [{ name: "./a.mjs", options: {} }, { name: "b", options: { k: 1 } }])
+  assert.throws(() => parseConfig({}), /naima must be the pin/)
+  assert.throws(() => parseConfig({ naima: "not a range" }), /naima must be the pin/)
+  assert.throws(() => parseConfig({ naima: "*", trackerDir: "t" }), /unknown key "trackerDir"/)
+  assert.throws(() => parseConfig({ naima: "*", plugins: [3] }), /a plugin entry/)
+})
+
+test("semver: the ranges a pin is written in", () => {
+  assert.ok(satisfies("0.2.0", "^0.2.0"))
+  assert.ok(satisfies("0.2.9", "^0.2.0"))
+  assert.ok(!satisfies("0.3.0", "^0.2.0"))
+  assert.ok(!satisfies("0.1.0", "^0.2.0"))
+  assert.ok(satisfies("1.4.0", "^1.2.3") && !satisfies("2.0.0", "^1.2.3"))
+  assert.ok(satisfies("1.2.9", "~1.2.3") && !satisfies("1.3.0", "~1.2.3"))
+  assert.ok(satisfies("1.2.7", "1.2.x") && satisfies("1.9.0", "1.x") && satisfies("3.0.0", "*"))
+  assert.ok(satisfies("1.5.0", ">=1.2.0 <2.0.0") && !satisfies("2.0.0", ">=1.2.0 <2.0.0"))
+  assert.ok(satisfies("3.0.0", "^1.0.0 || ^3.0.0"))
+  assert.ok(!satisfies("0.3.0-dev", "^0.2.0"))
+  assert.equal(maxSatisfying(["v0.1.0", "v0.2.0", "v0.2.3", "v0.3.0", "junk"], "^0.2.0"), "v0.2.3")
+  assert.equal(maxSatisfying(["v0.1.0"], "^0.2.0"), null)
 })
 
 test("an item is a directory with a uuid, and links are resolved in both directions", async () => {

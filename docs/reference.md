@@ -20,7 +20,7 @@ Names are global: no two plugins may declare the same command, type, field, rela
 
 | Command | Plugin | What it does |
 |---|---|---|
-| [`init`](#naima-init) | core | create naima.config.json with the default plugins, and the tracker directory |
+| [`init`](#naima-init) | core | make this git repository a Naima project: create naima/config.json, pinned to this Naima; nothing outside naima/ is touched |
 | [`help`](#naima-help) | core | list every command the loaded plugins provide, with its usage |
 | [`new`](#naima-new) | core | open an item |
 | [`show`](#naima-show) | core | print one item: fields, links in both directions, attachments, prose |
@@ -57,21 +57,16 @@ An item is a directory under `<tracker>/<TYPE>/<slug>/`: `README.md` for the pro
 
 ### naima init
 
-Create naima.config.json with the default plugins, and the tracker directory.
+Make this git repository a Naima project: create naima/config.json, pinned to this Naima; nothing outside naima/ is touched.
 
 ```sh
-naima init [--tracker-dir <dir>]
+naima init
 ```
-
-| Option | Default | What it does |
-|---|---|---|
-| `--tracker-dir` | `tracker` | the tracker directory, relative to the project root |
 
 Examples:
 
 ```sh
 naima init
-naima init --tracker-dir .tracker
 ```
 
 ### naima help
@@ -319,7 +314,7 @@ Three words that are not synonyms:
 
 - **fixed** — the code change exists: `fixedOn` is set. Nothing is proven.
 - **resolved** — fixed, and proven by an item that `verifies` it and whose status `proves` (a passed test, a property that holds).
-- **closed** — resolved, and moved to `CLOSED/` by `naima close`, carrying its proof.
+- **closed** — resolved, and moved to `closed/` by `naima close`, carrying its proof.
 
 "How many bugs are left" means the unfixed count; `naima bugs` never adds the three together.
 
@@ -355,7 +350,7 @@ naima bugs
 
 ### type: bugs
 
-Bugs: something that is broken. Items live in `<tracker>/BUGS/`; a new one starts as `open`.
+Bugs: something that is broken. Items live in `naima/bugs/`; a new one starts as `open`.
 
 | Status | Category | Proves | Meaning |
 |---|---|---|---|
@@ -365,7 +360,7 @@ Bugs: something that is broken. Items live in `<tracker>/BUGS/`; a new one start
 
 ### type: todos
 
-Todos: work that is not a defect: a task, a decision, a tidy-up. Items live in `<tracker>/TODOS/`; a new one starts as `open`.
+Todos: work that is not a defect: a task, a decision, a tidy-up. Items live in `naima/todos/`; a new one starts as `open`.
 
 | Status | Category | Proves | Meaning |
 |---|---|---|---|
@@ -376,7 +371,7 @@ Todos: work that is not a defect: a task, a decision, a tidy-up. Items live in `
 
 ### type: features
 
-Features: what the software does, or is asked to do. Items live in `<tracker>/FEATURES/`; a new one starts as `requested`.
+Features: what the software does, or is asked to do. Items live in `naima/features/`; a new one starts as `requested`.
 
 | Status | Category | Proves | Meaning |
 |---|---|---|---|
@@ -387,7 +382,7 @@ Features: what the software does, or is asked to do. Items live in `<tracker>/FE
 
 ### type: tests
 
-Tests: a gesture that proves something, and its result. Items live in `<tracker>/TESTS/`; a new one starts as `open`.
+Tests: a gesture that proves something, and its result. Items live in `naima/tests/`; a new one starts as `open`.
 
 | Status | Category | Proves | Meaning |
 |---|---|---|---|
@@ -398,7 +393,7 @@ Tests: a gesture that proves something, and its result. Items live in `<tracker>
 
 ### type: closed
 
-Closed: the archive: resolved items, each with its proof. Items live in `<tracker>/CLOSED/`; a new one starts as `closed`; it is an archive: items arrive by being moved there, never by being opened.
+Closed: the archive: resolved items, each with its proof. Items live in `naima/closed/`; a new one starts as `closed`; it is an archive: items arrive by being moved there, never by being opened.
 
 | Status | Category | Proves | Meaning |
 |---|---|---|---|
@@ -439,7 +434,7 @@ Closed: the archive: resolved items, each with its proof. Items live in `<tracke
 
 Claims and session notes, one file per session, recombined from every branch.
 
-No session writes a file another session writes. A claim is one file per branch, `CLAIMS/<uuid>.json`; a session note is one file per session, `PASSES/<date>-<uuid>.md`. Both are written on the writer's own branch and never staged or committed by the tool: commit them with the work. `claims`, `pass --list` and `summary` recombine them at read time from the trunk, every branch not merged into it, and whatever each worktree stands on, uncommitted files included. Several branches may claim one item: `claim` says who else holds it rather than refusing.
+No session writes a file another session writes. A claim is one file per branch, `claims/<uuid>.json`; a session note is one file per session, `passes/<date>-<uuid>.md`. Both are written on the writer's own branch and never staged or committed by the tool: commit them with the work. `claims`, `pass --list` and `summary` recombine them at read time from the trunk, every branch not merged into it, and whatever each worktree stands on, uncommitted files included. Several branches may claim one item: `claim` says who else holds it rather than refusing.
 
 ### naima claim
 
@@ -540,7 +535,7 @@ naima pass --list 3
 |---|---|
 | `claims-resolve` | a claim written in this worktree names items that exist |
 
-**Directories** it owns under the tracker root: `CLAIMS/`, `PASSES/`.
+**Directories** it owns under the tracker root: `claims/`, `passes/`.
 
 **Summary sections**: `where we were`, `in hand`.
 
@@ -601,11 +596,11 @@ Named release conditions backed by items.
 
 A gate is the set of items that must be settled before something may happen — a release, a merge. An item joins a gate by carrying `gate: <name>`. Gates are configured, never hard-coded, and any plugin may contribute one through the contract; `naima gates` lists them all.
 
-Options, under `{ "name": "gates", "options": { … } }` in the config:
+Options, each with the default it takes when nothing sets it:
 
 | Option | Default | What it does |
 |---|---|---|
-| `gates` | `{}` | gate name → { "title", "says", "holdsOn" }. holdsOn "code" (the default) waits for code, not proof: a fixed item that owes only its proving gesture, and the gestures themselves, are owed but do not block. holdsOn "proof": every open item on the gate blocks it. |
+| `gates` | `{}` | the `gates` key of `naima/config.json`: gate name → { "title", "says", "holdsOn" }. holdsOn "code" (the default) waits for code, not proof: a fixed item that owes only its proving gesture, and the gestures themselves, are owed but do not block. holdsOn "proof": every open item on the gate blocks it. |
 
 ### naima gates
 
@@ -671,13 +666,13 @@ naima queue first-public --human
 
 Markers in the code for behaviour shipped without proof.
 
-A marker is a comment in the project's own source naming the item whose passing would prove the marked behaviour: `// naima:beta tests/export-keeps-alpha  export of layered files is unproven`. A marker is wrong in two ways: it names nothing (dangling), or it outlives its proof — the item it names has passed or is no longer open (stale). Both fail `naima check`: a stale marker teaches readers that markers mean nothing.
+A marker is a comment in the project's own source naming the item whose passing would prove the marked behaviour: `// naima:beta tests/export-keeps-alpha  export of layered files is unproven`. Always on: it scans every source file of the project, so a marker anywhere is held without listing where to look. A marker is wrong in two ways: it names nothing (dangling), or it outlives its proof — the item it names has passed or is no longer open (stale). Both fail `naima check`: a stale marker teaches readers that markers mean nothing.
 
-Options, under `{ "name": "beta-markers", "options": { … } }` in the config:
+Options, each with the default it takes when nothing sets it:
 
 | Option | Default | What it does |
 |---|---|---|
-| `paths` | `["src"]` | files or directories, from the project root, to scan |
+| `paths` | `every file git tracks or would track (outside git, every file under the root but hidden directories, node_modules, dist and build)` | files or directories, from the project root, to scan instead of the whole project |
 | `extensions` | `[".ts", ".tsx", ".js", ".mjs", ".py", ".rs", ".go", ".java", ".c", ".h"]` | file extensions to scan |
 | `pattern` | `a comment (//, #, --, ;, *) followed by naima:beta <ref> <what>` | a regular expression with named groups ref and what, matched against each line |
 
@@ -750,7 +745,7 @@ naima verifiers
 
 ### type: properties
 
-Properties: a property of the software, proven or refuted by a verifier. Items live in `<tracker>/PROPERTIES/`; a new one starts as `open`.
+Properties: a property of the software, proven or refuted by a verifier. Items live in `naima/properties/`; a new one starts as `open`.
 
 | Status | Category | Proves | Meaning |
 |---|---|---|---|
@@ -790,16 +785,16 @@ Properties: a property of the software, proven or refuted by a verifier. Items l
 
 Every feature is documented as part of its implementation, and naima check holds it.
 
-The rule: a feature is not done until its documentation is in the same change. Loading this plugin switches it on, in three places. **The manifests**: every contribution of every loaded plugin carries its own documentation — a command its usage, an example and every `--flag` it takes; a type, status, field, enum value, relation, check, view and verifier what it means; a gate what it is for and how it decides — and `documented` fails on any that does not. `naima docs` generates the reference from them, so it cannot drift. **The tracker**: an item of a feature type in a documented status names its documentation in `docs` (`path` or `path#heading`, from the project root), and every name resolves. **The prose**: every relative link in the markdown under `links` resolves, so a flow an instruction names exists.
+The rule: a feature is not done until its documentation is in the same change. It is always on, in three places, and nothing has to be configured for it. **The manifests**: every contribution of every loaded plugin carries its own documentation — a command its usage, an example and every `--flag` it takes; a type, status, field, enum value, relation, check, view and verifier what it means; a gate what it is for and how it decides — and `documented` fails on any that does not. `naima docs` generates the reference from them, so it cannot drift. **The tracker**: an item of a feature type in a documented status names its documentation in `docs` (`path` or `path#heading`, from the project root), and every name resolves. **The prose**: every relative link in every markdown file git tracks resolves, so a flow an instruction names exists.
 
-Options, under `{ "name": "docs", "options": { … } }` in the config:
+Options, each with the default it takes when nothing sets it:
 
 | Option | Default | What it does |
 |---|---|---|
-| `reference` |  | the reference file `naima docs --write` writes; when set, `naima check` fails when it is out of date |
+| `reference` | `none` | the reference file `naima check` holds current with the manifests; `naima docs --check <path>` holds any file without it |
 | `featureTypes` | `["features"]` | item types whose items are features |
 | `documentedStatuses` | `["shipped"]` | statuses in which a feature must name its documentation |
-| `links` | `[]` | markdown files or directories, from the project root, whose relative links must resolve |
+| `links` | `every markdown file git tracks or would track` | markdown files or directories, from the project root, to check instead of the whole project |
 
 ### naima docs
 
@@ -811,7 +806,7 @@ naima docs [--write [path]] [--check [path]]
 
 | Option | Default | What it does |
 |---|---|---|
-| `--write` |  | write the reference to the path, or to the reference option |
+| `--write` |  | write the reference to the path; without one, to the reference option, or docs/reference.md |
 | `--check` |  | exit 1 when the file differs from the generated reference, or something is undocumented |
 
 Examples:
@@ -835,4 +830,4 @@ naima docs --check docs/reference.md
 | `documented` | every loaded plugin, command (with an example and every option), type, status, field, value, relation, check, view, gate and verifier carries its documentation |
 | `reference-current` | with the reference option set, the reference file is what `naima docs` generates from the loaded manifests |
 | `features-documented` | a feature in a documented status names its documentation in `docs`, and every name there resolves to a file and heading |
-| `links-resolve` | every relative link in the markdown under the links option points at a file, and a heading when it names one |
+| `links-resolve` | every relative link in every markdown file of the project (or under the links option) points at a file, and a heading when it names one |

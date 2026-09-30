@@ -164,7 +164,7 @@ export default function gates(options: Record<string, unknown> = {}): Plugin {
     options: [
       {
         name: "gates",
-        says: 'gate name → { "title", "says", "holdsOn" }. holdsOn "code" (the default) waits for code, not proof: a fixed item that owes only its proving gesture, and the gestures themselves, are owed but do not block. holdsOn "proof": every open item on the gate blocks it.',
+        says: 'the `gates` key of `naima/config.json`: gate name → { "title", "says", "holdsOn" }. holdsOn "code" (the default) waits for code, not proof: a fixed item that owes only its proving gesture, and the gestures themselves, are owed but do not block. holdsOn "proof": every open item on the gate blocks it.',
         default: "{}",
       },
     ],

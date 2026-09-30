@@ -4,6 +4,7 @@
 
 import { existsSync, readdirSync } from "node:fs"
 import { join } from "node:path"
+import { NAIMA_DIR } from "./config.ts"
 import { bool, pairs, parse, str, strs } from "./args.ts"
 import { coreChecks, runChecks } from "./check.ts"
 import { parseFieldValue, appliesTo } from "./fields.ts"
@@ -74,7 +75,7 @@ const newCommand: Command = {
     const item = createItem(ctx, type, title.trim(), section ? { section } : {})
     const assignments = pairs(strs(p, "set"))
     if (assignments.length) setFields(ctx, ctx.repo.resolve(item.meta.id), assignments)
-    ctx.out(`${ctx.config.trackerDir}/${type.dir}/${item.slug}/  ${item.meta.id}`)
+    ctx.out(`${NAIMA_DIR}/${type.dir}/${item.slug}/  ${item.meta.id}`)
     return 0
   },
 }
@@ -296,7 +297,7 @@ const types: Command = {
   examples: ["types"],
   run(_args, ctx) {
     for (const t of ctx.registry.types.values()) {
-      ctx.out(`${t.id} (${ctx.config.trackerDir}/${t.dir}/) — ${t.says}`)
+      ctx.out(`${t.id} (${NAIMA_DIR}/${t.dir}/) — ${t.says}`)
       for (const [name, s] of Object.entries(t.statuses)) ctx.out(`  ${name.padEnd(10)} ${s.category}${s.proves ? ", proves" : ""} — ${s.says}`)
       const fields = [...ctx.registry.fields.values()].filter((f) => appliesTo(f, t.id)).map((f) => f.name)
       ctx.out(`  fields: ${fields.join(", ")}`)

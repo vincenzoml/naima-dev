@@ -1,6 +1,6 @@
 {
   "name": "naima",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A file-based project tracker for software built by people and AI agents together.",
   "type": "module",
   "private": true,
@@ -15,7 +15,9 @@
     "./core/testing": "./dist/core/testing.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "skills",
+    "docs"
   ],
   "scripts": {
     "naima": "node scripts/stable.mjs",
@@ -26,12 +28,12 @@
     "typecheck": "tsc -p tsconfig.json",
     "build": "tsc -p tsconfig.build.json",
     "test": "node --test \"src/**/*.test.ts\"",
-    "verify": "npm run typecheck && npm test && node src/cli.ts check && node src/cli.ts docs --check docs/reference.md && node scripts/stable.mjs check"
+    "verify": "npm run typecheck && npm test && node src/cli.ts check && node src/cli.ts docs --check docs/reference.md && node scripts/stable.mjs check",
+    "prepare": "npm run build"
   },
   "devDependencies": {
     "@types/node": "^22.18.0",
     "typescript": "^7.0.2"
   },
-  "license": "Apache-2.0",
-  "naimaStable": "v0.1.0"
+  "license": "Apache-2.0"
 }

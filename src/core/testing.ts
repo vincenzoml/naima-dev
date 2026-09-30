@@ -6,6 +6,7 @@ import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { corePlugin } from "./base.ts"
+import { CONFIG_FILE } from "./config.ts"
 import { createContext } from "./context.ts"
 import { writeJson } from "./item.ts"
 import { buildRegistry } from "./registry.ts"
@@ -26,8 +27,8 @@ export const FIXED_NOW = new Date("2026-01-15T10:00:00.000Z")
 
 export function tempProject(plugins: Plugin[], opts: { git?: boolean; now?: Date } = {}): TempProject {
   const root = mkdtempSync(join(tmpdir(), "naima-"))
-  const config = { trackerDir: "tracker", plugins: plugins.map((p) => ({ name: p.name, options: {} })) }
-  writeJson(join(root, "naima.config.json"), config)
+  const config = { pin: "*", gates: {}, plugins: [] }
+  writeJson(join(root, CONFIG_FILE), { naima: config.pin })
   const output: string[] = []
   const errors: string[] = []
   const now = opts.now ?? FIXED_NOW

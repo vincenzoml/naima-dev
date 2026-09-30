@@ -1,8 +1,8 @@
 // Who is working on what, and where each session left off — without any
 // session ever writing a file another session writes.
 //
-//   <tracker>/CLAIMS/<uuid>.json        one per branch that claims work
-//   <tracker>/PASSES/<date>-<uuid>.md   one per session note
+//   naima/claims/<uuid>.json        one per branch that claims work
+//   naima/passes/<date>-<uuid>.md   one per session note
 //
 // Both are written on the writer's own branch, never staged, never committed
 // by the tool. The collections are recombined at read time from every branch.
@@ -11,6 +11,7 @@ import { randomUUID } from "node:crypto"
 import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import {
+  NAIMA_DIR,
   type BranchFile,
   type Check,
   type Command,
@@ -30,8 +31,8 @@ import {
   writeJson,
 } from "../../core/index.ts"
 
-export const CLAIMS = "CLAIMS"
-export const PASSES = "PASSES"
+export const CLAIMS = "claims"
+export const PASSES = "passes"
 
 export interface ClaimEntry {
   id: string
@@ -57,7 +58,7 @@ export interface Pass {
   local: boolean
 }
 
-const rel = (ctx: Context, dir: string): string => join(ctx.config.trackerDir, dir)
+const rel = (ctx: Context, dir: string): string => join(NAIMA_DIR, dir)
 
 function parseClaim(f: BranchFile): Claim | null {
   try {
@@ -282,7 +283,7 @@ export default function coordination(): Plugin {
     name: "coordination",
     says: "claims and session notes, one file per session, recombined from every branch",
     about:
-      "No session writes a file another session writes. A claim is one file per branch, `CLAIMS/<uuid>.json`; a session note is one file per session, `PASSES/<date>-<uuid>.md`. " +
+      "No session writes a file another session writes. A claim is one file per branch, `claims/<uuid>.json`; a session note is one file per session, `passes/<date>-<uuid>.md`. " +
       "Both are written on the writer's own branch and never staged or committed by the tool: commit them with the work. " +
       "`claims`, `pass --list` and `summary` recombine them at read time from the trunk, every branch not merged into it, and whatever each worktree stands on, uncommitted files included. " +
       "Several branches may claim one item: `claim` says who else holds it rather than refusing.",

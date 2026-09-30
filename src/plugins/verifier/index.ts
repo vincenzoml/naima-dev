@@ -172,7 +172,7 @@ export default function verifier(): Plugin {
     types: [
       {
         id: TYPE,
-        dir: "PROPERTIES",
+        dir: "properties",
         title: "Properties",
         says: "a property of the software, proven or refuted by a verifier",
         statuses: {

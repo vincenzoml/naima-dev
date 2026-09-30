@@ -22,10 +22,9 @@ does not:
 | gate | `says` (what it is for) and `decides` (how it decides) |
 
 `naima docs` prints the reference generated from those manifests;
-`naima docs --write <file>` writes it. With the plugin's `reference` option
-set, the `reference-current` check fails when the file differs from what the
-code generates, so the reference cannot drift. In this repository the
-development build checks it instead (see [bootstrap policy](bootstrap.md#why-the-reference-is-checked-by-the-development-build)),
+`naima docs --write <file>` writes it, and `naima docs --check <file>` fails
+when the file differs from what the code generates, so the reference cannot
+drift. In this repository the development build runs that check (see [bootstrap policy](bootstrap.md#why-the-reference-is-checked-by-the-development-build)),
 and the generated file is [reference.md](reference.md).
 
 ## 2. The tracker
@@ -43,15 +42,13 @@ when a named file or heading does not exist.
 
 ## 3. The prose
 
-With the `links` option naming markdown files or directories, the
-`links-resolve` check fails on any relative link there that does not resolve —
+The `links-resolve` check follows every relative link in every markdown file
+git tracks (or would track), and fails on any that does not resolve —
 to a file, and to a heading when it names one. It is how a project knows that
 the flows its agent instructions name exist.
 
-## Switching it on
+## Always on
 
-```json
-{ "name": "docs", "options": { "reference": "docs/reference.md", "links": ["README.md", "docs"] } }
-```
-
-Every option: [reference](reference.md#docs).
+Nothing switches it on: the `docs` plugin is loaded in every project and
+infers what to check from the repository ([the automatic principle](config.md#the-automatic-principle)).
+Every option and its default: [reference](reference.md#docs).

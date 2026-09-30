@@ -7,7 +7,7 @@
 
 import { execFileSync } from "node:child_process"
 import { existsSync, readFileSync, readdirSync } from "node:fs"
-import { join } from "node:path"
+import { join, relative } from "node:path"
 
 function git(root: string, ...args: string[]): string | null {
   try {
@@ -19,6 +19,30 @@ function git(root: string, ...args: string[]): string | null {
 
 export function isGitRepo(root: string): boolean {
   return git(root, "rev-parse", "--is-inside-work-tree") === "true"
+}
+
+const NEVER_SOURCE = new Set(["node_modules", ".git", "dist", "build"])
+
+/**
+ * The project's own files, relative to the root: every file git tracks or
+ * would track (not ignored), or, outside git, every file under the root but
+ * hidden directories, node_modules, dist and build. What a plugin scans by
+ * default, so that nothing has to be listed for it to be covered.
+ */
+export function projectFiles(root: string): string[] {
+  const listed = isGitRepo(root) ? git(root, "ls-files", "-z", "--cached", "--others", "--exclude-standard") : null
+  if (listed !== null) return [...new Set(listed.split("\0").filter((f) => f && existsSync(join(root, f))))].sort()
+  const out: string[] = []
+  const walk = (dir: string): void => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (e.name.startsWith(".") || NEVER_SOURCE.has(e.name)) continue
+      const path = join(dir, e.name)
+      if (e.isDirectory()) walk(path)
+      else if (e.isFile()) out.push(relative(root, path))
+    }
+  }
+  walk(root)
+  return out.sort()
 }
 
 export function currentBranch(root: string): string {

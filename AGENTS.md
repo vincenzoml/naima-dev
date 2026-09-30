@@ -29,8 +29,8 @@ each rule links the page that holds its reasoning.
 ## Working rules
 
 - **Naima tracks itself, and the tracker is managed by the pinned stable.**
-  `npm run naima -- <command>` runs the tagged release named in
-  `package.json` (`naimaStable`); `npm run naima:dev -- <command>` runs the
+  `npm run naima -- <command>` runs the newest tagged release inside the pin
+  in `naima/config.json`; `npm run naima:dev -- <command>` runs the
   working tree, as a test. Every tracker change goes through the CLI, never by
   hand. A change to the item format ships in a stable before the development
   version writes it: [bootstrap policy](docs/bootstrap.md).

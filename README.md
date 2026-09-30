@@ -41,16 +41,19 @@ branches, formal verifiers, the documentation rule — is a plugin.
 
 Requires Node 22.18 or later. No runtime dependencies.
 
-```sh
-npm install
-npm run naima -- summary                    # this repository's own tracker
-npm run naima -- help                       # every command the loaded plugins provide
+Naima lives anywhere on the disk; a project using it carries only one
+top-level `naima/` directory. In any git repository:
 
-# in another project
-node <path-to-naima>/src/cli.ts init        # naima.config.json + tracker/
-node <path-to-naima>/src/cli.ts new bugs "Export drops the alpha channel"
-node <path-to-naima>/src/cli.ts check
+```sh
+npx naima init                              # naima/config.json, pinned to this Naima
+npx naima new bugs "Export drops the alpha channel"
+npx naima check
 ```
+
+Until the first public release it is not on npm: clone this repository,
+`npm install` (which builds `dist/`), `npm link`, and use `naima` instead of
+`npx naima`. Details: [using Naima in your project](docs/using-naima.md). An
+agent can do all of this itself: [the Naima skill](docs/skill.md).
 
 ## Documentation
 
@@ -59,9 +62,10 @@ reference of every command, type, field, relation, check, gate and plugin, the
 plugin contract, the bootstrap policy, and the flows for people and AI agents.
 Rules for working on this repository: [AGENTS.md](AGENTS.md).
 
-Naima tracks itself, in `tracker/`, managed by its previous stable release
-(`npm run naima`); `npm run verify` runs the typecheck, the tests, and `check`
-with both the stable and the working tree.
+Naima tracks itself, in `naima/`, managed by its previous stable release
+through the same pin every project has (`npm run naima`); `npm run verify`
+runs the typecheck, the tests, and `check` with both the stable and the
+working tree.
 
 ## Licence
 

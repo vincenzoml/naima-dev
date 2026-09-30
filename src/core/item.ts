@@ -2,7 +2,7 @@
 
 import { randomUUID } from "node:crypto"
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs"
-import { join } from "node:path"
+import { dirname, join } from "node:path"
 import type { Context, Item, Meta, TypeDef } from "./types.ts"
 
 export const META = "meta.json"
@@ -33,6 +33,7 @@ export const isUuid = (s: unknown): s is string =>
 export const today = (ctx: Context): string => ctx.now().toISOString().slice(0, 10)
 
 export function writeJson(path: string, value: unknown): void {
+  mkdirSync(dirname(path), { recursive: true })
   writeFileSync(path, JSON.stringify(value, null, 2) + "\n")
 }
 

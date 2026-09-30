@@ -167,7 +167,7 @@ export interface Plugin {
   says: string
   /** Longer documentation, in markdown: the concepts a reader needs before the reference. */
   about?: string
-  /** The keys the plugin reads from its `options` in the config. */
+  /** The keys the plugin reads from its `options`, each with the default it infers. */
   options?: OptionDoc[]
   types?: TypeDef[]
   fields?: FieldDef[]
@@ -191,8 +191,13 @@ export interface PluginEntry {
   options: PluginOptions
 }
 
+/** `naima/config.json`: only what the tool cannot infer. */
 export interface Config {
-  trackerDir: string
+  /** The pin: the semver range of Naima versions that may manage the project. */
+  pin: string
+  /** The project's gates, by name; read by the gates plugin. */
+  gates: Record<string, unknown>
+  /** Third-party plugins to add; every first-party plugin is always loaded. */
   plugins: PluginEntry[]
 }
 
@@ -226,7 +231,7 @@ export interface Repo {
 export interface Context {
   /** Absolute project root. */
   root: string
-  /** Absolute tracker directory. */
+  /** Absolute tracker directory: `<root>/naima`. */
   trackerRoot: string
   config: Config
   registry: Registry

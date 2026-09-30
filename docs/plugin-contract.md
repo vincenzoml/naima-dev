@@ -13,11 +13,12 @@ export default function myPlugin(options: Record<string, unknown>): Plugin {
 }
 ```
 
-Listed in `naima.config.json` by built-in name, by a path relative to the
-project root, or by package name, with optional `options`:
+The first-party plugins are always loaded. A third-party plugin is added
+under `plugins` in `naima/config.json`, by a path relative to the project
+root or by package name, with optional `options` ([configuration](config.md)):
 
 ```json
-{ "trackerDir": "tracker", "plugins": ["trackers", { "name": "./tools/mine.mjs", "options": {} }] }
+{ "naima": "^0.2.0", "plugins": [{ "name": "./tools/mine.mjs", "options": {} }] }
 ```
 
 ## Contributions
@@ -26,7 +27,7 @@ project root, or by package name, with optional `options`:
 |---|---|
 | `says` | one line: what the plugin is (required) |
 | `about` | longer markdown: the concepts a reader needs before the reference |
-| `options` | the keys the plugin reads from its `options` in the config: `name`, `says`, `default` |
+| `options` | the keys the plugin reads from its `options`: `name`, `says`, `default` (a first-party plugin infers each default from the repository) |
 | `types` | item types: `id`, `dir`, `statuses` (each `open` or `done`, optionally `proves`), `initialStatus`, a README `template`, `creatable: false` for archives |
 | `fields` | fields with a kind (`string`, `strings`, `date`, `enum`, `boolean`, `number`), enum values in rank order, and the types they apply to |
 | `relations` | link relations; each names its inverse, which must also be declared |

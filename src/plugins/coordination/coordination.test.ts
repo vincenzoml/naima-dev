@@ -23,14 +23,14 @@ test("a claim is one file on the claimer's branch, visible from every other", as
 
     p.git("checkout", "-q", "-b", "work")
     assert.equal(await p.run("claim", a.slug, b.slug, "--note", "why"), 0)
-    assert.equal(readdirSync(join(ctx.trackerRoot, "CLAIMS")).length, 1)
+    assert.equal(readdirSync(join(ctx.trackerRoot, "claims")).length, 1)
     assert.equal(await p.run("claim", a.slug), 0) // idempotent, same file
-    assert.equal(readdirSync(join(ctx.trackerRoot, "CLAIMS")).length, 1)
+    assert.equal(readdirSync(join(ctx.trackerRoot, "claims")).length, 1)
     p.git("add", "-A")
     p.git("commit", "-q", "-m", "claim")
 
     p.git("checkout", "-q", "main")
-    assert.ok(!existsSync(join(ctx.trackerRoot, "CLAIMS")), "main's working tree was never written")
+    assert.ok(!existsSync(join(ctx.trackerRoot, "claims")), "main's working tree was never written")
     const seen = readClaims(ctx)
     assert.equal(seen.length, 1)
     assert.deepEqual([seen[0]?.branch, seen[0]?.local, seen[0]?.items.length, seen[0]?.note], ["work", false, 2, "why"])
@@ -44,7 +44,7 @@ test("a claim is one file on the claimer's branch, visible from every other", as
     assert.match(p.output.join("\n"), /more than one branch/)
 
     await p.run("release", a.slug)
-    assert.ok(!existsSync(join(ctx.trackerRoot, "CLAIMS")) || readdirSync(join(ctx.trackerRoot, "CLAIMS")).length === 0)
+    assert.ok(!existsSync(join(ctx.trackerRoot, "claims")) || readdirSync(join(ctx.trackerRoot, "claims")).length === 0)
     await assert.rejects(async () => p.run("release", a.slug), /holds no claim/)
   } finally {
     p.cleanup()

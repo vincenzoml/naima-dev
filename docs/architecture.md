@@ -14,30 +14,36 @@ src/
     check.ts       the core invariants, and running every plugin's
     lifecycle.ts   questions answered from type declarations: open, proves, urgency
     git.ts         reading a directory across every branch worth reading
-    config.ts      naima.config.json and plugin loading
+    config.ts      naima/config.json, the pin, third-party plugin loading
+    semver.ts      the ranges a pin is written in
     base.ts        the core's own contributions: generic fields, relations, commands
     cli.ts         dispatch
     testing.ts     a throwaway project for tests
   plugins/<name>/  one directory per first-party plugin, with its tests:
                    trackers, coordination, triage, gates, beta-markers, verifier, docs
-  builtins.ts      first-party plugins by config name   } the composition root:
-  cli.ts           the executable                        } the only modules that see both
+  builtins.ts      every first-party plugin, always loaded } the composition root:
+  cli.ts           the executable                         } the only modules that see both
 ```
 
 ```
-scripts/stable.mjs  runs the pinned stable Naima on this repository's tracker (bootstrap.md)
+scripts/stable.mjs  runs the newest release inside this repository's pin on its tracker (bootstrap.md)
+skills/naima/       the agent skill (skill.md)
 docs/reference.md   generated from the manifests by naima docs; never edited by hand
 ```
 
 ## The tracker on disk
 
+Everything Naima writes into a project is under one top-level directory,
+`naima/` ([using Naima in your project](using-naima.md#the-naima-directory)):
+
 ```
-tracker/
-  <TYPE>/<slug>/README.md       prose
-  <TYPE>/<slug>/meta.json       fields: id, title, status, links, and whatever plugins declare
-  <TYPE>/<slug>/attachments/    evidence
-  CLAIMS/<uuid>.json            coordination: one file per branch that claims work
-  PASSES/<date>-<uuid>.md       coordination: one file per session note
+naima/
+  config.json                   the pin, and the facts that cannot be inferred (config.md)
+  <type>/<slug>/README.md       prose
+  <type>/<slug>/meta.json       fields: id, title, status, links, and whatever plugins declare
+  <type>/<slug>/attachments/    evidence
+  claims/<uuid>.json            coordination: one file per branch that claims work
+  passes/<date>-<uuid>.md       coordination: one file per session note
 ```
 
 The directory name is the slug and may change; the uuid in `meta.json` is

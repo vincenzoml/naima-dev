@@ -10,11 +10,13 @@
 // stale marker teaches readers that the marker means nothing, and then the
 // real ones stop being read).
 //
-// Options: { "paths": ["src"], "extensions": [".ts"], "pattern": "<regex with groups ref and what>" }
+// Always on, and nothing to list: by default it scans every source file git
+// tracks. Overrides, all optional: { "paths": ["src"], "extensions": [".ts"],
+// "pattern": "<regex with groups ref and what>" }
 
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
-import { join, relative } from "node:path"
-import { type Check, type Command, type Context, type Finding, type Item, type Plugin, type SummarySection, bool, isOpen, label, parse, proves } from "../../core/index.ts"
+import { join, relative, sep } from "node:path"
+import { type Check, type Command, type Context, type Finding, type Item, type Plugin, type SummarySection, bool, isOpen, label, parse, projectFiles, proves } from "../../core/index.ts"
 
 export interface Marker {
   file: string
@@ -24,7 +26,8 @@ export interface Marker {
 }
 
 export interface MarkerOptions {
-  paths: string[]
+  /** Files or directories to scan; unset, every file of the project (see projectFiles). */
+  paths?: string[]
   extensions: string[]
   pattern: RegExp
 }
@@ -35,7 +38,7 @@ const SKIP = new Set(["node_modules", ".git", "dist", "build"])
 function readOptions(o: Record<string, unknown>): MarkerOptions {
   const list = (v: unknown, fallback: string[]): string[] => (Array.isArray(v) && v.every((x) => typeof x === "string") ? v : fallback)
   return {
-    paths: list(o.paths, ["src"]),
+    ...(o.paths !== undefined ? { paths: list(o.paths, []) } : {}),
     extensions: list(o.extensions, [".ts", ".tsx", ".js", ".mjs", ".py", ".rs", ".go", ".java", ".c", ".h"]),
     pattern: new RegExp(typeof o.pattern === "string" ? o.pattern : DEFAULT_PATTERN),
   }
@@ -55,17 +58,23 @@ function* files(dir: string, extensions: string[]): Generator<string> {
   }
 }
 
+/** The files to scan: under the paths option, or every project file with a scanned extension. */
+function scanned(root: string, opts: MarkerOptions): string[] {
+  if (opts.paths) return opts.paths.flatMap((base) => [...files(join(root, base), opts.extensions)])
+  return projectFiles(root)
+    .filter((f) => opts.extensions.some((x) => f.endsWith(x)) && !f.split(sep).some((part) => SKIP.has(part)))
+    .map((f) => join(root, f))
+}
+
 export function scanMarkers(root: string, opts: MarkerOptions): Marker[] {
   const out: Marker[] = []
-  for (const base of opts.paths) {
-    for (const path of files(join(root, base), opts.extensions)) {
-      readFileSync(path, "utf8")
-        .split("\n")
-        .forEach((text, i) => {
-          const m = text.match(opts.pattern)
-          if (m?.groups?.ref) out.push({ file: relative(root, path), line: i + 1, ref: m.groups.ref, what: (m.groups.what ?? "").trim() })
-        })
-    }
+  for (const path of scanned(root, opts)) {
+    readFileSync(path, "utf8")
+      .split("\n")
+      .forEach((text, i) => {
+        const m = text.match(opts.pattern)
+        if (m?.groups?.ref) out.push({ file: relative(root, path), line: i + 1, ref: m.groups.ref, what: (m.groups.what ?? "").trim() })
+      })
   }
   return out
 }
@@ -133,9 +142,10 @@ export default function betaMarkers(options: Record<string, unknown> = {}): Plug
     says: "markers in the code for behaviour shipped without proof",
     about:
       "A marker is a comment in the project's own source naming the item whose passing would prove the marked behaviour: `// naima:beta tests/export-keeps-alpha  export of layered files is unproven`. " +
+      "Always on: it scans every source file of the project, so a marker anywhere is held without listing where to look. " +
       "A marker is wrong in two ways: it names nothing (dangling), or it outlives its proof — the item it names has passed or is no longer open (stale). Both fail `naima check`: a stale marker teaches readers that markers mean nothing.",
     options: [
-      { name: "paths", says: "files or directories, from the project root, to scan", default: '["src"]' },
+      { name: "paths", says: "files or directories, from the project root, to scan instead of the whole project", default: "every file git tracks or would track (outside git, every file under the root but hidden directories, node_modules, dist and build)" },
       { name: "extensions", says: "file extensions to scan", default: '[".ts", ".tsx", ".js", ".mjs", ".py", ".rs", ".go", ".java", ".c", ".h"]' },
       { name: "pattern", says: "a regular expression with named groups ref and what, matched against each line", default: "a comment (//, #, --, ;, *) followed by naima:beta <ref> <what>" },
     ],

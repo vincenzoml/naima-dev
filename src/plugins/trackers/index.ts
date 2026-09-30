@@ -29,7 +29,7 @@ const ABOUT = `Three words that are not synonyms:
 
 - **fixed** — the code change exists: \`fixedOn\` is set. Nothing is proven.
 - **resolved** — fixed, and proven by an item that \`verifies\` it and whose status \`proves\` (a passed test, a property that holds).
-- **closed** — resolved, and moved to \`CLOSED/\` by \`naima close\`, carrying its proof.
+- **closed** — resolved, and moved to \`closed/\` by \`naima close\`, carrying its proof.
 
 "How many bugs are left" means the unfixed count; \`naima bugs\` never adds the three together.
 
@@ -153,7 +153,7 @@ export default function trackers(): Plugin {
     types: [
       {
         id: "bugs",
-        dir: "BUGS",
+        dir: "bugs",
         title: "Bugs",
         says: "something that is broken",
         statuses: {
@@ -166,7 +166,7 @@ export default function trackers(): Plugin {
       },
       {
         id: "todos",
-        dir: "TODOS",
+        dir: "todos",
         title: "Todos",
         says: "work that is not a defect: a task, a decision, a tidy-up",
         statuses: {
@@ -180,7 +180,7 @@ export default function trackers(): Plugin {
       },
       {
         id: "features",
-        dir: "FEATURES",
+        dir: "features",
         title: "Features",
         says: "what the software does, or is asked to do",
         statuses: {
@@ -193,7 +193,7 @@ export default function trackers(): Plugin {
       },
       {
         id: "tests",
-        dir: "TESTS",
+        dir: "tests",
         title: "Tests",
         says: "a gesture that proves something, and its result",
         statuses: {
@@ -207,7 +207,7 @@ export default function trackers(): Plugin {
       },
       {
         id: "closed",
-        dir: "CLOSED",
+        dir: "closed",
         title: "Closed",
         says: "the archive: resolved items, each with its proof",
         statuses: { closed: { category: "done", says: "fixed, proven, archived" } },

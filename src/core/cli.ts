@@ -1,38 +1,42 @@
-// The one entry point: find the project, load its plugins, dispatch.
+// The one entry point: find the project, check its pin, load every plugin, dispatch.
 
-import { existsSync, mkdirSync, writeFileSync } from "node:fs"
-import { join, resolve } from "node:path"
-import { parse, str } from "./args.ts"
+import { execFileSync } from "node:child_process"
+import { existsSync } from "node:fs"
+import { join, relative, resolve } from "node:path"
 import { corePlugin } from "./base.ts"
-import { CONFIG_FILE, findRoot, loadPlugins, readConfig } from "./config.ts"
+import { CONFIG_FILE, NAIMA_DIR, findRoot, loadPlugins, pinRefusal, readConfig } from "./config.ts"
 import { type IO, consoleIO, createContext } from "./context.ts"
 import { writeJson } from "./item.ts"
+import { parseVersion } from "./semver.ts"
 import { buildRegistry } from "./registry.ts"
-import type { Command, Context, PluginEntry, PluginFactory } from "./types.ts"
+import type { Command, Config, Context, Plugin } from "./types.ts"
 
 export interface CliOptions {
   cwd: string
-  builtins: Record<string, PluginFactory>
-  /** What `naima init` writes into a new config. */
-  defaultPlugins: string[]
+  /** This Naima's version, checked against the project's pin. */
+  version: string
+  /** Every first-party plugin, built from the config. All of them are always loaded. */
+  firstParty: (config: Config) => Plugin[]
   io?: IO
 }
 
-/** Load a project into a context: config, plugins, registry. */
-export async function openProject(root: string, builtins: Record<string, PluginFactory>, io: IO = consoleIO): Promise<Context> {
+/** Load a project into a context: config, pin, plugins, registry. */
+export async function openProject(root: string, opts: Pick<CliOptions, "version" | "firstParty">, io: IO = consoleIO): Promise<Context> {
   const config = readConfig(root)
-  const plugins = await loadPlugins(root, config, builtins)
-  return createContext(root, config, buildRegistry([corePlugin, ...plugins]), io)
+  const refusal = pinRefusal(opts.version, config.pin)
+  if (refusal) throw new Error(refusal)
+  const firstParty = opts.firstParty(config)
+  const extra = await loadPlugins(root, config, firstParty.map((p) => p.name))
+  return createContext(root, config, buildRegistry([corePlugin, ...firstParty, ...extra]), io)
 }
 
 /** The two commands the entry point answers itself, before any plugin is loaded. Documented like any other. */
 export const cliCommands: Omit<Command, "run">[] = [
   {
     name: "init",
-    says: `create ${CONFIG_FILE} with the default plugins, and the tracker directory`,
-    usage: "init [--tracker-dir <dir>]",
-    options: [{ name: "--tracker-dir", says: "the tracker directory, relative to the project root", default: "tracker" }],
-    examples: ["init", "init --tracker-dir .tracker"],
+    says: `make this git repository a Naima project: create ${CONFIG_FILE}, pinned to this Naima; nothing outside ${NAIMA_DIR}/ is touched`,
+    usage: "init",
+    examples: ["init"],
   },
   {
     name: "help",
@@ -42,24 +46,26 @@ export const cliCommands: Omit<Command, "run">[] = [
   },
 ]
 
-function init(args: string[], opts: CliOptions, io: IO): number {
-  const p = parse(args, { "tracker-dir": { type: "string" } })
-  const root = resolve(opts.cwd)
-  if (existsSync(join(root, CONFIG_FILE))) throw new Error(`${CONFIG_FILE} already exists here`)
-  const trackerDir = str(p, "tracker-dir") ?? "tracker"
-  const plugins: PluginEntry["name"][] = opts.defaultPlugins
-  writeJson(join(root, CONFIG_FILE), { trackerDir, plugins })
-  mkdirSync(join(root, trackerDir), { recursive: true })
-  const readme = join(root, trackerDir, "README.md")
-  if (!existsSync(readme)) {
-    writeFileSync(
-      readme,
-      "# Tracker\n\nOne directory per item: `README.md` for the prose, `meta.json` for the fields,\n" +
-        "`attachments/` for the evidence. Boards are derived on demand and never stored.\n\n" +
-        "```sh\nnaima new <type> \"<title>\"\nnaima board <type>\nnaima check\n```\n",
-    )
+/** The pin `init` writes: this version's caret range. */
+export function pinFor(version: string): string {
+  const v = parseVersion(version)
+  if (!v) throw new Error(`"${version}" is not a version`)
+  return `^${v[0]}.${v[1]}.${v[2]}`
+}
+
+function init(opts: CliOptions, io: IO): number {
+  let root: string
+  try {
+    root = execFileSync("git", ["rev-parse", "--show-toplevel"], { cwd: resolve(opts.cwd), encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim()
+  } catch {
+    throw new Error("not a git repository — naima init makes a git repository a Naima project")
   }
-  io.out(`wrote ${CONFIG_FILE} and ${trackerDir}/ — plugins: ${plugins.join(", ")}`)
+  if (existsSync(join(root, CONFIG_FILE))) io.out(`${CONFIG_FILE} already exists — left as it is`)
+  else {
+    writeJson(join(root, CONFIG_FILE), { naima: pinFor(opts.version) })
+    io.out(`wrote ${relative(resolve(opts.cwd), join(root, CONFIG_FILE)) || CONFIG_FILE}`)
+  }
+  io.out(`next: naima new todos "<the first thing to do>"`)
   return 0
 }
 
@@ -77,11 +83,15 @@ function help(ctx: Context | null, io: IO): number {
 
 export async function runCli(argv: string[], opts: CliOptions): Promise<number> {
   const io = opts.io ?? consoleIO
-  const [command, ...args] = argv
+  const [command] = argv
+  const args = argv.slice(1)
   try {
-    if (command === "init") return init(args, opts, io)
+    if (command === "init") {
+      if (args.length) throw new Error("usage: naima init")
+      return init(opts, io)
+    }
     const root = findRoot(opts.cwd)
-    const ctx = root ? await openProject(root, opts.builtins, io) : null
+    const ctx = root ? await openProject(root, opts, io) : null
     if (!command || command === "help" || command === "--help" || command === "-h") return help(ctx, io)
     if (!ctx) throw new Error(`no ${CONFIG_FILE} found here or above — run naima init`)
     const cmd = ctx.registry.commands.get(command)
