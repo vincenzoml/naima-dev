@@ -88,3 +88,9 @@ test("gated-proof-is-gated says what it decides: an ungated proof of a gated ite
     p.cleanup()
   }
 })
+
+test("the gates option names the file it is configured in, in the shape it is written", () => {
+  const option = gates().options?.find((o) => o.name === "gates")
+  assert.match(option?.says ?? "", /the `gates` key of `naima-tracker\/naima-data\/naima\.json`/)
+  assert.doesNotMatch(option?.says ?? "", /naima\/config\.json/)
+})

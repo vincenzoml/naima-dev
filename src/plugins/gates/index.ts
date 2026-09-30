@@ -1,10 +1,10 @@
 // Gates: named release or merge conditions, backed by items.
 //
 // A gate is the set of items that must be settled before something may
-// happen. It is configured, never hard-coded:
+// happen. It is configured, never hard-coded, under `gates` in the project's
+// naima-tracker/naima-data/naima.json:
 //
-//   { "name": "gates", "options": { "gates": {
-//       "v1": { "title": "First public release", "says": "…", "holdsOn": "code" } } } }
+//   "gates": { "v1": { "title": "First public release", "says": "…", "holdsOn": "code" } }
 //
 // holdsOn "code"  (default) the gate waits for code, not for proof: an item
 //                 that is fixed and owes only its proving gesture, and the
@@ -15,6 +15,8 @@
 // them all, whoever declared them.
 
 import {
+  DATA_FILE,
+  DEFAULT_DATA,
   type Check,
   type Command,
   type Context,
@@ -163,7 +165,7 @@ export default function gates(options: Record<string, unknown> = {}): Plugin {
     options: [
       {
         name: "gates",
-        says: 'the `gates` key of `naima/config.json`: gate name → { "title", "says", "holdsOn" }. holdsOn "code" (the default) waits for code, not proof: a fixed item that owes only its proving gesture, and the gestures themselves, are owed but do not block. holdsOn "proof": every open item on the gate blocks it.',
+        says: `the \`gates\` key of \`${DEFAULT_DATA}/${DATA_FILE}\`: gate name → { "title", "says", "holdsOn" }. holdsOn "code" (the default) waits for code, not proof: a fixed item that owes only its proving gesture, and the gestures themselves, are owed but do not block. holdsOn "proof": every open item on the gate blocks it.`,
         default: "{}",
       },
     ],
