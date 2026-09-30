@@ -60,7 +60,7 @@ each rule links the page that holds its reasoning.
 
 ```sh
 deno task verify    # typecheck, tests, check (working tree and lock), reference current
-node --test "src/**/*.test.ts" && bun test src     # the same tests on Node and Bun
+node --test "src/**/*.test.ts" && bun test ./src/     # the same tests on Node and Bun
 ```
 
 Architecture and the dependency rule: [docs/architecture.md](docs/architecture.md).

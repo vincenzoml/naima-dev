@@ -42,4 +42,4 @@ jobs:
         with:
           deno-version: v2.x
       - uses: oven-sh/setup-bun@v2
-      - run: bun test src
+      - run: bun test ./src/
