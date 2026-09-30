@@ -26,8 +26,21 @@ import {
   TRACKER_README,
   trackerOf,
 } from "./layout.ts"
-import { align, carry, ignoreProgram, localWork, refuseLocalWork, remoteHead, short, stage, type Target, vendor } from "./program.ts"
-import { EXIT, isInternal, message } from "./errors.ts"
+import {
+  align,
+  carry,
+  ignoreProgram,
+  localWork,
+  refuseLocalWork,
+  remoteHead,
+  short,
+  SOURCE_CHANGED,
+  stage,
+  type Target,
+  vendor,
+  withoutCredentials,
+} from "./program.ts"
+import { EXIT, isInternal, message, NaimaError } from "./errors.ts"
 import { buildRegistry } from "./registry.ts"
 import type { Carry, Command, Config, Context, Plugin } from "./types.ts"
 
@@ -72,9 +85,16 @@ export const cliCommands: Omit<Command, "run">[] = [
     name: "update",
     says:
       `move the lock to the head of the source's ${DIST_BRANCH} branch — its main, when the source publishes no ${DIST_BRANCH}: fetch it, migrate the data forward if its format moved, and record the new commit, as one change to commit; the only command that asks the source anything`,
-    usage: "update [--check]",
-    options: [{ name: "--check", says: `only say whether the source's ${DIST_BRANCH} (or main) has moved past the locked commit; exit 1 when it has` }],
-    examples: ["update --check", "update"],
+    usage: "update [--check | --accept-source]",
+    options: [
+      { name: "--check", says: `only say whether the source's ${DIST_BRANCH} (or main) has moved past the locked commit; exit 1 when it has` },
+      {
+        name: "--accept-source",
+        says:
+          "trust the source naima.json now names, after reviewing why it changed: every other command refuses to run a program from a source it was not aligned from; aligns the program to the locked commit of the new source, and moves nothing else",
+      },
+    ],
+    examples: ["update --check", "update", "update --accept-source"],
   },
   {
     name: "carry",
@@ -121,15 +141,10 @@ const targetOf = (place: Place, lock: Lock): Target => ({
   source: lock.source,
   commit: lock.commit,
   carry: lock.carry,
+  ...(lock.verify ? { verify: lock.verify } : {}),
 })
 
-/** A URL with its credentials removed: a token in a clone's origin must never reach a committed naima.json. */
-export function withoutCredentials(source: string): string {
-  return source.replace(/^([a-z][a-z0-9+.-]*:\/\/)([^@/]*)@/i, (all, scheme: string, userinfo: string) => {
-    if (/^https?:\/\/$/i.test(scheme)) return scheme
-    return userinfo.includes(":") ? `${scheme}${userinfo.slice(0, userinfo.indexOf(":"))}@` : all
-  })
-}
+export { withoutCredentials }
 
 /** The command init names as the next step: a type the loaded plugins really let one create. */
 async function nextStep(place: Place, opts: CliOptions, io: IO): Promise<string> {
@@ -192,7 +207,14 @@ async function init(args: string[], opts: CliOptions, io: IO): Promise<number> {
 }
 
 function update(args: string[], place: Place, lock: Lock, raw: Record<string, unknown>, io: IO): number {
-  const check = bool(parse(args, { check: { type: "boolean" } }), "check")
+  const p = parse(args, { check: { type: "boolean" }, "accept-source": { type: "boolean" } })
+  const check = bool(p, "check")
+  if (check && bool(p, "accept-source")) throw new Error(usage("update"))
+  if (bool(p, "accept-source")) {
+    // The entry point has aligned the program to the new source already: accepting it is all this asks.
+    io.out(`trusted ${lock.source} at the locked commit ${short(lock.commit)}; nothing else moved`)
+    return 0
+  }
   const t = targetOf(place, lock)
   const head = remoteHead(t)
   const main = head.commit
@@ -281,7 +303,16 @@ export async function runCli(argv: string[], opts: CliOptions): Promise<number> 
       throw new Error(`no ${DEFAULT_DATA}/${DATA_FILE} found here or above — run naima init`)
     }
     if (opts.launched) {
-      const moved = align(targetOf(place, place.lock))
+      const acceptSource = command === "update" && args.includes("--accept-source")
+      let moved = null
+      try {
+        moved = align({ ...targetOf(place, place.lock), acceptSource })
+      } catch (e) {
+        // update --check only reads the source: it answers whatever program runs it.
+        const readOnly = command === "update" && args.includes("--check")
+        if (!(readOnly && e instanceof NaimaError && e.code === SOURCE_CHANGED)) throw e
+      }
+      if (moved?.from && moved.from !== place.lock.commit) io.err(`naima: locked commit moved ${short(moved.from)} → ${short(place.lock.commit)}`)
       if (moved || real(opts.programRoot) !== real(place.program)) return RELAUNCH
     }
     if (command === "update" || command === "carry") {

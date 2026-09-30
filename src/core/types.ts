@@ -164,6 +164,11 @@ export interface VerifyResult {
 export interface Verifier {
   id: string
   says: string
+  /**
+   * The external programs `verify` starts (a model checker, say), by name on PATH or by absolute path. The launcher
+   * grants the program exactly these besides git; a program not declared here cannot be started under it.
+   */
+  runs?: string[]
   verify(request: VerifyRequest, ctx: Context): Promise<VerifyResult>
 }
 
@@ -243,6 +248,8 @@ export interface Config {
   /** The commit of `source` this project runs: the lock. */
   commit: string
   carry: Carry
+  /** `"signed"`: run a locked commit only when git verifies its signature. Absent: no signature is asked for. */
+  verify?: "signed"
   /** The program directory, relative to the data directory. */
   program: string
   /** The project's gates, by name; read by the gates plugin. */

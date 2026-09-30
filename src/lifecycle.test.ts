@@ -86,3 +86,14 @@ test("close refuses an item whose proof no longer holds: a property that holds o
     p.cleanup()
   }
 })
+
+test("no first-party verifier starts a program: the launcher would allow it to every project", async () => {
+  const p = project()
+  try {
+    assert.deepEqual([...p.ctx.registry.verifiers.values()].flatMap((v) => v.runs ?? []), [])
+    assert.equal(await p.run("runs", "--json"), 0)
+    assert.equal(p.output.at(-1), "[]")
+  } finally {
+    p.cleanup()
+  }
+})

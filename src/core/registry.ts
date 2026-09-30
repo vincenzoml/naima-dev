@@ -66,7 +66,14 @@ export function buildRegistry(plugins: Plugin[], opts: RegistryOptions = {}): Re
     }
     for (const v of p.views ?? []) put(registry.views, v.name, v, "view", p.name)
     for (const g of p.gates ?? []) put(registry.gates, g.name, g, "gate", p.name)
-    for (const v of p.verifiers ?? []) put(registry.verifiers, v.id, v, "verifier", p.name)
+    for (const v of p.verifiers ?? []) {
+      put(registry.verifiers, v.id, v, "verifier", p.name)
+      for (const tool of v.runs ?? []) {
+        if (typeof tool !== "string" || !/^[^\s,]+$/.test(tool)) {
+          throw new Error(`verifier "${v.id}" runs ${JSON.stringify(tool)}: a program is named by one word or an absolute path, with no comma or space`)
+        }
+      }
+    }
     // Kept in load order, and named once each, so a finding or a line can be traced to its declaration.
     for (const c of p.checks ?? []) own("check", c.name, p.name)
     for (const s of p.summary ?? []) own("summary section", s.name, p.name)

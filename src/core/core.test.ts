@@ -614,3 +614,21 @@ test("when the other branches cannot be read — a shallow clone — a new slug 
     rmSync(shallow, { recursive: true, force: true })
   }
 })
+
+test("a verifier names each program it runs by one word or an absolute path, which the launcher can pass to Deno", () => {
+  const verify = () => Promise.resolve({ verdict: "holds" as const, output: "" })
+  for (const bad of ["tlc,java", "two words", ""]) {
+    assert.throws(
+      () => buildRegistry([{ name: "v", says: "v", verifiers: [{ id: "v", says: "v", runs: [bad], verify }] }]),
+      /runs .*one word or an absolute path/,
+      bad,
+    )
+  }
+  assert.deepEqual(
+    buildRegistry([{ name: "v", says: "v", verifiers: [{ id: "v", says: "v", runs: ["tlc", "/usr/bin/java"], verify }] }]).verifiers.get("v")?.runs,
+    [
+      "tlc",
+      "/usr/bin/java",
+    ],
+  )
+})

@@ -4,7 +4,7 @@
 //
 //   read    the repository, the program wherever it is, and the data directory of every other worktree
 //   write   the tracker folder (naima-tracker/), and the data and program if moved out of it
-//   run     git, and nothing else
+//   run     git, and the programs the loaded verifiers declare (Verifier.runs), nothing else
 //   env     an allow-list of the environment (ENV below): what git needs, and Naima's own
 //   net     none: the network is git's, for alignment and update
 //
@@ -12,7 +12,7 @@
 // directory, so the code on disk is not the code that ran: the launcher runs
 // the program directory's own code, which is the locked commit.
 
-import { existsSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import { dirname, isAbsolute, join, relative, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import {
@@ -92,7 +92,17 @@ export function allowedEnv(env: Record<string, string>): Record<string, string> 
  * `worktrees` are the other worktrees' data directories: read-only, and one with a comma is left out — it is read from its branch.
  */
 export function permissions(
-  p: { root: string; tracker: string; data: string | null; program: string; entry: string; hostFiles?: string[]; worktrees?: string[] },
+  p: {
+    root: string
+    tracker: string
+    data: string | null
+    program: string
+    entry: string
+    hostFiles?: string[]
+    worktrees?: string[]
+    /** The programs the loaded verifiers start, besides git (Verifier.runs). */
+    runs?: string[]
+  },
 ): string[] {
   const list = (paths: (string | null)[]) => {
     const all = [...new Set(paths.filter((x): x is string => x !== null).map(real))]
@@ -107,7 +117,7 @@ export function permissions(
   return [
     `--allow-read=${list([p.root, p.data, p.program, p.entry, ...(p.worktrees ?? []).map(real).filter((x) => !x.includes(","))])}`,
     `--allow-write=${list([p.tracker, p.data, p.program, ...(p.hostFiles ?? [])])}`,
-    "--allow-run=git",
+    `--allow-run=${["git", ...(p.runs ?? [])].join(",")}`,
     "--allow-env",
   ]
 }
@@ -121,6 +131,44 @@ function otherWorktrees(root: string, data: string | null): string[] {
   const inside = relative(real(root), real(data))
   if (!inside || inside.startsWith("..") || isAbsolute(inside)) return []
   return worktrees(root).filter((w) => !w.self).map((w) => join(w.path, inside))
+}
+
+/** Does the project load third-party plugins? Only they can declare programs to run: no first-party verifier starts one. */
+function loadsPlugins(data: string | null): boolean {
+  if (!data) return false
+  try {
+    const plugins = (JSON.parse(readFileSync(join(data, DATA_FILE), "utf8")) as { plugins?: unknown }).plugins
+    return Array.isArray(plugins) && plugins.length > 0
+  } catch {
+    return false
+  }
+}
+
+/**
+ * The programs the loaded verifiers declare they start, asked of the program
+ * that is about to run (`naima runs --json`), under the same read permission
+ * and nothing else: no write, no network, and git alone to run. Asked only
+ * when the project loads third-party plugins; an answer that is not a list of
+ * names is no programs.
+ */
+function declaredRuns(entry: string, cwd: string, read: string, env: Record<string, string>): string[] {
+  const { NAIMA_LAUNCHED: _launched, ...probeEnv } = env
+  const r = new Deno.Command(Deno.execPath(), {
+    args: ["run", "--no-prompt", "--no-config", "--no-lock", read, "--allow-run=git", "--allow-env", join(entry, "src", "cli.ts"), "runs", "--json"],
+    cwd,
+    clearEnv: true,
+    env: probeEnv,
+    stdin: "null",
+    stdout: "piped",
+    stderr: "null",
+  }).outputSync()
+  if (!r.success) return []
+  try {
+    const list: unknown = JSON.parse(new TextDecoder().decode(r.stdout))
+    return Array.isArray(list) ? list.filter((x): x is string => typeof x === "string" && /^[^\s,]+$/.test(x)) : []
+  } catch {
+    return []
+  }
 }
 
 /** The host files the run may write outside the tracker folder: only `init --write-excludes` has any. */
@@ -147,7 +195,9 @@ export async function launch(args: string[], cwd: string): Promise<number> {
   for (let run = 0; run < MAX_RUNS; run++) {
     let flags: string[]
     try {
-      flags = permissions({ root, tracker, data, program, entry, hostFiles: hostFiles(parsed.rest, root), worktrees: others })
+      const fence = { root, tracker, data, program, entry, hostFiles: hostFiles(parsed.rest, root), worktrees: others }
+      const read = permissions(fence)[0] ?? ""
+      flags = permissions({ ...fence, runs: loadsPlugins(data) ? declaredRuns(entry, cwd, read, env) : [] })
     } catch (e) {
       console.error(`naima: ${message(e)}`)
       return 2

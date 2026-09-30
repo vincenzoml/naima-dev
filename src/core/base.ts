@@ -308,6 +308,25 @@ const plugins: Command = {
   },
 }
 
+/** The programs the loaded verifiers declare they start: what the launcher grants besides git. */
+export const declaredRuns = (ctx: Context): string[] => [...new Set([...ctx.registry.verifiers.values()].flatMap((v) => v.runs ?? []))].sort()
+
+const runs: Command = {
+  name: "runs",
+  says: "list the external programs the loaded verifiers start, which the launcher allows besides git",
+  usage: "runs [--json]",
+  options: [{ name: "--json", says: "print them as one JSON list: what the launcher reads" }],
+  examples: ["runs", "runs --json"],
+  run(args, ctx) {
+    const p = parse(args, { json: { type: "boolean" } })
+    const tools = declaredRuns(ctx)
+    if (bool(p, "json")) ctx.out(JSON.stringify(tools))
+    else if (!tools.length) ctx.out("no verifier starts a program: the launcher allows git alone")
+    else for (const v of ctx.registry.verifiers.values()) if (v.runs?.length) ctx.out(`  ${v.id.padEnd(16)} ${v.runs.join(", ")}`)
+    return 0
+  },
+}
+
 const types: Command = {
   name: "types",
   says: "list item types, their statuses and fields",
@@ -358,6 +377,6 @@ export const corePlugin: Plugin = {
     { name: "blocked-by", inverse: "blocks", says: "waits on" },
   ],
   checks: coreChecks,
-  commands: [newCommand, show, list, set, link, unlink, check, board, view, summary, plugins, types],
+  commands: [newCommand, show, list, set, link, unlink, check, board, view, summary, plugins, types, runs],
   summary: [counts],
 }

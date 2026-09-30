@@ -14,7 +14,7 @@ a plugin to cover the project.
 `naima-tracker/naima-data/naima.json` holds only what the tool cannot infer:
 
 - the **format** of the data, and the **lock**: which Naima runs the project
-  (`source`, `commit`), and how it is carried (`carry`, `program`);
+  (`source`, `commit`, optionally `verify`), and how it is carried (`carry`, `program`);
 - the project's **gates**, because a release condition is a decision;
 - **third-party plugins**, which are added, never switched on.
 

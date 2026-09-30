@@ -9,6 +9,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync } from "node:fs"
 import { basename, dirname, join, resolve } from "node:path"
 import { isLocalSource, posixRelative } from "./config.ts"
+import { NaimaError } from "./errors.ts"
 import { writeFileAtomic } from "./files.ts"
 import { gitReason, mustGit, runGit } from "./git.ts"
 import { DIST_BRANCH } from "./layout.ts"
@@ -24,6 +25,38 @@ export interface Target {
   source: string
   commit: string
   carry: Carry
+  /** Trust a source that differs from the one the program was aligned from: `naima update --accept-source`. */
+  acceptSource?: boolean
+  /** `verify: "signed"` in naima.json: run a commit only when git verifies its signature. */
+  verify?: "signed"
+}
+
+/** A URL with its credentials removed: a token in a clone's origin must never reach a committed naima.json. */
+export function withoutCredentials(source: string): string {
+  return source.replace(/^([a-z][a-z0-9+.-]*:\/\/)([^@/]*)@/i, (all, scheme: string, userinfo: string) => {
+    if (/^https?:\/\/$/i.test(scheme)) return scheme
+    return userinfo.includes(":") ? `${scheme}${userinfo.slice(0, userinfo.indexOf(":"))}@` : all
+  })
+}
+
+/** The code a refusal to follow a changed source carries, so `update --check` can still read the source. */
+export const SOURCE_CHANGED = "source-changed"
+
+/**
+ * Refuse to run a commit whose signature git cannot verify, when the lock
+ * asks for signed commits. Git runs the verification (gpg, or ssh with
+ * gpg.ssh.allowedSignersFile), with the keys the user has configured.
+ */
+export function verifySigned(repo: string, t: Pick<Target, "source" | "commit" | "verify">): void {
+  if (t.verify !== "signed") return
+  const r = runGit(repo, ["verify-commit", t.commit])
+  if (!r.ok) {
+    throw new Error(
+      `commit ${short(t.commit)} of ${t.source} carries no signature git can verify (${
+        gitReason(r)
+      }) — naima.json asks for verify: "signed": make its signer's key known to git, or lock a signed commit`,
+    )
+  }
 }
 
 const has = (repo: string, commit: string): boolean => runGit(repo, ["cat-file", "-e", `${commit}^{commit}`]).ok
@@ -83,17 +116,28 @@ function cloneProgram(t: Target): void {
   mustGit(t.program, "remote", "set-url", "origin", t.source)
 }
 
+/** What alignment changed: the commit the program was at before, null for a fresh clone. */
+export interface Moved {
+  from: string | null
+}
+
 /**
  * Make the program directory exactly the locked commit of the source,
- * cloning it when it is absent. Returns true when the code on disk changed.
- * Vendored, the committed tree is the lock and there is nothing to align.
+ * cloning it when it is absent. Returns what moved when the code on disk
+ * changed, null when it did not. Vendored, the committed tree is the lock and
+ * there is nothing to align.
+ *
+ * A lock whose source is not the one the program was aligned from — a pulled
+ * naima.json pointing somewhere else — is refused until it is accepted on
+ * purpose (`acceptSource`): the program runs whatever that source holds.
  */
-export function align(t: Target): boolean {
+export function align(t: Target): Moved | null {
   if (t.carry === "vendored") {
     if (!existsSync(join(t.program, "naima.ts"))) throw new Error(`${where(t)} is missing: carry is vendored, so it is committed — restore it from git`)
-    return false
+    return null
   }
   const fresh = !isRepo(t.program)
+  let from: string | null = null
   if (fresh) {
     if (existsSync(t.program) && readdirSync(t.program).length) {
       throw new Error(`${where(t)} exists and is not a clone — move it away, or set carry in naima.json`)
@@ -101,8 +145,20 @@ export function align(t: Target): boolean {
     cloneProgram(t)
   } else {
     refuseLocalWork(t)
-    if (runGit(t.program, ["remote", "get-url", "origin"]).out !== t.source) mustGit(t.program, "remote", "set-url", "origin", t.source)
-    if (runGit(t.program, ["rev-parse", "HEAD"]).out === t.commit) return false
+    from = runGit(t.program, ["rev-parse", "HEAD"]).out || null
+    const origin = runGit(t.program, ["remote", "get-url", "origin"]).out
+    if (withoutCredentials(origin) !== t.source) {
+      if (!t.acceptSource) {
+        throw new NaimaError(
+          `the lock's source changed: ${withoutCredentials(origin)} → ${t.source}, locked commit moved ${from ? short(from) : "?"} → ${
+            short(t.commit)
+          } — Naima runs whatever that source holds, so a new one is trusted only on purpose: review the change to naima.json, then naima update --accept-source`,
+          SOURCE_CHANGED,
+        )
+      }
+      mustGit(t.program, "remote", "set-url", "origin", t.source)
+    }
+    if (from === t.commit) return null
   }
   if (!has(t.program, t.commit)) {
     runGit(t.program, ["fetch", "--quiet", "origin"])
@@ -111,8 +167,9 @@ export function align(t: Target): boolean {
       throw new Error(`commit ${short(t.commit)} cannot be fetched from ${t.source} — its history was rewritten or the source is gone; record a commit it has`)
     }
   }
+  verifySigned(t.program, t)
   mustGit(t.program, "checkout", "--quiet", "--detach", t.commit)
-  return true
+  return { from }
 }
 
 /** What `naima update` follows: the branch it read, and the commit that branch points at. */
@@ -151,6 +208,7 @@ export function vendor(t: Target, commit: string): void {
     const r = runGit(t.root, ["clone", "--quiet", "--no-checkout", "--", t.source, scratch])
     if (!r.ok) throw new Error(`cannot clone ${t.source}: ${gitReason(r)}`)
     if (!has(scratch, commit)) mustGit(scratch, "fetch", "--quiet", "origin", commit)
+    verifySigned(scratch, { ...t, commit })
     mkdirSync(next, { recursive: true })
     mustGit(scratch, `--work-tree=${next}`, "checkout", "--quiet", "--force", commit, "--", ".")
     if (existsSync(t.program)) renameSync(t.program, previous)

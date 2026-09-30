@@ -37,6 +37,7 @@ Names are global: no two plugins may declare the same command, type, field, rela
 | [`summary`](#naima-summary) | core | where the project stands, in one screen: every plugin's section |
 | [`plugins`](#naima-plugins) | core | list loaded plugins and what each contributes |
 | [`types`](#naima-types) | core | list item types, their statuses and fields |
+| [`runs`](#naima-runs) | core | list the external programs the loaded verifiers start, which the launcher allows besides git |
 | [`close`](#naima-close) | trackers | archive a resolved item: fixed, and proven by an item that has passed |
 | [`bugs`](#naima-bugs) | trackers | how many bugs have no code written, and how many are fixed but unproven |
 | [`claim`](#naima-claim) | coordination | record that this branch is working on items (writes one file on this branch) |
@@ -82,18 +83,21 @@ naima init --write-excludes
 Move the lock to the head of the source's dist branch — its main, when the source publishes no dist: fetch it, migrate the data forward if its format moved, and record the new commit, as one change to commit; the only command that asks the source anything.
 
 ```sh
-naima update [--check]
+naima update [--check
+naima --accept-source]
 ```
 
 | Option | Default | What it does |
 |---|---|---|
 | `--check` |  | only say whether the source's dist (or main) has moved past the locked commit; exit 1 when it has |
+| `--accept-source` |  | trust the source naima.json now names, after reviewing why it changed: every other command refuses to run a program from a source it was not aligned from; aligns the program to the locked commit of the new source, and moves nothing else |
 
 Examples:
 
 ```sh
 naima update --check
 naima update
+naima update --accept-source
 ```
 
 ### naima carry
@@ -330,6 +334,25 @@ Examples:
 
 ```sh
 naima types
+```
+
+### naima runs
+
+List the external programs the loaded verifiers start, which the launcher allows besides git.
+
+```sh
+naima runs [--json]
+```
+
+| Option | Default | What it does |
+|---|---|---|
+| `--json` |  | print them as one JSON list: what the launcher reads |
+
+Examples:
+
+```sh
+naima runs
+naima runs --json
 ```
 
 **Fields**

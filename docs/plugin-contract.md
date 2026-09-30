@@ -165,6 +165,14 @@ const myChecker: Verifier = {
 | `error` | `error` | the tool could not run or reach a verdict |
 | `unknown` | `error` | the tool ran and could not decide (a bound was hit) |
 
+**Programs it starts.** A verifier that runs an external tool declares it:
+`runs: ["tlc"]` — a name looked up on `PATH`, or an absolute path; one word,
+no comma. The launcher allows the program exactly the declared programs of
+the loaded verifiers, besides `git`: it asks the program about to run
+(`naima runs --json`, under read permission only) when the project loads a
+third-party plugin, since no first-party verifier starts a program. Anything
+undeclared fails with Deno's own `Requires run access`.
+
 An adapter that throws is recorded as `error` with the message as output. So
 is a result outside the contract — a verdict not in the table, or no string
 `output` — with an output that says what was wrong.

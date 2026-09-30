@@ -45,3 +45,10 @@ test("--data is read by one parser, the launcher's and the program's: both forms
   assert.throws(() => globalOptions(["--data"]), /--data needs a directory/)
   assert.throws(() => globalOptions(["--data="]), /--data needs a directory/)
 })
+
+test('verify is "signed" or absent', () => {
+  const commit = "0".repeat(40)
+  assert.equal(parseLock({ source: "/srv/naima", commit }).verify, undefined)
+  assert.equal(parseLock({ source: "/srv/naima", commit, verify: "signed" }).verify, "signed")
+  assert.throws(() => parseLock({ source: "/srv/naima", commit, verify: "yes" }), /verify is "signed", or absent/)
+})
