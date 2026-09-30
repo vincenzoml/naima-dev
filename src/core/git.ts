@@ -8,6 +8,7 @@
 import { execFileSync } from "node:child_process"
 import { existsSync, readFileSync, readdirSync } from "node:fs"
 import { join, relative, sep } from "node:path"
+import { isRegularFile, walkFiles } from "./files.ts"
 
 /** Git's trimmed output, or null when it fails. */
 export function git(root: string, ...args: string[]): string | null {
@@ -27,11 +28,10 @@ export function toplevel(dir: string): string | null {
   return git(dir, "rev-parse", "--show-toplevel")
 }
 
-const NEVER_SOURCE = new Set(["node_modules", ".git", "dist", "build"])
-
 /**
- * The project's own files, relative to the root: every file git tracks or
- * would track (not ignored), or, outside git, every file under the root but
+ * The project's own files, relative to the root: every regular file git tracks
+ * or would track (not ignored) — never a submodule's directory, never a
+ * symbolic link — or, outside git, every regular file under the root but
  * hidden directories, node_modules, dist and build. Never a file under
  * `program`: the Naima a project runs is not the project's, even when it is
  * committed. What a plugin scans by default, so that nothing has to be listed
@@ -41,18 +41,10 @@ export function projectFiles(root: string, program?: string): string[] {
   const skip = program ? relative(root, program).split(sep).join("/") + "/" : null
   const mine = (f: string): boolean => !skip || !f.split(sep).join("/").startsWith(skip)
   const listed = isGitRepo(root) ? git(root, "ls-files", "-z", "--cached", "--others", "--exclude-standard") : null
-  if (listed !== null) return [...new Set(listed.split("\0").filter((f) => f && mine(f) && existsSync(join(root, f))))].sort()
-  const out: string[] = []
-  const walk = (dir: string): void => {
-    for (const e of readdirSync(dir, { withFileTypes: true })) {
-      if (e.name.startsWith(".") || NEVER_SOURCE.has(e.name)) continue
-      const path = join(dir, e.name)
-      if (e.isDirectory()) walk(path)
-      else if (e.isFile() && mine(relative(root, path))) out.push(relative(root, path))
-    }
-  }
-  walk(root)
-  return out.sort()
+  if (listed !== null) return [...new Set(listed.split("\0").filter((f) => f && mine(f) && isRegularFile(join(root, f))))].sort()
+  return walkFiles(root, { skipHidden: true })
+    .map((path) => relative(root, path))
+    .filter(mine)
 }
 
 export function currentBranch(root: string): string {

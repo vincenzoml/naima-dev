@@ -15,7 +15,7 @@
 // Always on, with nothing to configure: the markdown is every file git
 // tracks. A reference file is held only when the plugin is given one.
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs"
 import { dirname, join, relative, resolve } from "node:path"
 import {
   DEFAULT_DATA,
@@ -30,6 +30,7 @@ import {
   label,
   parse,
   projectFiles,
+  walkFiles,
 } from "../../core/index.ts"
 
 export interface DocsOptions {
@@ -274,18 +275,7 @@ export function docsRefError(root: string, ref: string): string | null {
   return unresolved(root, root, ref)
 }
 
-function* markdown(path: string): Generator<string> {
-  if (!existsSync(path)) return
-  if (statSync(path).isFile()) {
-    if (path.endsWith(".md")) yield path
-    return
-  }
-  for (const e of readdirSync(path, { withFileTypes: true })) {
-    if (e.name.startsWith(".") && e.name !== ".claude") continue
-    if (e.name === "node_modules") continue
-    yield* markdown(join(path, e.name))
-  }
-}
+const markdown = (path: string): string[] => walkFiles(path).filter((f) => f.endsWith(".md"))
 
 /** Relative links in the markdown under `paths` — unset, every markdown file of the project but the program's — that do not resolve. */
 export function brokenLinks(root: string, paths?: string[], program?: string): string[] {

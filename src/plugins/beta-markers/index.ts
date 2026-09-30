@@ -14,9 +14,9 @@
 // tracks. Overrides, all optional: { "paths": ["src"], "extensions": [".ts"],
 // "pattern": "<regex with groups ref and what>" }
 
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
-import { join, relative, sep } from "node:path"
-import { type Check, type Command, type Context, type Finding, type Item, type Plugin, type SummarySection, bool, isOpen, label, parse, projectFiles, proves } from "../../core/index.ts"
+import { readFileSync } from "node:fs"
+import { join, relative } from "node:path"
+import { NEVER_SOURCE, type Check, type Command, type Context, type Finding, type Item, type Plugin, type SummarySection, bool, isOpen, label, parse, projectFiles, proves, walkFiles } from "../../core/index.ts"
 
 export interface Marker {
   file: string
@@ -33,7 +33,6 @@ export interface MarkerOptions {
 }
 
 const DEFAULT_PATTERN = String.raw`^\s*(?:\/\/|#|--|;|\*)\s*naima:beta\s+(?<ref>\S+)\s*(?<what>.*)$`
-const SKIP = new Set(["node_modules", ".git", "dist", "build"])
 
 function readOptions(o: Record<string, unknown>): MarkerOptions {
   const list = (v: unknown, fallback: string[]): string[] => (Array.isArray(v) && v.every((x) => typeof x === "string") ? v : fallback)
@@ -44,25 +43,12 @@ function readOptions(o: Record<string, unknown>): MarkerOptions {
   }
 }
 
-function* files(dir: string, extensions: string[]): Generator<string> {
-  if (!existsSync(dir)) return
-  if (statSync(dir).isFile()) {
-    yield dir
-    return
-  }
-  for (const e of readdirSync(dir, { withFileTypes: true })) {
-    if (SKIP.has(e.name)) continue
-    const path = join(dir, e.name)
-    if (e.isDirectory()) yield* files(path, extensions)
-    else if (extensions.some((x) => e.name.endsWith(x))) yield path
-  }
-}
-
-/** The files to scan: under the paths option, or every project file with a scanned extension. */
+/** The files to scan: under the paths option, or every project file, with a scanned extension. */
 function scanned(root: string, opts: MarkerOptions, program?: string): string[] {
-  if (opts.paths) return opts.paths.flatMap((base) => [...files(join(root, base), opts.extensions)])
+  const wanted = (f: string): boolean => opts.extensions.some((x) => f.endsWith(x))
+  if (opts.paths) return opts.paths.flatMap((base) => walkFiles(join(root, base))).filter(wanted)
   return projectFiles(root, program)
-    .filter((f) => opts.extensions.some((x) => f.endsWith(x)) && !f.split(sep).some((part) => SKIP.has(part)))
+    .filter((f) => wanted(f) && !f.split(/[\\/]/).some((part) => NEVER_SOURCE.has(part)))
     .map((f) => join(root, f))
 }
 

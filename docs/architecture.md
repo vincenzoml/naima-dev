@@ -14,7 +14,8 @@ src/
     check.ts       the core invariants, and running every plugin's
     lifecycle.ts   questions answered from type declarations: open, proves, urgency
     collections.ts small shared helpers: groupBy, the frozen collections of the registry
-    git.ts         reading a directory across every branch worth reading
+    git.ts         reading a directory across every branch worth reading; the project's files
+    files.ts       the one walker: regular files only, symbolic links never followed
     layout.ts      naima-tracker/ and its names; finding the data directory
     config.ts      naima.json: the lock, gates, third-party plugin loading
     format.ts      the data format, migrations, the one-format check
