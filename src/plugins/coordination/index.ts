@@ -24,6 +24,7 @@ import {
   currentBranch,
   label,
   parse,
+  positiveInt,
   readAcrossBranches,
   str,
   today,
@@ -229,7 +230,7 @@ const pass: Command = {
   run(args, ctx) {
     const p = parse(args, { file: { type: "string" }, list: { type: "boolean" } })
     if (bool(p, "list")) {
-      const n = Number(p.positionals[0] ?? 5)
+      const n = positiveInt(p.positionals[0], 5, "pass --list")
       const passes = readPasses(ctx).slice(0, n)
       if (!passes.length) ctx.out("no session notes")
       for (const s of passes) ctx.out(`── ${s.date}  ${s.branch}${s.local ? "  (working tree)" : ""}\n${s.body}\n`)

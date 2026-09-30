@@ -26,6 +26,7 @@ import {
   label,
   pairs,
   parse,
+  positiveInt,
   readReadme,
   saveMeta,
   setFields,
@@ -157,7 +158,7 @@ const next: View = {
   name: "next",
   says: "open items, most urgent first",
   render(args, ctx) {
-    const n = Number(args[0] ?? 15)
+    const n = positiveInt(args[0], 15, "next")
     return byUrgency(ctx, openItems(ctx))
       .slice(0, n)
       .map((i) => `  ${[i.meta.impact, i.meta.priority, i.meta.effort].map((v) => String(v ?? "·").padEnd(8)).join("")}${label(i)}  ${i.meta.title}`)

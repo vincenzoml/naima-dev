@@ -72,3 +72,14 @@ test("negated evidence is not evidence: a page that could not reproduce it is un
     p.cleanup()
   }
 })
+
+test("view next takes a positive whole count", async () => {
+  const p = tempProject([things, triage()])
+  try {
+    createItem(p.ctx, p.ctx.registry.types.get("things")!, "One")
+    await assert.rejects(p.run("view", "next", "all"), /next: the count must be a positive whole number/)
+    assert.equal(await p.run("view", "next", "1"), 0)
+  } finally {
+    p.cleanup()
+  }
+})

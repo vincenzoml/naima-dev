@@ -34,3 +34,10 @@ export function pairs(list: string[]): [string, string][] {
     return [pair.slice(0, at), pair.slice(at + 1)]
   })
 }
+
+/** A count from the command line: `fallback` when absent, else a positive whole number, or a usage error naming `what`. */
+export function positiveInt(raw: string | undefined, fallback: number, what: string): number {
+  if (raw === undefined) return fallback
+  if (!/^\d+$/.test(raw) || Number(raw) < 1) throw new Error(`${what}: the count must be a positive whole number, got ${JSON.stringify(raw)}`)
+  return Number(raw)
+}

@@ -2,7 +2,7 @@
 // in the core; tests may also import ./testing.ts.
 
 export type * from "./types.ts"
-export { parse, str, strs, bool, pairs, type Flags, type Parsed } from "./args.ts"
+export { parse, str, strs, bool, pairs, positiveInt, type Flags, type Parsed } from "./args.ts"
 export { fieldError, parseFieldValue, fieldsOf, appliesTo, enumRank } from "./fields.ts"
 export { slugify, uniqueSlug, isUuid, today, writeJson, readReadme, saveMeta, createItem, moveItem, listDirs, META, README, ATTACHMENTS } from "./item.ts"
 export { storedLinks } from "./repo.ts"

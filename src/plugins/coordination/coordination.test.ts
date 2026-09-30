@@ -86,3 +86,13 @@ test("session notes are one file each, newest first by instant", async () => {
     p.cleanup()
   }
 })
+
+test("a count that is not a positive whole number is a usage error, not an empty listing", async () => {
+  const p = tempProject([things, coordination()], { git: true })
+  try {
+    for (const bad of ["all", "0", "1.5", ""]) await assert.rejects(p.run("pass", "--list", bad), /pass --list: the count must be a positive whole number/, bad)
+    assert.equal(await p.run("pass", "--list", "3"), 0)
+  } finally {
+    p.cleanup()
+  }
+})
