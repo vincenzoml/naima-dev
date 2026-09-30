@@ -8,7 +8,7 @@ import { bool, pairs, parse, str, strs, usageError } from "./args.ts"
 import { coreChecks, runChecks } from "./check.ts"
 import { groupBy } from "./collections.ts"
 import { appliesTo, fieldValue, parseFieldValue } from "./fields.ts"
-import { ATTACHMENTS, createItem, readReadme, saveMeta } from "./item.ts"
+import { ATTACHMENTS, createItem, readReadme, saveMeta, type WriteOptions } from "./item.ts"
 import { byUrgency, isOpen, label } from "./lifecycle.ts"
 import type { Command, Context, Item, Plugin, TypeDef } from "./types.ts"
 
@@ -48,10 +48,15 @@ export function withFields<M extends Record<string, unknown>>(ctx: Context, type
   return next as M
 }
 
-/** Set `field=value` pairs on an item, validated against the registry; nothing is written unless every pair is valid. */
-export function setFields(ctx: Context, item: Item, assignments: [string, string][]): void {
-  item.meta = withFields(ctx, item.type, item.meta, assignments)
-  saveMeta(item)
+/**
+ * Set `field=value` pairs on an item, validated against the registry, through
+ * every plugin's write hooks; nothing is written, and `item` is left as it
+ * was, unless every pair is valid and no hook refuses.
+ */
+export function setFields(ctx: Context, item: Item, assignments: [string, string][], opts: WriteOptions = {}): void {
+  const next: Item = { ...item, meta: withFields(ctx, item.type, item.meta, assignments) }
+  saveMeta(ctx, next, opts)
+  item.meta = next.meta
 }
 
 export function addLink(ctx: Context, from: Item, rel: string, to: Item): boolean {
@@ -59,9 +64,9 @@ export function addLink(ctx: Context, from: Item, rel: string, to: Item): boolea
   if (from.meta.id === to.meta.id) throw new Error("an item cannot link to itself")
   // Stored here, or stored on `to` as the inverse: either way the link already exists.
   if (ctx.repo.linksOf(from).some((l) => l.rel === rel && l.id === to.meta.id)) return false
-  const links = from.meta.links ?? []
-  from.meta.links = [...links, { rel, id: to.meta.id }]
-  saveMeta(from)
+  const next: Item = { ...from, meta: { ...from.meta, links: [...(from.meta.links ?? []), { rel, id: to.meta.id }] } }
+  saveMeta(ctx, next)
+  from.meta = next.meta
   return true
 }
 
@@ -176,11 +181,11 @@ const unlink: Command = {
     if (!from || !rel || !to) throw usageError(this)
     const a = ctx.repo.resolve(from)
     const b = ctx.repo.resolve(to)
-    const before = a.meta.links?.length ?? 0
-    a.meta.links = (a.meta.links ?? []).filter((l) => !(l.rel === rel && l.id === b.meta.id))
-    if (a.meta.links.length === before) throw new Error(`${label(a)} stores no "${rel}" link to ${label(b)}`)
-    if (a.meta.links.length === 0) delete a.meta.links
-    saveMeta(a)
+    const stored = a.meta.links ?? []
+    const kept = stored.filter((l) => !(l.rel === rel && l.id === b.meta.id))
+    if (kept.length === stored.length) throw new Error(`${label(a)} stores no "${rel}" link to ${label(b)}`)
+    const { links: _links, ...rest } = a.meta
+    saveMeta(ctx, { ...a, meta: kept.length ? { ...rest, links: kept } : rest })
     ctx.out(`removed ${label(a)} ${rel} ${label(b)}`)
     return 0
   },
@@ -295,6 +300,7 @@ const plugins: Command = {
         ["views", (p.views ?? []).map((v) => v.name)],
         ["gates", (p.gates ?? []).map((g) => g.name)],
         ["verifiers", (p.verifiers ?? []).map((v) => v.id)],
+        ["hooks", (p.hooks ?? []).map((h) => h.name)],
       ]
       for (const [what, names] of parts) if (names.length) ctx.out(`  ${what.padEnd(10)} ${names.join(", ")}`)
     }

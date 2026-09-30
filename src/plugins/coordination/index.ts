@@ -31,6 +31,7 @@ import {
   today,
   usageError,
   writeFileAtomic,
+  type WriteHook,
   writeJson,
 } from "../../core/index.ts"
 
@@ -304,6 +305,28 @@ const claimsResolve: Check = {
       ),
 }
 
+/**
+ * AGENTS.md: a branch does not close its own items on the strength of its own
+ * tests. Its own items are the ones it claims; closing one there is marking
+ * its own homework, so it waits for the trunk — or for `--force`, from the
+ * one who owns the evidence.
+ */
+const noClosingOwnWork: WriteHook = {
+  name: "no-closing-own-claims",
+  says:
+    "archiving an item (a move to a type that is not creatable, as naima close does) that the branch you stand on claims is refused unless --force: a branch does not close its own items on the strength of its own tests",
+  beforeWrite(write, ctx) {
+    if (write.kind !== "move" || write.to?.creatable !== false || write.force) return
+    const branch = currentBranch(ctx.root)
+    if (branch === "HEAD") return // detached: no branch, so no claim of its own
+    const id = write.item.meta.id
+    if (!readClaims(ctx).some((c) => c.branch === branch && c.items.some((e) => e.id === id))) return
+    return `${
+      label(write.item)
+    } is claimed by ${branch}, the branch you are on: a branch does not close its own items on the strength of its own tests — merge the work and close it from the trunk once someone else has checked the proof, or pass --force if you own the evidence`
+  },
+}
+
 const whereWeWere: SummarySection = {
   name: "where we were",
   render(ctx) {
@@ -341,5 +364,6 @@ export default function coordination(): Plugin {
     checks: [claimsResolve],
     commands: [claim, release, claims, prune, pass],
     summary: [whereWeWere, inHand],
+    hooks: [noClosingOwnWork],
   }
 }

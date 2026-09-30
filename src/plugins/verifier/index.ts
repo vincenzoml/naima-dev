@@ -31,6 +31,7 @@ import {
   type Verdict,
   type VerifyResult,
   writeFileAtomic,
+  type WriteHook,
   writeJson,
 } from "../../core/index.ts"
 import { exampleRegex } from "./adapters/example-regex.ts"
@@ -175,7 +176,7 @@ export async function verifyItem(ctx: Context, item: Item): Promise<Verdict> {
   if (result.counterexample !== undefined) writeFileAtomic(join(item.dir, ATTACHMENTS, `counterexample-${stamp}.txt`), result.counterexample + "\n")
   item.meta.status = STATUS[result.verdict]
   setFieldValue(item, LAST_RUN, name)
-  saveMeta(item)
+  saveMeta(ctx, item)
   return result.verdict
 }
 
@@ -236,20 +237,53 @@ const evidence: Check = {
       const run = loaded && "run" in loaded ? loaded.run : null
       if (!run) problem(item, "holds, but carries no run")
       else if (run.verdict !== "holds") problem(item, `holds, but its last run says ${run.verdict}`)
-      else {
-        // The verdict is evidence only for exactly what was run: the property, the adapter, the model and its options.
-        const again = " — run naima verify again"
-        const { property } = item.meta
-        if (run.property !== property) problem(item, `holds for property ${JSON.stringify(run.property)}, not ${JSON.stringify(property)}${again}`)
-        if (run.verifier !== verifier) problem(item, `holds by verifier ${JSON.stringify(run.verifier)}, not ${JSON.stringify(verifier)}${again}`)
-        if (run.model !== model) problem(item, `holds on model ${run.model}, not ${String(model)}${again}`)
-        else if (path && existsSync(path) && run.modelSha256 !== sha256(path)) {
-          problem(item, `holds on a model that has changed since${again}`)
-        }
-        if ((run.optionsSha256 ?? optionsHash({})) !== optionsHash(optionsOf(item))) problem(item, `holds with other verifierOptions than it has now${again}`)
-      }
+      else for (const why of staleness(ctx, item, run)) problem(item, `${why} — run naima verify again`)
     }
     return out
+  },
+}
+
+/**
+ * Why `run` is not evidence for the property as `item` has it now: the
+ * verdict speaks only for exactly what was run — the property, the adapter,
+ * the model path and its contents, and the options. Empty when it is current.
+ */
+export function staleness(ctx: Context, item: Item, run: RunRecord): string[] {
+  const out: string[] = []
+  const { verifier, model, property } = item.meta
+  if (run.property !== property) out.push(`holds for property ${JSON.stringify(run.property)}, not ${JSON.stringify(property)}`)
+  if (run.verifier !== verifier) out.push(`holds by verifier ${JSON.stringify(run.verifier)}, not ${JSON.stringify(verifier)}`)
+  const path = typeof model === "string" ? modelPath(ctx.root, model) : null
+  if (run.model !== model) out.push(`holds on model ${run.model}, not ${String(model)}`)
+  else if (path && existsSync(path) && run.modelSha256 !== sha256(path)) out.push("holds on a model that has changed since")
+  if ((run.optionsSha256 ?? optionsHash({})) !== optionsHash(optionsOf(item))) out.push("holds with other verifierOptions than it has now")
+  return out
+}
+
+/** What a run was reached on: change any of them and the run no longer speaks for the property. */
+const RUN_INPUTS = ["property", "model", "verifier", VERIFIER_OPTIONS.name] as const
+
+const reopenOnChange: WriteHook = {
+  name: "property-reopens-when-changed",
+  says:
+    "changing a property's property, model, verifier or verifierOptions sets its status back to open: the last run was reached on something else, and says nothing about it",
+  beforeWrite(write) {
+    const { item, before } = write
+    if (write.kind !== "update" || item.type !== TYPE || !before) return
+    if (RUN_INPUTS.some((f) => canonical(item.meta[f]) !== canonical(before[f]))) item.meta.status = "open"
+  },
+}
+
+const holdsByVerifyOnly: WriteHook = {
+  name: "holds-only-by-verify",
+  says:
+    "a property becomes holds only with a run that holds for exactly what it has now, as naima verify writes it; holds set by hand without one — naima set, naima new --set — is refused",
+  beforeWrite(write, ctx) {
+    const { item, before } = write
+    if (write.kind === "move" || item.type !== TYPE || item.meta.status !== "holds" || before?.status === "holds") return
+    const run = before ? readRun(item) : null // a new item has no attachments yet, so no run
+    if (run?.verdict === "holds" && staleness(ctx, item, run).length === 0) return
+    return `${label(item)}: holds is written by naima verify, with the run that proves it — run naima verify ${item.slug}`
   },
 }
 
@@ -300,5 +334,6 @@ export default function verifier(): Plugin {
     gates: [allHold],
     checks: [evidence],
     commands: [verify, verifiers],
+    hooks: [reopenOnChange, holdsByVerifyOnly],
   }
 }

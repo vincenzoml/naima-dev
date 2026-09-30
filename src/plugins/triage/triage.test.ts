@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { writeFileSync } from "node:fs"
+import { readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { test } from "node:test"
 import { byUrgency, createItem, type Plugin, runChecks } from "../../core/index.ts"
@@ -132,6 +132,34 @@ test("each triage subcommand answers a misuse with its own usage", async () => {
       p.run("triage", "nope"),
       /^NaimaError: usage: naima triage \| triage set <item> field=value\.\.\. \| triage missing \| triage derive \[--write\]$/,
     )
+  } finally {
+    p.cleanup()
+  }
+})
+
+test("a triage field changed by any command stamps triagedOn and stops being derived; derive stamps nothing", async () => {
+  const p = tempProject([things, triage()])
+  try {
+    const { ctx } = p
+    const item = createItem(ctx, ctx.registry.types.get("things")!, "Crash")
+    const meta = () => JSON.parse(readFileSync(join(item.dir, "meta.json"), "utf8"))
+    assert.equal(await p.run("triage", "derive", "--write"), 0)
+    assert.deepEqual([meta()["triagedBy"], meta()["triagedOn"]], ["derived", undefined], "derive is inference, not a person's triage")
+    assert.equal(await p.run("set", "crash", "impact=high"), 0)
+    assert.deepEqual([meta()["triagedBy"], meta()["triagedOn"]], [undefined, "2026-01-15"], "naima set of a triage field is triage")
+    assert.equal(await p.run("set", "crash", "title=Crash on save"), 0)
+    assert.equal(meta()["triagedOn"], "2026-01-15")
+  } finally {
+    p.cleanup()
+  }
+})
+
+test("a change that touches no triage field stamps nothing", async () => {
+  const p = tempProject([things, triage()])
+  try {
+    const item = createItem(p.ctx, p.ctx.registry.types.get("things")!, "Crash")
+    assert.equal(await p.run("set", "crash", "title=Crash on save"), 0)
+    assert.equal(JSON.parse(readFileSync(join(item.dir, "meta.json"), "utf8"))["triagedOn"], undefined)
   } finally {
     p.cleanup()
   }

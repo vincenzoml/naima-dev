@@ -3,8 +3,9 @@
 import { randomUUID } from "node:crypto"
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
+import { NaimaError } from "./errors.ts"
 import { writeFileAtomic } from "./files.ts"
-import type { Context, Item, Meta, TypeDef } from "./types.ts"
+import type { Context, Item, Meta, TypeDef, Write } from "./types.ts"
 
 export const META = "meta.json"
 export const README = "README.md"
@@ -87,8 +88,47 @@ export function readReadme(item: Item): string {
   return existsSync(path) ? readFileSync(path, "utf8") : ""
 }
 
-export function saveMeta(item: Item): void {
+/** What a write helper is asked on top of the item: `force`, a command's `--force` (Write.force). */
+export interface WriteOptions {
+  force?: boolean
+}
+
+/** The fields an item has on disk: what a write hook compares against. Null when there is no readable object. */
+function onDisk(dir: string): Meta | null {
+  try {
+    const value: unknown = JSON.parse(readFileSync(join(dir, META), "utf8"))
+    return value && typeof value === "object" && !Array.isArray(value) ? (value as Meta) : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Every plugin's `beforeWrite`, in load order. The first refusal stops the
+ * write before anything is on disk; a hook that refuses without saying why is
+ * a bug in that hook, reported as one.
+ */
+function beforeWrite(ctx: Context, write: Write): void {
+  for (const hook of ctx.registry.hooks) {
+    const refusal = hook.beforeWrite?.(write, ctx)
+    if (refusal === undefined) continue
+    if (typeof refusal !== "string" || !refusal.trim()) {
+      throw new TypeError(`write hook "${hook.name}" refused a write of ${write.item.type}/${write.item.slug} without saying why — a refusal is a sentence`)
+    }
+    throw new NaimaError(`${refusal} (refused by ${hook.name})`, "vetoed")
+  }
+}
+
+function afterWrite(ctx: Context, write: Write): void {
+  for (const hook of ctx.registry.hooks) hook.afterWrite?.(write, ctx)
+}
+
+/** Write an item's fields, through every plugin's write hooks. */
+export function saveMeta(ctx: Context, item: Item, opts: WriteOptions = {}): void {
+  const write: Write = { kind: "update", item, before: onDisk(item.dir), force: opts.force === true }
+  beforeWrite(ctx, write)
   writeJson(join(item.dir, META), item.meta)
+  afterWrite(ctx, write)
 }
 
 export function listDirs(path: string): string[] {
@@ -101,27 +141,41 @@ export function listDirs(path: string): string[] {
 
 const defaultTemplate = (title: string): string => `# ${title}\n\nDescribe it here.\n`
 
-/** Open a new item. Writes only inside its own new directory. */
-export function createItem(ctx: Context, type: TypeDef, title: string, fields: Record<string, unknown> = {}): Item {
+/** Open a new item, through every plugin's write hooks. Writes only inside its own new directory, and nothing when a hook refuses. */
+export function createItem(ctx: Context, type: TypeDef, title: string, fields: Record<string, unknown> = {}, opts: WriteOptions = {}): Item {
   const base = join(ctx.trackerRoot, type.dir)
-  const slug = claimDir(base, slugify(title))
+  const wanted = slugify(title)
+  const meta: Meta = { id: randomUUID(), title, status: type.initialStatus, created: today(ctx), ...fields }
+  const write: Write = { kind: "create", item: { type: type.id, slug: wanted, dir: join(base, wanted), meta }, before: null, force: opts.force === true }
+  beforeWrite(ctx, write)
+  const slug = claimDir(base, wanted)
   const dir = join(base, slug)
   mkdirSync(join(dir, ATTACHMENTS))
   writeFileSync(join(dir, ATTACHMENTS, ".gitkeep"), "")
   writeFileSync(join(dir, README), (type.template ?? defaultTemplate)(title))
-  const meta: Meta = { id: randomUUID(), title, status: type.initialStatus, created: today(ctx), ...fields }
-  const item: Item = { type: type.id, slug, dir, meta }
-  saveMeta(item)
+  const item: Item = { type: type.id, slug, dir, meta: write.item.meta }
+  writeJson(join(dir, META), item.meta)
+  write.item = item
+  afterWrite(ctx, write)
   return item
 }
 
-/** Move an item to another type's directory, keeping its id and slug. */
-export function moveItem(ctx: Context, item: Item, to: TypeDef): Item {
+/**
+ * Move an item to another type's directory, keeping its id and slug, and
+ * write its fields there as `item.meta` holds them: one write, through every
+ * plugin's write hooks, so a refusal leaves the item where it was.
+ */
+export function moveItem(ctx: Context, item: Item, to: TypeDef, opts: WriteOptions = {}): Item {
+  const write: Write = { kind: "move", item, before: onDisk(item.dir), to, force: opts.force === true }
+  beforeWrite(ctx, write)
   const base = join(ctx.trackerRoot, to.dir)
   mkdirSync(base, { recursive: true })
   const slug = uniqueSlug(item.slug, new Set(listDirs(base)))
   const dir = join(base, slug)
   renameSync(item.dir, dir)
-  generation++
-  return { type: to.id, slug, dir, meta: item.meta }
+  const moved: Item = { type: to.id, slug, dir, meta: item.meta }
+  writeJson(join(dir, META), moved.meta)
+  write.item = moved
+  afterWrite(ctx, write)
+  return moved
 }

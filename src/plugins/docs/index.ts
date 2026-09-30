@@ -119,6 +119,7 @@ export function documentationGaps(ctx: Context): string[] {
     if (blank(g.decides)) out.push(`gate "${g.name}" does not say how it decides`)
   }
   for (const v of ctx.registry.verifiers.values()) if (blank(v.says)) out.push(`verifier "${v.id}" does not say what it checks`)
+  for (const h of ctx.registry.hooks) if (blank(h.says)) out.push(`write hook "${h.name}" does not say what it does`)
   return out
 }
 
@@ -164,7 +165,7 @@ export function renderReference(ctx: Context): string {
     GENERATED + " Do not edit: change the manifest, then run `naima docs --write`. -->",
     "",
     "Everything the loaded plugins contribute, generated from their manifests so it cannot drift from the code.",
-    "Names are global: no two plugins may declare the same command, type, field, relation, view, gate, verifier, check, summary section or rank term, and no plugin command may take a name the entry point answers.",
+    "Names are global: no two plugins may declare the same command, type, field, relation, view, gate, verifier, check, summary section, rank term or write hook, and no plugin command may take a name the entry point answers.",
     "",
     "## Contents",
     "",
@@ -229,6 +230,10 @@ export function renderReference(ctx: Context): string {
     if (p.verifiers?.length) {
       L.push("", "**Verifiers**, used by `naima verify`", "", "| Verifier | What it checks |", "|---|---|")
       for (const v of p.verifiers) L.push(`| ${code(v.id)} | ${cell(v.says)} |`)
+    }
+    if (p.hooks?.length) {
+      L.push("", "**Write hooks**, run on every item write, in load order", "", "| Hook | What it does |", "|---|---|")
+      for (const h of p.hooks) L.push(`| ${code(h.name)} | ${cell(h.says)} |`)
     }
     if (p.views?.length) {
       L.push("", "**Views**, printed by `naima view <name>`", "", "| View | What it shows |", "|---|---|")

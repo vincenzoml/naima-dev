@@ -6,6 +6,7 @@
 //   closed    resolved, and moved to the archive with its proof.
 
 import {
+  bool,
   type Check,
   type Command,
   type Context,
@@ -20,7 +21,6 @@ import {
   type Plugin,
   proves,
   readReadme,
-  saveMeta,
   setFieldValue,
   type SummarySection,
   today,
@@ -111,10 +111,15 @@ const humanSaysWhy: Check = {
 const close: Command = {
   name: "close",
   says: "archive a resolved item: fixed, and proven by an item that has passed",
-  usage: "close <item>",
-  examples: ["close export-drops"],
+  usage: "close <item> [--force]",
+  options: [{
+    name: "--force",
+    says: "close it although a write hook refuses — for the one who owns the evidence, say an item this branch claims whose proof someone else performed",
+  }],
+  examples: ["close export-drops", "close export-drops --force"],
   run(args, ctx) {
-    const ref = parse(args).positionals[0]
+    const p = parse(args, { force: { type: "boolean" } })
+    const ref = p.positionals[0]
     if (!ref?.trim()) throw usageError(this)
     const item = ctx.repo.resolve(ref)
     const state = lifecycle(ctx, item)
@@ -122,11 +127,11 @@ const close: Command = {
     if (state !== "resolved") {
       throw new Error(`${label(item)} is ${state}: closing takes fixedOn and a verified-by item that has passed`)
     }
-    setFieldValue(item, CLOSED_FROM, item.type)
-    item.meta.status = "closed"
-    setFieldValue(item, CLOSED_ON, today(ctx))
-    saveMeta(item)
-    const moved = moveItem(ctx, item, typeOrThrow(ctx, "closed"))
+    // One write: the move carries the new fields, so a refusal leaves the item as it was, where it was.
+    const archived: Item = { ...item, meta: { ...item.meta, status: "closed" } }
+    setFieldValue(archived, CLOSED_FROM, item.type)
+    setFieldValue(archived, CLOSED_ON, today(ctx))
+    const moved = moveItem(ctx, archived, typeOrThrow(ctx, "closed"), { force: bool(p, "force") })
     ctx.out(`closed → ${label(moved)}`)
     return 0
   },

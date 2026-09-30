@@ -111,5 +111,8 @@ git worktree remove <path>
 - **Closing the branch's own items.** An item is closed once it is fixed
   *and* proven by a gesture, and a branch that closes its own items on the
   strength of its own green tests is marking its own homework. `naima close`
-  refuses anything that is not resolved.
+  refuses anything that is not resolved, and refuses an item the branch you
+  stand on claims: close it from the trunk, after the merge, once someone
+  else has checked the proof. `naima close --force` is for the one who owns
+  the evidence — a proof someone else performed, recorded here.
 - **Deleting the scratchpad.** It was never tracked.

@@ -4,7 +4,22 @@
 export type * from "./types.ts"
 export { bool, type Flags, pairs, parse, type Parsed, positiveInt, str, strs, usageError } from "./args.ts"
 export { appliesTo, enumRank, fieldError, type FieldRef, fieldsOf, fieldValue, parseFieldValue, setFieldValue, type ValueOf } from "./fields.ts"
-export { ATTACHMENTS, createItem, isUuid, listDirs, META, moveItem, README, readReadme, saveMeta, slugify, today, uniqueSlug, writeJson } from "./item.ts"
+export {
+  ATTACHMENTS,
+  createItem,
+  isUuid,
+  listDirs,
+  META,
+  moveItem,
+  README,
+  readReadme,
+  saveMeta,
+  slugify,
+  today,
+  uniqueSlug,
+  writeJson,
+  type WriteOptions,
+} from "./item.ts"
 export { storedLinks } from "./repo.ts"
 export { groupBy } from "./collections.ts"
 export { EXIT, isInternal, message, NaimaError } from "./errors.ts"

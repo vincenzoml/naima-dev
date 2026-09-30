@@ -2,7 +2,7 @@
 // error at load time, never a silent override.
 
 import { FrozenMap, FrozenSet } from "./collections.ts"
-import type { Check, Command, FieldDef, GateDef, Plugin, RankTerm, Registry, RelationDef, SummarySection, TypeDef, Verifier, View } from "./types.ts"
+import type { Check, Command, FieldDef, GateDef, Plugin, RankTerm, Registry, RelationDef, SummarySection, TypeDef, Verifier, View, WriteHook } from "./types.ts"
 
 export interface RegistryOptions {
   /** Command names the entry point answers before any plugin is loaded: a plugin command by one of them could never run. */
@@ -23,6 +23,7 @@ export function buildRegistry(plugins: Plugin[], opts: RegistryOptions = {}): Re
     rank: [] as RankTerm[],
     gates: new Map<string, GateDef>(),
     verifiers: new Map<string, Verifier>(),
+    hooks: [] as WriteHook[],
   }
   const owners = new Map<string, string>()
   const names = new Set<string>()
@@ -67,9 +68,11 @@ export function buildRegistry(plugins: Plugin[], opts: RegistryOptions = {}): Re
     for (const c of p.checks ?? []) own("check", c.name, p.name)
     for (const s of p.summary ?? []) own("summary section", s.name, p.name)
     for (const t of p.rank ?? []) own("rank term", t.name, p.name)
+    for (const h of p.hooks ?? []) own("write hook", h.name, p.name)
     registry.checks.push(...(p.checks ?? []))
     registry.summary.push(...(p.summary ?? []))
     registry.rank.push(...(p.rank ?? []))
+    registry.hooks.push(...(p.hooks ?? []))
   }
 
   for (const r of registry.relations.values()) {
@@ -93,5 +96,6 @@ export function buildRegistry(plugins: Plugin[], opts: RegistryOptions = {}): Re
     rank: Object.freeze(registry.rank),
     gates: new FrozenMap(registry.gates),
     verifiers: new FrozenMap(registry.verifiers),
+    hooks: Object.freeze(registry.hooks),
   })
 }

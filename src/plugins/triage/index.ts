@@ -29,11 +29,11 @@ import {
   readReadme,
   saveMeta,
   setFields,
-  setFieldValue,
   type SummarySection,
   today,
   usageError,
   type View,
+  type WriteHook,
 } from "../../core/index.ts"
 
 export const FIELDS: FieldDef[] = [
@@ -167,11 +167,12 @@ const SUBCOMMANDS: Record<string, Subcommand> = {
       const [ref, ...assignments] = args
       if (!ref?.trim() || !assignments.length) throw usageError(this)
       const item = ctx.repo.resolve(ref)
-      setFields(ctx, item, pairs(assignments))
-      // A value set by hand is judgement; it stops being inference.
-      if (fieldValue(item, TRIAGED_BY) === "derived") setFieldValue(item, TRIAGED_BY, undefined)
-      setFieldValue(item, TRIAGED_ON, today(ctx))
-      saveMeta(item)
+      // Triaging is a person's judgement even when it confirms a value: stamped today, and no longer inference.
+      const judged: [string, string][] = [
+        [TRIAGED_ON.name, today(ctx)],
+        ...(fieldValue(item, TRIAGED_BY) === "derived" ? [[TRIAGED_BY.name, ""] as [string, string]] : []),
+      ]
+      setFields(ctx, item, [...pairs(assignments), ...judged])
       ctx.out(`${label(item)}: ${assignments.join(" ")}`)
       return 0
     },
@@ -197,11 +198,31 @@ const SUBCOMMANDS: Record<string, Subcommand> = {
         const decided = fieldValue(item, TRIAGED_BY) !== "derived" && TRIAGE.some((f) => item.meta[f] !== undefined)
         if (decided || fieldValue(item, CONFIDENCE)) continue
         touched++
-        if (write) saveMeta({ ...item, meta: { ...item.meta, [CONFIDENCE.name]: confidenceFrom(readReadme(item)), [TRIAGED_BY.name]: "derived" } })
+        if (write) saveMeta(ctx, { ...item, meta: { ...item.meta, [CONFIDENCE.name]: confidenceFrom(readReadme(item)), [TRIAGED_BY.name]: "derived" } })
       }
       ctx.out(`${touched} items ${write ? "updated" : "would change (dry run — pass --write)"}; effort is never derived`)
       return 0
     },
+  },
+}
+
+/**
+ * A person's change to a triage field, by any command, is triage: it stamps
+ * `triagedOn` and stops being inference. A write that marks itself derived
+ * (triage derive) stamps nothing: triagedOn is when a person last looked.
+ */
+const stampTriage: WriteHook = {
+  name: "triage-stamps-its-date",
+  says:
+    "a change to priority, impact, effort or confidence — by naima set, triage set, or any command — stamps triagedOn with today and drops triagedBy: derived; a write triage derive marks derived stamps nothing",
+  beforeWrite(write, ctx) {
+    if (write.kind === "move") return
+    const meta = write.item.meta
+    const was: Record<string, unknown> = write.before ?? {}
+    if (!TRIAGE.some((f) => JSON.stringify(meta[f]) !== JSON.stringify(was[f]))) return
+    if (meta[TRIAGED_BY.name] === "derived" && was[TRIAGED_BY.name] !== "derived") return
+    delete meta[TRIAGED_BY.name]
+    meta[TRIAGED_ON.name] = today(ctx)
   },
 }
 
@@ -255,5 +276,6 @@ export default function triagePlugin(): Plugin {
     commands: [triage],
     views: [next],
     summary: [top],
+    hooks: [stampTriage],
   }
 }

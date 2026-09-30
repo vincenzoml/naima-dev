@@ -165,6 +165,38 @@ export interface Verifier {
   verify(request: VerifyRequest, ctx: Context): Promise<VerifyResult>
 }
 
+/**
+ * One write of one item, as the write hooks see it (docs/plugin-contract.md#write-hooks).
+ * `create` opens an item, `update` rewrites its fields, `move` archives or moves it to another type's directory.
+ */
+export interface Write {
+  kind: "create" | "update" | "move"
+  /**
+   * The item as it is about to be written. A `beforeWrite` hook may change its `meta`; what it leaves is what is written.
+   * On a create its directory does not exist yet, and its slug is the one asked for.
+   */
+  item: Item
+  /** Its fields as they are on disk; null for a create, or for an item whose meta.json is unreadable. */
+  before: Meta | null
+  /** For a move: the type it moves to. */
+  to?: TypeDef
+  /** The command's `--force`: whoever gave it takes on what a hook would otherwise refuse. A hook decides whether it lets it through. */
+  force: boolean
+}
+
+/** A hook on every item write the core's helpers make, run in plugin load order. */
+export interface WriteHook {
+  name: string
+  says: string
+  /**
+   * Before anything is on disk. Return a refusal — a sentence saying what to do instead — to stop the write, or
+   * nothing to let it through; it may change `write.item.meta`. The first refusal stops the write and every later hook.
+   */
+  beforeWrite?(write: Write, ctx: Context): string | undefined | void
+  /** After the write, with the item as written (for a move, where it now is). */
+  afterWrite?(write: Write, ctx: Context): void
+}
+
 /** What a plugin declares. Every contribution is optional. */
 export interface Plugin {
   name: string
@@ -185,6 +217,8 @@ export interface Plugin {
   rank?: RankTerm[]
   gates?: GateDef[]
   verifiers?: Verifier[]
+  /** Hooks on every item write, in load order. */
+  hooks?: WriteHook[]
 }
 
 export type PluginOptions = Record<string, unknown>
@@ -229,6 +263,8 @@ export interface Registry {
   readonly rank: readonly RankTerm[]
   readonly gates: ReadonlyMap<string, GateDef>
   readonly verifiers: ReadonlyMap<string, Verifier>
+  /** Every plugin's write hooks, in load order. */
+  readonly hooks: readonly WriteHook[]
 }
 
 export interface Repo {
