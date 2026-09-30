@@ -18,7 +18,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs"
 import { dirname, join, relative, resolve } from "node:path"
 import {
-  NAIMA_DIR,
+  DEFAULT_DATA,
   type Check,
   type Command,
   type Context,
@@ -61,7 +61,7 @@ function readOptions(o: Record<string, unknown>): DocsOptions {
   }
 }
 
-const markdownFiles = (root: string): string[] => projectFiles(root).filter((f) => f.endsWith(".md"))
+const markdownFiles = (root: string, program?: string): string[] => projectFiles(root, program).filter((f) => f.endsWith(".md"))
 
 /** The reference files `naima check` holds: the option, when set. */
 export function referencesOf(reference: string | undefined): string[] {
@@ -167,7 +167,7 @@ export function renderReference(ctx: Context): string {
     if (p.name === "core") for (const c of cliCommands) L.push(...commandSection(c))
     for (const c of p.commands ?? []) L.push(...commandSection(c))
     for (const t of p.types ?? []) {
-      L.push("", `### type: ${t.id}`, "", `${t.title}: ${t.says}. Items live in ${code(`${NAIMA_DIR}/${t.dir}/`)}; a new one starts as ${code(t.initialStatus)}${t.creatable === false ? "; it is an archive: items arrive by being moved there, never by being opened" : ""}.`)
+      L.push("", `### type: ${t.id}`, "", `${t.title}: ${t.says}. Items live in ${code(`${DEFAULT_DATA}/${t.dir}/`)}; a new one starts as ${code(t.initialStatus)}${t.creatable === false ? "; it is an archive: items arrive by being moved there, never by being opened" : ""}.`)
       L.push("", "| Status | Category | Proves | Meaning |", "|---|---|---|---|")
       for (const [name, s] of Object.entries(t.statuses)) L.push(`| ${code(name)} | ${s.category} | ${s.proves ? "yes" : ""} | ${cell(s.says)} |`)
     }
@@ -261,11 +261,11 @@ function* markdown(path: string): Generator<string> {
   }
 }
 
-/** Relative links in the markdown under `paths` — unset, every markdown file of the project — that do not resolve. */
-export function brokenLinks(root: string, paths?: string[]): string[] {
+/** Relative links in the markdown under `paths` — unset, every markdown file of the project but the program's — that do not resolve. */
+export function brokenLinks(root: string, paths?: string[], program?: string): string[] {
   const out: string[] = []
   const files: string[] = []
-  if (!paths) files.push(...markdownFiles(root).map((f) => join(root, f)))
+  if (!paths) files.push(...markdownFiles(root, program).map((f) => join(root, f)))
   for (const base of paths ?? []) {
     if (!existsSync(join(root, base))) out.push(`${base} is listed for link checking and does not exist`)
     else files.push(...markdown(join(root, base)))
@@ -334,7 +334,7 @@ export default function docs(options: Record<string, unknown> = {}): Plugin {
   const linksResolve: Check = {
     name: "links-resolve",
     says: "every relative link in every markdown file of the project (or under the links option) points at a file, and a heading when it names one",
-    run: (ctx) => brokenLinks(ctx.root, opts.links).map((message): Finding => ({ level: "problem", message })),
+    run: (ctx) => brokenLinks(ctx.root, opts.links, ctx.program).map((message): Finding => ({ level: "problem", message })),
   }
 
   const command: Command = {

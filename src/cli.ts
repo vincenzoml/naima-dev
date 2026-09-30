@@ -1,9 +1,20 @@
-#!/usr/bin/env node
-import { readFileSync } from "node:fs"
-import { runCli } from "./core/index.ts"
+// The program's entry point. The launcher (naima.ts) runs it under Deno with
+// the permissions docs/install.md lists; run directly, it is the development
+// build, which aligns nothing and moves nothing.
+
+import { dirname } from "node:path"
+import { fileURLToPath } from "node:url"
 import { firstParty } from "./builtins.ts"
+import { runCli } from "./core/index.ts"
 
-/** This Naima's version: the package.json beside src/ (or dist/). */
-const version = (JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }).version
+/** The Naima that is running: the directory above src/. */
+const programRoot = dirname(dirname(fileURLToPath(import.meta.url)))
+const data = process.env.NAIMA_DATA
 
-process.exitCode = await runCli(process.argv.slice(2), { cwd: process.cwd(), version, firstParty })
+process.exitCode = await runCli(process.argv.slice(2), {
+  cwd: process.cwd(),
+  programRoot,
+  ...(data ? { data } : {}),
+  launched: process.env.NAIMA_LAUNCHED === "1",
+  firstParty,
+})

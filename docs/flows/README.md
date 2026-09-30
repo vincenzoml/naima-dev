@@ -26,8 +26,9 @@ points at its page here; where the two disagree, the page wins. To adopt them
 in another project, copy the directory, and the pages if the project does not
 depend on Naima's docs.
 
-In the commands, `naima` is the CLI. In this repository it is
-`npm run naima --`.
+In the commands, `naima` is the CLI: `deno run -A
+naima-tracker/naima/naima.ts` ([installing](../install.md)). In this
+repository it is `deno task naima`.
 
 ## Enforced, not only written
 

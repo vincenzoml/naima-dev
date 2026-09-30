@@ -59,16 +59,17 @@ function* files(dir: string, extensions: string[]): Generator<string> {
 }
 
 /** The files to scan: under the paths option, or every project file with a scanned extension. */
-function scanned(root: string, opts: MarkerOptions): string[] {
+function scanned(root: string, opts: MarkerOptions, program?: string): string[] {
   if (opts.paths) return opts.paths.flatMap((base) => [...files(join(root, base), opts.extensions)])
-  return projectFiles(root)
+  return projectFiles(root, program)
     .filter((f) => opts.extensions.some((x) => f.endsWith(x)) && !f.split(sep).some((part) => SKIP.has(part)))
     .map((f) => join(root, f))
 }
 
-export function scanMarkers(root: string, opts: MarkerOptions): Marker[] {
+/** The markers in the project's files; never in `program`, the Naima that runs. */
+export function scanMarkers(root: string, opts: MarkerOptions, program?: string): Marker[] {
   const out: Marker[] = []
-  for (const path of scanned(root, opts)) {
+  for (const path of scanned(root, opts, program)) {
     readFileSync(path, "utf8")
       .split("\n")
       .forEach((text, i) => {
@@ -82,7 +83,7 @@ export function scanMarkers(root: string, opts: MarkerOptions): Marker[] {
 type State = { marker: Marker; item?: Item; state: "unproven" | "stale" | "dangling" }
 
 function audit(ctx: Context, opts: MarkerOptions): State[] {
-  return scanMarkers(ctx.root, opts).map((marker) => {
+  return scanMarkers(ctx.root, opts, ctx.program).map((marker) => {
     let item: Item
     try {
       item = ctx.repo.resolve(marker.ref)

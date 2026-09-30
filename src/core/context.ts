@@ -1,7 +1,6 @@
 // The object every command, check and view receives.
 
-import { join } from "node:path"
-import { NAIMA_DIR } from "./config.ts"
+import { posixRelative } from "./config.ts"
 import { loadRepo } from "./repo.ts"
 import type { Config, Context, Registry, Repo } from "./types.ts"
 
@@ -17,12 +16,21 @@ export const consoleIO: IO = {
   now: () => new Date(),
 }
 
-export function createContext(root: string, config: Config, registry: Registry, io: IO = consoleIO): Context {
-  const trackerRoot = join(root, NAIMA_DIR)
+/** Where a project is: its root, its data directory, and the program that runs it. All absolute. */
+export interface Place {
+  root: string
+  data: string
+  program: string
+}
+
+export function createContext(place: Place, config: Config, registry: Registry, io: IO = consoleIO): Context {
+  const trackerRoot = place.data
   let repo: Repo | null = null
   return {
-    root,
+    root: place.root,
     trackerRoot,
+    trackerDir: posixRelative(place.root, trackerRoot),
+    program: place.program,
     config,
     registry,
     get repo() {

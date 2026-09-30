@@ -1,8 +1,8 @@
 // Who is working on what, and where each session left off — without any
 // session ever writing a file another session writes.
 //
-//   naima/claims/<uuid>.json        one per branch that claims work
-//   naima/passes/<date>-<uuid>.md   one per session note
+//   <data>/claims/<uuid>.json        one per branch that claims work
+//   <data>/passes/<date>-<uuid>.md   one per session note
 //
 // Both are written on the writer's own branch, never staged, never committed
 // by the tool. The collections are recombined at read time from every branch.
@@ -11,7 +11,6 @@ import { randomUUID } from "node:crypto"
 import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import {
-  NAIMA_DIR,
   type BranchFile,
   type Check,
   type Command,
@@ -58,7 +57,8 @@ export interface Pass {
   local: boolean
 }
 
-const rel = (ctx: Context, dir: string): string => join(NAIMA_DIR, dir)
+/** A coordination directory, from the project root. */
+const rel = (ctx: Context, dir: string): string => join(ctx.trackerDir, dir)
 
 function parseClaim(f: BranchFile): Claim | null {
   try {

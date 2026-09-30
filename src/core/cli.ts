@@ -1,42 +1,68 @@
-// The one entry point: find the project, check its pin, load every plugin, dispatch.
+// The one entry point: find the data, align the program when the launcher
+// runs it, load every plugin, dispatch. The commands that set up and move the
+// program itself — init, update, carry, guide, help — are answered here,
+// before any plugin is loaded.
 
-import { execFileSync } from "node:child_process"
-import { existsSync } from "node:fs"
-import { join, relative, resolve } from "node:path"
+import { existsSync, mkdirSync, realpathSync, writeFileSync } from "node:fs"
+import { dirname, join, relative, resolve } from "node:path"
 import { corePlugin } from "./base.ts"
-import { CONFIG_FILE, NAIMA_DIR, findRoot, loadPlugins, pinRefusal, readConfig } from "./config.ts"
-import { type IO, consoleIO, createContext } from "./context.ts"
-import { writeJson } from "./item.ts"
-import { parseVersion } from "./semver.ts"
+import { CARRY_MODES, type Lock, loadPlugins, parseLock, posixRelative, programDir, readConfig, readRaw, writeRaw } from "./config.ts"
+import { type IO, type Place, consoleIO, createContext } from "./context.ts"
+import { FORMAT, formatRefusal, isFormat, migrate } from "./format.ts"
+import { bool, parse } from "./args.ts"
+import { git, toplevel } from "./git.ts"
+import { DATA_DIR, DATA_FILE, DEFAULT_DATA, RELAUNCH, TRACKER_DIR, TRACKER_README, findData, trackerOf } from "./layout.ts"
+import { type Target, align, carry, ignoreProgram, refuseLocalWork, remoteMain, stage, vendor } from "./program.ts"
 import { buildRegistry } from "./registry.ts"
-import type { Command, Config, Context, Plugin } from "./types.ts"
+import type { Carry, Command, Config, Context, Plugin } from "./types.ts"
 
 export interface CliOptions {
   cwd: string
-  /** This Naima's version, checked against the project's pin. */
-  version: string
+  /** The Naima that is running: the directory holding its naima.ts and src/. */
+  programRoot: string
+  /** The data directory named by `NAIMA_DATA`, if any; `--data` wins over it. */
+  data?: string
+  /** Run by the launcher: align the program first, and ask to be run again when the code on disk is not the code running. */
+  launched?: boolean
   /** Every first-party plugin, built from the config. All of them are always loaded. */
   firstParty: (config: Config) => Plugin[]
   io?: IO
 }
 
-/** Load a project into a context: config, pin, plugins, registry. */
-export async function openProject(root: string, opts: Pick<CliOptions, "version" | "firstParty">, io: IO = consoleIO): Promise<Context> {
-  const config = readConfig(root)
-  const refusal = pinRefusal(opts.version, config.pin)
-  if (refusal) throw new Error(refusal)
+/** Load a project into a context: config (in this Naima's format), plugins, registry. */
+export async function openProject(place: Place, opts: Pick<CliOptions, "programRoot" | "firstParty">, io: IO = consoleIO): Promise<Context> {
+  const config = readConfig(place.data)
   const firstParty = opts.firstParty(config)
-  const extra = await loadPlugins(root, config, firstParty.map((p) => p.name))
-  return createContext(root, config, buildRegistry([corePlugin, ...firstParty, ...extra]), io)
+  const extra = await loadPlugins(opts.programRoot, config, firstParty.map((p) => p.name))
+  return createContext(place, config, buildRegistry([corePlugin, ...firstParty, ...extra]), io)
 }
 
-/** The two commands the entry point answers itself, before any plugin is loaded. Documented like any other. */
+/** The commands the entry point answers itself, before any plugin is loaded. Documented like any other. */
 export const cliCommands: Omit<Command, "run">[] = [
   {
     name: "init",
-    says: `make this git repository a Naima project: create ${CONFIG_FILE}, pinned to this Naima; nothing outside ${NAIMA_DIR}/ is touched`,
+    says: `make this git repository a Naima project: create ${TRACKER_DIR}/ — its README.md, its .gitignore and ${DATA_DIR}/${DATA_FILE}, locked to the source and commit of the Naima that runs it; nothing outside ${TRACKER_DIR}/ is touched`,
     usage: "init",
     examples: ["init"],
+  },
+  {
+    name: "update",
+    says: "move the lock to the source's main: fetch it, migrate the data forward if its format moved, and record the new commit, as one change to commit; the only command that asks the source anything",
+    usage: "update [--check]",
+    options: [{ name: "--check", says: "only say whether the source's main has moved past the locked commit; exit 1 when it has" }],
+    examples: ["update --check", "update"],
+  },
+  {
+    name: "carry",
+    says: "switch how the program is carried — a gitignored clone, vendored as committed files, or a git submodule — staging the switch as one change",
+    usage: `carry <${CARRY_MODES.join("|")}>`,
+    examples: ["carry vendored", "carry clone"],
+  },
+  {
+    name: "guide",
+    says: "print where the running Naima's documentation is: the skill, the docs index, the flows, the format; read them as files",
+    usage: "guide",
+    examples: ["guide"],
   },
   {
     name: "help",
@@ -46,55 +72,164 @@ export const cliCommands: Omit<Command, "run">[] = [
   },
 ]
 
-/** The pin `init` writes: this version's caret range. */
-export function pinFor(version: string): string {
-  const v = parseVersion(version)
-  if (!v) throw new Error(`"${version}" is not a version`)
-  return `^${v[0]}.${v[1]}.${v[2]}`
+const usage = (name: string): string => `usage: naima ${cliCommands.find((c) => c.name === name)?.usage ?? name}`
+
+/** `naima [--data <dir>] <command> [args]`: the one global option comes first. */
+function globalOptions(argv: string[]): { data?: string; rest: string[] } {
+  const [first, second, ...rest] = argv
+  if (first === "--data") {
+    if (!second) throw new Error("--data needs a directory")
+    return { data: second, rest }
+  }
+  if (first?.startsWith("--data=")) return { data: first.slice("--data=".length), rest: argv.slice(1) }
+  return { rest: argv }
 }
 
+const real = (path: string): string => (existsSync(path) ? realpathSync(path) : resolve(path))
+
+/** The commit of the running Naima, when it is a clone of its own; null when it is vendored into a project. */
+function runningCommit(programRoot: string): string | null {
+  return toplevel(programRoot) === real(programRoot) ? git(programRoot, "rev-parse", "HEAD") : null
+}
+
+function locate(opts: CliOptions, flag: string | undefined): (Place & { lock: Lock; raw: Record<string, unknown> }) | null {
+  const found = findData(opts.cwd, flag ?? opts.data)
+  if (!found) return null
+  if (!existsSync(join(found, DATA_FILE))) throw new Error(`${found} holds no ${DATA_FILE}`)
+  const data = real(found) // as git names the root: relative paths between the two must not cross a symlink
+  const raw = readRaw(data)
+  if (!isFormat(raw.format)) throw new Error(`${DATA_FILE} ${formatRefusal(raw.format)}`)
+  const lock = parseLock(raw)
+  return { root: toplevel(data) ?? dirname(dirname(data)), data, program: programDir(data, lock), lock, raw }
+}
+
+const targetOf = (place: Place, lock: Lock): Target => ({ root: place.root, tracker: trackerOf(place.data), program: place.program, source: lock.source, commit: lock.commit, carry: lock.carry })
+
 function init(opts: CliOptions, io: IO): number {
-  let root: string
-  try {
-    root = execFileSync("git", ["rev-parse", "--show-toplevel"], { cwd: resolve(opts.cwd), encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim()
-  } catch {
-    throw new Error("not a git repository — naima init makes a git repository a Naima project")
+  const root = toplevel(resolve(opts.cwd))
+  if (!root) throw new Error("not a git repository — naima init makes a git repository a Naima project")
+  const tracker = join(root, TRACKER_DIR)
+  const data = join(tracker, DATA_DIR)
+  const next = `next: naima new todos "<the first thing to do>"`
+  if (existsSync(join(data, DATA_FILE))) {
+    io.out(`${DEFAULT_DATA}/${DATA_FILE} already exists — left as it is`)
+    io.out(next)
+    return 0
   }
-  if (existsSync(join(root, CONFIG_FILE))) io.out(`${CONFIG_FILE} already exists — left as it is`)
-  else {
-    writeJson(join(root, CONFIG_FILE), { naima: pinFor(opts.version) })
-    io.out(`wrote ${relative(resolve(opts.cwd), join(root, CONFIG_FILE)) || CONFIG_FILE}`)
+  const commit = runningCommit(opts.programRoot)
+  const source = commit && git(opts.programRoot, "remote", "get-url", "origin")
+  if (!commit || !source) {
+    throw new Error(`this Naima is not a clone with an origin: naima init records the source and commit of the Naima that runs it — git clone <source> ${TRACKER_DIR}/naima, and run init from there`)
   }
-  io.out(`next: naima new todos "<the first thing to do>"`)
+  mkdirSync(data, { recursive: true })
+  const readme = join(tracker, "README.md")
+  if (!existsSync(readme)) writeFileSync(readme, TRACKER_README)
+  writeRaw(data, { format: FORMAT, source, commit, carry: "clone" })
+  ignoreProgram({ root, tracker, program: join(tracker, "naima"), source, commit, carry: "clone" }, true)
+  io.out(`wrote ${TRACKER_DIR}/: README.md, .gitignore, ${DATA_DIR}/${DATA_FILE} — locked to ${source} at ${commit.slice(0, 12)}`)
+  io.out(next)
+  return 0
+}
+
+function update(args: string[], place: Place, lock: Lock, raw: Record<string, unknown>, io: IO): number {
+  const check = bool(parse(args, { check: { type: "boolean" } }), "check")
+  const t = targetOf(place, lock)
+  const main = remoteMain(t)
+  const short = (c: string) => c.slice(0, 12)
+  if (check) {
+    if (main === lock.commit) io.out(`current: the source's main is the locked commit ${short(main)}`)
+    else io.out(`the source's main moved: ${short(lock.commit)} → ${short(main)} — naima update`)
+    return main === lock.commit ? 0 : 1
+  }
+  if (main !== lock.commit) {
+    // Move the program first, and only then the lock: a refusal leaves both where they were.
+    if (lock.carry === "vendored") {
+      refuseLocalWork(t)
+      vendor(t, main)
+    } else align({ ...t, commit: main })
+    writeRaw(place.data, { ...raw, commit: main })
+    io.out(`locked ${short(lock.commit)} → ${short(main)}`)
+    return RELAUNCH // the new Naima finishes: it is the one that knows the new format
+  }
+  const from = raw.format
+  const migrated = migrate(place.data)
+  io.out(migrated.length ? `migrated the data from format ${String(from)} to ${FORMAT}` : `the data is format ${FORMAT}: nothing to migrate`)
+  const tracker = posixRelative(place.root, trackerOf(place.data))
+  io.out(`${short(main)} is the lock — commit it as one change: git add ${tracker} && git commit -m "Update Naima to ${short(main)}"`)
+  return 0
+}
+
+function carryCommand(args: string[], place: Place, lock: Lock, raw: Record<string, unknown>, io: IO): number {
+  const [to, ...extra] = parse(args).positionals
+  if (!to || extra.length || !CARRY_MODES.includes(to as Carry)) throw new Error(usage("carry"))
+  if (to === lock.carry) {
+    io.out(`already carried as ${to}`)
+    return 0
+  }
+  carry(targetOf(place, lock), to as Carry)
+  writeRaw(place.data, { ...raw, carry: to })
+  stage(place.root, join(place.data, DATA_FILE))
+  io.out(`carried as ${to} (was ${lock.carry}), staged — commit it as one change: git commit -m "Carry Naima as ${to}"`)
+  return 0
+}
+
+function guide(opts: CliOptions, io: IO): number {
+  const at = (path: string): string => relative(opts.cwd, join(opts.programRoot, path)) || "."
+  const commit = runningCommit(opts.programRoot)
+  io.out(`Naima ${commit ? commit.slice(0, 12) : "(vendored)"}, data format ${FORMAT}, at ${at("")}`)
+  io.out("Read these as files; they are the documentation of the Naima that runs:")
+  const pages: [string, string][] = [
+    ["skill", "skills/naima/SKILL.md"],
+    ["index", "docs/README.md"],
+    ["flows", "docs/flows/README.md"],
+    ["format", "docs/format.md"],
+    ["install", "docs/install.md"],
+    ["rules", "AGENTS.md"],
+  ]
+  for (const [name, path] of pages) io.out(`  ${name.padEnd(8)} ${at(path)}`)
   return 0
 }
 
 function help(ctx: Context | null, io: IO): number {
-  io.out("usage: naima <command> [args]\n")
-  const [init] = cliCommands
-  if (init) io.out(`  ${init.name.padEnd(10)} ${init.says}\n  ${"".padEnd(10)} naima ${init.usage}`)
+  io.out("usage: naima [--data <dir>] <command> [args]\n")
+  const entry = cliCommands.filter((c) => c.name !== "help")
+  for (const c of entry) io.out(`  ${c.name.padEnd(10)} ${c.says}\n  ${"".padEnd(10)} naima ${c.usage}`)
   if (!ctx) {
-    io.out(`\nno ${CONFIG_FILE} found here or above — run naima init`)
+    io.out(`\nno ${DEFAULT_DATA}/${DATA_FILE} found here or above — run naima init`)
     return 0
   }
   for (const c of ctx.registry.commands.values()) io.out(`  ${c.name.padEnd(10)} ${c.says}\n  ${"".padEnd(10)} naima ${c.usage}`)
   return 0
 }
 
+const isHelp = (command: string | undefined): boolean => !command || command === "help" || command === "--help" || command === "-h"
+
 export async function runCli(argv: string[], opts: CliOptions): Promise<number> {
   const io = opts.io ?? consoleIO
-  const [command] = argv
-  const args = argv.slice(1)
   try {
+    const { data, rest } = globalOptions(argv)
+    const [command, ...args] = rest
     if (command === "init") {
-      if (args.length) throw new Error("usage: naima init")
+      if (args.length) throw new Error(usage("init"))
       return init(opts, io)
     }
-    const root = findRoot(opts.cwd)
-    const ctx = root ? await openProject(root, opts, io) : null
-    if (!command || command === "help" || command === "--help" || command === "-h") return help(ctx, io)
-    if (!ctx) throw new Error(`no ${CONFIG_FILE} found here or above — run naima init`)
-    const cmd = ctx.registry.commands.get(command)
+    if (command === "guide") return guide(opts, io)
+    const place = locate(opts, data)
+    if (!place) {
+      if (isHelp(command)) return help(null, io)
+      throw new Error(`no ${DEFAULT_DATA}/${DATA_FILE} found here or above — run naima init`)
+    }
+    if (opts.launched) {
+      const moved = align(targetOf(place, place.lock))
+      if (moved || real(opts.programRoot) !== real(place.program)) return RELAUNCH
+    }
+    if (command === "update" || command === "carry") {
+      if (!opts.launched) throw new Error(`naima ${command} moves the program, so it runs through the launcher: deno run -A ${TRACKER_DIR}/naima/naima.ts ${command}`)
+      return command === "update" ? update(args, place, place.lock, place.raw, io) : carryCommand(args, place, place.lock, place.raw, io)
+    }
+    const ctx = await openProject(place, opts, io)
+    if (isHelp(command)) return help(ctx, io)
+    const cmd = ctx.registry.commands.get(command as string)
     if (!cmd) throw new Error(`unknown command "${command}" — naima help`)
     return await cmd.run(args, ctx)
   } catch (e) {

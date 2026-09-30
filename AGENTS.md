@@ -15,8 +15,8 @@ each rule links the page that holds its reasoning.
    feature is not done until its documentation is in the same change. For a
    plugin contribution that means its manifest carries the documentation (a
    command its usage, options and an example; a gate how it decides) and
-   `docs/reference.md` is regenerated with `npm run docs`; for anything else,
-   the page under `docs/` that explains it. `npm run verify` fails otherwise:
+   `docs/reference.md` is regenerated with `deno task docs`; for anything else,
+   the page under `docs/` that explains it. `deno task verify` fails otherwise:
    [the documentation rule](docs/documentation.md).
 3. **Don't start implementing until the owner says so.** A request is not a
    work order. First its item must say what "done" is: for a feature, its
@@ -28,12 +28,14 @@ each rule links the page that holds its reasoning.
 
 ## Working rules
 
-- **Naima tracks itself, and the tracker is managed by the pinned stable.**
-  `npm run naima -- <command>` runs the newest tagged release inside the pin
-  in `naima/config.json`; `npm run naima:dev -- <command>` runs the
-  working tree, as a test. Every tracker change goes through the CLI, never by
-  hand. A change to the item format ships in a stable before the development
-  version writes it: [bootstrap policy](docs/bootstrap.md).
+- **Naima tracks itself, and the tracker is managed by the locked commit.**
+  `deno task naima <command>` runs the gitignored clone in
+  `naima-tracker/naima/`, locked to a commit of `main` by
+  `naima-tracker/naima-data/naima.json`; `deno task dev <command>` runs the
+  working tree, as a test, and never writes the tracker. Every tracker change
+  goes through the CLI, never by hand. A change the tracker is about to use is
+  merged and pushed first, then `naima update` moves the lock to it:
+  [Naima tracking itself](docs/bootstrap.md).
 - **Write it down before fixing it.** A defect, a task or a request becomes an
   item first (`naima new`), then gets worked on. A fix with no trace is
   diagnosed from scratch next time: [reporting and triage](docs/flows/reporting-and-triage.md).
@@ -57,7 +59,8 @@ each rule links the page that holds its reasoning.
 ## Before pushing
 
 ```sh
-npm run verify    # typecheck, tests, check (dev and stable), reference current
+deno task verify    # typecheck, tests, check (working tree and lock), reference current
+node --test "src/**/*.test.ts" && bun test src     # the same tests on Node and Bun
 ```
 
 Architecture and the dependency rule: [docs/architecture.md](docs/architecture.md).

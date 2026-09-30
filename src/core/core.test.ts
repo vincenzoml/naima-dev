@@ -1,8 +1,8 @@
 import assert from "node:assert/strict"
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
-import { join } from "node:path"
+import { dirname, join } from "node:path"
 import { test } from "node:test"
-import { addLink, buildRegistry, createItem, maxSatisfying, parseConfig, satisfies, runChecks, setFields, slugify, uniqueSlug, type Plugin } from "./index.ts"
+import { FORMAT, addLink, buildRegistry, createItem, findData, parseConfig, runChecks, setFields, slugify, uniqueSlug, type Plugin } from "./index.ts"
 import { corePlugin } from "./base.ts"
 import { tempProject } from "./testing.ts"
 
@@ -36,29 +36,32 @@ test("the registry refuses a name declared twice", () => {
   assert.throws(() => buildRegistry([corePlugin, { name: "x", says: "", fields: [{ name: "f", kind: "string", says: "", appliesTo: ["nope"] }] }]), /no plugin declares/)
 })
 
-test("config: only the pin, gates and third-party plugins; nothing to switch on", () => {
-  assert.deepEqual(parseConfig({ naima: "^0.2.0" }), { pin: "^0.2.0", gates: {}, plugins: [] })
-  const c = parseConfig({ naima: "^0.2.0", gates: { v1: {} }, plugins: ["./a.mjs", { name: "b", options: { k: 1 } }] })
-  assert.deepEqual(c.plugins, [{ name: "./a.mjs", options: {} }, { name: "b", options: { k: 1 } }])
-  assert.throws(() => parseConfig({}), /naima must be the pin/)
-  assert.throws(() => parseConfig({ naima: "not a range" }), /naima must be the pin/)
-  assert.throws(() => parseConfig({ naima: "*", trackerDir: "t" }), /unknown key "trackerDir"/)
-  assert.throws(() => parseConfig({ naima: "*", plugins: [3] }), /a plugin entry/)
+const LOCK = { source: "https://example.invalid/naima.git", commit: "a".repeat(40) }
+
+test("naima.json: the format, the lock, gates and third-party plugins; nothing to switch on", () => {
+  assert.deepEqual(parseConfig({ format: FORMAT, ...LOCK }), { format: FORMAT, ...LOCK, carry: "clone", program: "../naima", gates: {}, plugins: [] })
+  const c = parseConfig({ format: FORMAT, ...LOCK, carry: "vendored", gates: { v1: {} }, plugins: ["plugins/a.ts", { name: "plugins/b.ts", options: { k: 1 } }] })
+  assert.equal(c.carry, "vendored")
+  assert.deepEqual(c.plugins, [{ name: "plugins/a.ts", options: {} }, { name: "plugins/b.ts", options: { k: 1 } }])
+  assert.throws(() => parseConfig({ ...LOCK }), /has no format/)
+  assert.throws(() => parseConfig({ format: FORMAT, source: "", commit: LOCK.commit }), /source must be/)
+  assert.throws(() => parseConfig({ format: FORMAT, ...LOCK, commit: "abc" }), /commit must be the full hash/)
+  assert.throws(() => parseConfig({ format: FORMAT, ...LOCK, carry: "zip" }), /carry must be one of: clone, vendored, submodule/)
+  assert.throws(() => parseConfig({ format: FORMAT, ...LOCK, naima: "^0.2.0" }), /unknown key "naima"/)
+  assert.throws(() => parseConfig({ format: FORMAT, ...LOCK, plugins: [3] }), /a plugin entry/)
 })
 
-test("semver: the ranges a pin is written in", () => {
-  assert.ok(satisfies("0.2.0", "^0.2.0"))
-  assert.ok(satisfies("0.2.9", "^0.2.0"))
-  assert.ok(!satisfies("0.3.0", "^0.2.0"))
-  assert.ok(!satisfies("0.1.0", "^0.2.0"))
-  assert.ok(satisfies("1.4.0", "^1.2.3") && !satisfies("2.0.0", "^1.2.3"))
-  assert.ok(satisfies("1.2.9", "~1.2.3") && !satisfies("1.3.0", "~1.2.3"))
-  assert.ok(satisfies("1.2.7", "1.2.x") && satisfies("1.9.0", "1.x") && satisfies("3.0.0", "*"))
-  assert.ok(satisfies("1.5.0", ">=1.2.0 <2.0.0") && !satisfies("2.0.0", ">=1.2.0 <2.0.0"))
-  assert.ok(satisfies("3.0.0", "^1.0.0 || ^3.0.0"))
-  assert.ok(!satisfies("0.3.0-dev", "^0.2.0"))
-  assert.equal(maxSatisfying(["v0.1.0", "v0.2.0", "v0.2.3", "v0.3.0", "junk"], "^0.2.0"), "v0.2.3")
-  assert.equal(maxSatisfying(["v0.1.0"], "^0.2.0"), null)
+test("the data directory: --data or NAIMA_DATA, else the first naima-tracker/naima-data/ walking up", () => {
+  const p = tempProject([])
+  try {
+    const deep = join(p.root, "a", "b")
+    mkdirSync(deep, { recursive: true })
+    assert.equal(findData(deep), join(p.root, "naima-tracker", "naima-data"))
+    assert.equal(findData(deep, "../../elsewhere"), join(p.root, "elsewhere"))
+    assert.equal(findData(dirname(p.root)), null)
+  } finally {
+    p.cleanup()
+  }
 })
 
 test("an item is a directory with a uuid, and links are resolved in both directions", async () => {

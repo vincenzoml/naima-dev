@@ -1,71 +1,45 @@
-# Bootstrap policy
+# Naima tracking itself
 
-Naima tracks itself, in `naima/`. If the code in the working tree managed
-that tracker, a bug in the checker could hide a bug on the board, and a change
-to the item format could make the tracker's own history unreadable. So:
+Naima tracks itself, in `naima-tracker/naima-data/`. If the code in the
+working tree managed that tracker, a bug in the checker could hide a bug on
+the board, and a change to the item format could make the tracker's own
+history unreadable. So the working tree never manages it. There is no special
+case for this: Naima's repository uses exactly the model every project uses
+([installing and updating](install.md)).
 
-1. **The tracker is managed by the previous stable release**, chosen by the
-   pin. `npm run naima -- <command>` runs it.
-2. **The development build is tested against the tracker, never its
-   authority.** `npm run naima:dev -- <command>` runs the working tree, and
-   `npm run verify` runs `check` with both: the development build as a test,
-   the stable as the authority.
-3. **A format change ships in a stable before the development version writes
-   it.** A new type, field, status or directory the tracker is about to use:
-   tag a stable that knows it, bump the pin, then use it.
-
-## The mechanism: the pin
-
-This is not a special case. Naima's repository is a Naima project like any
-other ([using Naima in your project](using-naima.md#the-pin)), and its pin is
-`naima` in [`naima/config.json`](../naima/config.json): a semver range. Two
-things follow from it.
-
-- **Which stable manages the tracker.** [`scripts/stable.mjs`](../scripts/stable.mjs)
-  picks the newest `v*` tag inside the pin (fetching tags from `origin` when
-  none is here), extracts that commit's `src/` and `package.json` with
-  `git archive` into the user's cache directory — `~/Library/Caches/naima`,
-  `$XDG_CACHE_HOME/naima` or `~/.cache/naima`, `%LOCALAPPDATA%\naima`, or
-  `$NAIMA_CACHE` — and runs its CLI with node from the current directory.
-  Naima has no runtime dependencies and node runs its TypeScript directly, so
-  the extracted tree is complete as it is. The cache is named by commit: a tag
-  that moves gets a new directory. Nothing is written into the repository.
-- **Which builds may act at all.** Every Naima checks its own version against
-  the pin and refuses, in one line, when it is outside. The working tree
-  carries the version of the release it is working towards only from the
-  moment that release is tagged, so between releases it stays inside the pin
-  like the stable.
+1. **The tracker is managed by the locked commit.** `naima-tracker/naima/` is
+   a gitignored clone of Naima itself, locked to a commit of its own `main` by
+   `naima.json`; that commit is the "previous version". `deno task naima
+   <command>` runs it, through the launcher. Alignment clones it from this
+   repository's own objects, so it needs no network.
+2. **The working tree is tested against the tracker, never its authority.**
+   `deno task dev <command>` runs the working tree on the same data, and
+   `deno task verify` runs `check` with both: the working tree as a test, the
+   lock as the authority. The working tree never writes the tracker.
+3. **The lock moves after the change is on `main`.** Once a change is merged,
+   verified and pushed, `naima update` moves the lock to the new `main`, as
+   one commit. A change the tracker is about to use — a new type, field,
+   status or directory — is used only after that update.
 
 ```sh
-npm run naima -- check          # the stable, on this tracker
-npm run naima:dev -- check      # the working tree, on the same tracker
-npm run stable:which            # the pin, the tag it resolves to, its commit, its cache directory
+deno task naima check        # the locked commit, on this tracker
+deno task dev check          # the working tree, on the same tracker
+deno task naima update --check
 ```
 
-## Bumping the pin
+## Why the reference is checked by the working tree
 
-When the trunk holds a version that should manage the tracker:
+`docs/reference.md` documents the working tree's plugins, which the locked
+commit may not have yet, and the launcher lets Naima write only under
+`naima-tracker/`. So `deno task docs` writes the reference and `deno task
+verify` checks it, both with the working tree, and the `docs` plugin holds no
+reference file of its own by default.
 
-```sh
-npm run verify                          # the trunk is green
-# set package.json's version to 0.3.0, commit
-git tag -a v0.3.0 -m "Naima 0.3.0"
-npm run stable:bump -- v0.3.0           # pins ^0.3.0 after the new tag passes check here
-git commit -am "Pin the tracker to v0.3.0"
-git push origin main v0.3.0
-```
+## History
 
-`stable:bump` refuses, and leaves the pin where it was, when the new tag does
-not pass `check` on the tracker as it stands.
-
-A release that changes the layout itself (v0.2.0 moved `tracker/` and
-`naima.config.json` into `naima/`) cannot be checked by the stable before it,
-which does not know the new layout. That release is tagged on the commit that
-moves the tracker and carries its own pin; from then on the rule above holds.
-
-## Why the reference is checked by the development build
-
-`docs/reference.md` documents the working tree's plugins, which the stable
-does not have. So `npm run verify` runs `naima docs --check docs/reference.md`
-through the development build, and the `docs` plugin holds no reference file
-of its own by default.
+Until the Deno distribution, the tracker lived in a top-level `naima/`
+directory, and a version pin in `naima/config.json` chose the newest tagged
+release (`v0.1.0`, `v0.2.0`) to manage it. The tags remain as history; no
+tool reads them. The tracker moved to `naima-tracker/naima-data/` by hand,
+with `git mv`, because the old layout had no anchor carrying a format to
+migrate from ([migrations](format.md#migrations)).

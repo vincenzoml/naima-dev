@@ -1,90 +1,113 @@
-// The project file, `naima/config.json`, and the plugins it adds.
+// The project file, `naima-data/naima.json`, and the plugins it adds.
 //
 // Automatic, not configured: every first-party plugin is always loaded, with
 // defaults it infers from the repository. The file holds only what the tool
-// cannot infer — the pin (`naima`, the Naima versions that may manage the
-// project), the project's gates, and third-party plugins to add. Nothing in it
-// switches anything on.
+// cannot infer — the data format, the lock (which Naima runs: its source,
+// commit and how it is carried), where the program is when it has moved, the
+// project's gates, and third-party plugins to add. Nothing in it switches
+// anything on. The format is specified in docs/format.md.
 
-import { existsSync, readFileSync } from "node:fs"
-import { dirname, isAbsolute, join, resolve } from "node:path"
+import { readFileSync, writeFileSync } from "node:fs"
+import { isAbsolute, join, relative, resolve, sep } from "node:path"
 import { pathToFileURL } from "node:url"
-import { isRange, satisfies } from "./semver.ts"
-import type { Config, Plugin, PluginEntry, PluginFactory, PluginOptions } from "./types.ts"
+import { DATA_FILE, DEFAULT_PROGRAM } from "./layout.ts"
+import { FORMAT, formatRefusal } from "./format.ts"
+import type { Carry, Config, Plugin, PluginEntry, PluginFactory, PluginOptions } from "./types.ts"
 
-/** The one directory Naima owns in a host project. */
-export const NAIMA_DIR = "naima"
-/** The project file, relative to the project root. */
-export const CONFIG_FILE = `${NAIMA_DIR}/config.json`
+export const CARRY_MODES: readonly Carry[] = ["clone", "vendored", "submodule"]
 
-const KEYS = new Set(["naima", "gates", "plugins"])
-
-/** Walk up from `start` to the first directory holding `naima/config.json`. */
-export function findRoot(start: string): string | null {
-  let dir = resolve(start)
-  for (;;) {
-    if (existsSync(join(dir, CONFIG_FILE))) return dir
-    const parent = dirname(dir)
-    if (parent === dir) return null
-    dir = parent
-  }
-}
+const KEYS = new Set(["format", "source", "commit", "carry", "program", "gates", "plugins"])
+const COMMIT = /^[0-9a-f]{40}$/
 
 const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v)
 
+export type Lock = Pick<Config, "source" | "commit" | "carry" | "program">
+
+/**
+ * The lock: which Naima runs the project, and where it is. The same keys in
+ * every format, so that a Naima can be aligned, and can update, whatever the
+ * format of the data it is about to read.
+ */
+export function parseLock(raw: Record<string, unknown>): Lock {
+  const { source, commit } = raw
+  if (typeof source !== "string" || !source.trim()) throw new Error(`${DATA_FILE}: source must be the git URL (or absolute path) of the Naima this project runs`)
+  if (typeof commit !== "string" || !COMMIT.test(commit)) throw new Error(`${DATA_FILE}: commit must be the full hash of the Naima commit this project runs`)
+  const carry = raw.carry ?? "clone"
+  if (!CARRY_MODES.includes(carry as Carry)) throw new Error(`${DATA_FILE}: carry must be one of: ${CARRY_MODES.join(", ")}`)
+  const program = raw.program ?? DEFAULT_PROGRAM
+  if (typeof program !== "string" || !program.trim()) throw new Error(`${DATA_FILE}: program must be a path, relative to the data directory`)
+  return { source, commit, carry: carry as Carry, program }
+}
+
+/** The contents of a naima.json in the format this Naima reads. Throws with the reason when it is not one. */
 export function parseConfig(raw: unknown): Config {
-  if (!isObject(raw)) throw new Error(`${CONFIG_FILE} must hold a JSON object`)
+  if (!isObject(raw)) throw new Error(`${DATA_FILE} must hold a JSON object`)
+  const refusal = formatRefusal(raw.format)
+  if (refusal) throw new Error(`${DATA_FILE} ${refusal}`)
   for (const key of Object.keys(raw)) {
-    if (!KEYS.has(key)) throw new Error(`${CONFIG_FILE}: unknown key "${key}" — it holds only naima (the pin), gates and plugins (third-party); everything else is inferred`)
+    if (!KEYS.has(key)) throw new Error(`${DATA_FILE}: unknown key "${key}" — it holds only ${[...KEYS].join(", ")}; everything else is inferred`)
   }
-  const pin = raw.naima
-  if (typeof pin !== "string" || !isRange(pin)) throw new Error(`${CONFIG_FILE}: naima must be the pin, a semver range such as "^0.2.0"`)
+  const lock = parseLock(raw)
   const gates = raw.gates ?? {}
-  if (!isObject(gates)) throw new Error(`${CONFIG_FILE}: gates must map a gate name to its definition`)
+  if (!isObject(gates)) throw new Error(`${DATA_FILE}: gates must map a gate name to its definition`)
   const extras = raw.plugins ?? []
-  if (!Array.isArray(extras)) throw new Error(`${CONFIG_FILE}: plugins must be a list of third-party plugins`)
+  if (!Array.isArray(extras)) throw new Error(`${DATA_FILE}: plugins must be a list of third-party plugins`)
   const plugins: PluginEntry[] = extras.map((p: unknown) => {
     if (typeof p === "string") return { name: p, options: {} }
     if (isObject(p) && typeof p.name === "string") {
       const options = p.options ?? {}
-      if (!isObject(options)) throw new Error(`${CONFIG_FILE}: options of plugin "${p.name}" must be an object`)
+      if (!isObject(options)) throw new Error(`${DATA_FILE}: options of plugin "${p.name}" must be an object`)
       return { name: p.name, options: options as PluginOptions }
     }
-    throw new Error(`${CONFIG_FILE}: a plugin entry is a path or package name, or { "name", "options" }`)
+    throw new Error(`${DATA_FILE}: a plugin entry is a path inside the program, or { "name", "options" }`)
   })
-  return { pin, gates, plugins }
+  return { format: FORMAT, ...lock, gates, plugins }
 }
 
-export function readConfig(root: string): Config {
-  const path = join(root, CONFIG_FILE)
+/** The raw JSON of `<data>/naima.json`. */
+export function readRaw(data: string): Record<string, unknown> {
   let raw: unknown
   try {
-    raw = JSON.parse(readFileSync(path, "utf8"))
+    raw = JSON.parse(readFileSync(join(data, DATA_FILE), "utf8"))
   } catch (e) {
-    throw new Error(`${CONFIG_FILE}: ${(e as Error).message}`)
+    throw new Error(`${DATA_FILE}: ${(e as Error).message}`)
   }
-  return parseConfig(raw)
+  if (!isObject(raw)) throw new Error(`${DATA_FILE} must hold a JSON object`)
+  return raw
 }
 
-/** Null when `version` may manage the project, otherwise the one-line refusal. */
-export function pinRefusal(version: string, pin: string): string | null {
-  if (satisfies(version, pin)) return null
-  return `naima ${version} does not manage this project: ${CONFIG_FILE} pins naima ${pin} — run npx naima@"${pin}"`
+export const readConfig = (data: string): Config => parseConfig(readRaw(data))
+
+/** Write `<data>/naima.json`, keys in the order given. */
+export function writeRaw(data: string, raw: Record<string, unknown>): void {
+  writeFileSync(join(data, DATA_FILE), JSON.stringify(raw, null, 2) + "\n")
 }
+
+/** The absolute program directory of a project whose data is `data`. */
+export const programDir = (data: string, config: Pick<Config, "program">): string => resolve(data, config.program)
 
 /**
- * The third-party plugins: a module (a path relative to the project root, or
- * a package name) whose default export is a plugin factory. The first-party
- * ones are not listed anywhere: the caller loads every one of them.
+ * The third-party plugins: a module whose default export is a plugin factory,
+ * named by its path inside the program. Code runs only from the program —
+ * never from the data, never from a package — so a project that wants a
+ * plugin carries it in its fork of Naima. The first-party ones are not listed
+ * anywhere: the caller loads every one of them.
  */
-export async function loadPlugins(root: string, config: Config, firstParty: string[]): Promise<Plugin[]> {
+export async function loadPlugins(program: string, config: Config, firstParty: string[]): Promise<Plugin[]> {
   const out: Plugin[] = []
   for (const entry of config.plugins) {
-    if (firstParty.includes(entry.name)) throw new Error(`${CONFIG_FILE}: "${entry.name}" is first-party and always loaded — plugins lists only third-party ones`)
-    const spec = entry.name.startsWith(".") || isAbsolute(entry.name) ? pathToFileURL(resolve(root, entry.name)).href : entry.name
-    const mod = (await import(spec)) as { default?: unknown }
+    if (firstParty.includes(entry.name)) throw new Error(`${DATA_FILE}: "${entry.name}" is first-party and always loaded — plugins lists only third-party ones`)
+    const path = resolve(program, entry.name)
+    const inside = relative(program, path)
+    if (isAbsolute(entry.name) || !inside || inside.startsWith("..") || isAbsolute(inside)) {
+      throw new Error(`${DATA_FILE}: plugin "${entry.name}" is not a path inside the program — code runs only from the program; carry the plugin in a fork of Naima`)
+    }
+    const mod = (await import(pathToFileURL(path).href)) as { default?: unknown }
     if (typeof mod.default !== "function") throw new Error(`plugin "${entry.name}" has no default-exported factory`)
     out.push((mod.default as PluginFactory)(entry.options))
   }
   return out
 }
+
+/** A path from `from` to `to`, with forward slashes: for messages, and for git. */
+export const posixRelative = (from: string, to: string): string => relative(from, to).split(sep).join("/")

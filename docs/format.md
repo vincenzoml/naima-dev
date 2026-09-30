@@ -1,0 +1,152 @@
+# The Naima format
+
+The public specification of every file Naima reads and writes in a project:
+its files, their fields and the invariants `naima check` holds. It is the
+compatibility boundary between forks. Change Naima however you like
+([modifying Naima](install.md#modifying-naima)); a fork that reads and writes
+this format works on the same data as every other.
+
+This page specifies **format 1**, the one this Naima reads. The format is a
+number, `format` in `naima.json`; it moves only with a migration (below).
+
+## The folder
+
+A project carries one folder, `naima-tracker/`, at its root:
+
+```
+naima-tracker/
+  README.md                 one line: what Naima is, and a link to it
+  .gitignore                /naima/ — when the program is carried as a clone
+  naima/                    the program: Naima itself, at the locked commit
+  naima-data/               the data
+    naima.json              the anchor: the format, the lock, the project's facts
+    <type>/<slug>/          one directory per item
+    claims/<uuid>.json      coordination: one file per branch that claims work
+    passes/<date>-<uuid>.md coordination: one file per session note
+```
+
+Naima writes nothing outside this folder, with one exception that git itself
+imposes: `.gitmodules`, when the program is carried as a submodule.
+
+Both directories can move. The data directory is found by walking up from the
+current directory to the first `naima-tracker/naima-data/naima.json`, or is
+named by `naima --data <dir>` or the `NAIMA_DATA` environment variable; a
+project that moves it says so in its tracker's README. The program directory
+is `program` in `naima.json`. The anchor never moves: the data directory is
+the one whose `naima.json` carries `format`.
+
+## `naima.json`
+
+```json
+{
+  "format": 1,
+  "source": "https://github.com/vincenzoml/naima.git",
+  "commit": "0123456789abcdef0123456789abcdef01234567",
+  "carry": "clone",
+  "gates": {
+    "v1": { "title": "First release", "says": "What v1 needs.", "holdsOn": "code" }
+  }
+}
+```
+
+| Key | Required | What it is |
+|---|---|---|
+| `format` | yes | the data format, an integer: this page is format 1 |
+| `source` | yes | the git URL, or absolute path, of the Naima the project runs: Naima's own repository, or a fork |
+| `commit` | yes | the full hash of the `source` commit the project runs: **the lock** |
+| `carry` | no, `clone` | how the program is carried: `clone`, `vendored` or `submodule` (below) |
+| `program` | no, `../naima` | the program directory, relative to the data directory |
+| `gates` | no, `{}` | gate name → `{ "title", "says", "holdsOn" }`; how a gate decides is in the [reference](reference.md#gates) |
+| `plugins` | no, `[]` | third-party plugins: a path inside the program, or `{ "name", "options" }` ([configuration](config.md)) |
+
+Any other key is an error. `source`, `commit`, `carry` and `program` are the
+lock: they keep these names and meanings in every format, so that any Naima
+can align itself and update whatever the format of the data.
+
+## The lock
+
+`source` and `commit` say which Naima runs the project, the way a lockfile
+says which version of a dependency does. Every run aligns the program
+directory to exactly that source and commit first: everyone on the project,
+and CI, runs the same Naima. No run pulls on its own; `naima update` is the
+only command that asks the source anything, and it moves the lock in one
+reviewable change. How alignment behaves, and when it refuses:
+[installing and updating](install.md#every-run-aligns-the-program).
+
+Code runs only from the program, never from the data: a plugin is a path
+inside the program, and a project that wants one carries it in its fork.
+
+### How the program is carried
+
+| `carry` | The program is | The lock is |
+|---|---|---|
+| `clone` | a clone of `source`, ignored by `naima-tracker/.gitignore` | `commit` |
+| `vendored` | committed into the project as plain files | the committed tree; `commit` records where it came from |
+| `submodule` | a git submodule | the submodule pointer, which is `commit` |
+
+`naima carry <mode>` switches between them as one staged change.
+
+## Items
+
+An item is a directory, `<type>/<slug>/`, under the data directory, where
+`<type>` is a directory a loaded type declares ([reference](reference.md)):
+
+| File | What it holds |
+|---|---|
+| `README.md` | the prose, in markdown |
+| `meta.json` | the fields: a JSON object |
+| `attachments/` | the evidence: any files |
+
+`meta.json` always holds:
+
+| Field | What it is |
+|---|---|
+| `id` | a uuid, permanent: links hold ids, never slugs |
+| `title` | a non-empty string |
+| `status` | one of the statuses the item's type declares |
+| `links` | optional: a list of `{ "rel", "id" }`, one direction of each link |
+
+Every other field is declared by a plugin with a kind — `string`, `strings`,
+`date` (`YYYY`, `YYYY-MM` or `YYYY-MM-DD`), `enum`, `boolean`, `number` — and
+is checked against it. A field no loaded plugin declares is kept and not
+checked. The slug is the directory's name and may change; the id may not.
+Only one direction of a link is stored; its inverse is derived when read.
+Boards, queues and gate states are derived and never stored.
+
+## Coordination files
+
+State that belongs to no branch is one file per writer, on the writer's own
+branch, recombined when read ([concepts](concepts.md)):
+
+- `claims/<uuid>.json`: `{ "branch", "claimedAt", "note"?, "items": [{ "id", "ref", "title" }] }`;
+- `passes/<date>-<uuid>.md`: front matter `date`, `at` (an ISO instant), `branch`, then the note.
+
+## Invariants
+
+`naima check` fails when any of these does not hold, and the
+[reference](reference.md) lists every check a loaded plugin adds:
+
+- every item directory has a `README.md` and a `meta.json` that is a JSON object;
+- every item has a uuid no other item has, a title, and a status its type declares;
+- every declared field holds a value of its kind;
+- every link uses a declared relation and names an existing item other than its own;
+- no item is still in a shape a format migration replaced (`one-format`).
+
+## Migrations
+
+A format moves by one migration at a time, and only forward. `naima update`
+runs them after it moves the lock to a Naima that reads a newer format:
+deterministically — the same input gives byte-identical output — and
+idempotently, so running it again changes nothing. Data newer than the Naima
+at the lock is refused in one line; it can only come from a hand edit.
+
+A migration rewrites `naima.json` and every item's `meta.json`, and declares
+which items still have the shape it replaces, so that `check` fails on a
+tracker that mixes formats. Parallel branches: update on its own branch and
+merge it first; every other branch then merges the trunk and runs `naima
+update`, which finishes the migration of its own new items or does nothing.
+
+Format 1 is the first format, and this Naima carries no migration yet. The
+layout before it — a top-level `naima/` directory whose `config.json` held a
+version pin — had no anchor carrying a format, so it cannot be migrated from:
+Naima's own tracker, the only one in it, was moved by hand with `git mv`.

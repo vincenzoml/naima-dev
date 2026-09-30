@@ -3,7 +3,7 @@
 
 import { existsSync, readdirSync } from "node:fs"
 import { join } from "node:path"
-import { NAIMA_DIR } from "./config.ts"
+import { formatCheck } from "./format.ts"
 import { fieldError, fieldsOf } from "./fields.ts"
 import { README, isUuid } from "./item.ts"
 import { label } from "./lifecycle.ts"
@@ -91,10 +91,10 @@ const layout: Check = {
   name: "layout",
   says: "every directory under the tracker root belongs to an item type or a plugin",
   run(ctx) {
-    if (!existsSync(ctx.trackerRoot)) return [note(`${NAIMA_DIR}/ does not exist yet`)]
+    if (!existsSync(ctx.trackerRoot)) return [note(`${ctx.trackerDir}/ does not exist yet`)]
     return readdirSync(ctx.trackerRoot, { withFileTypes: true })
       .filter((e) => e.isDirectory() && !e.name.startsWith(".") && !ctx.registry.dirs.has(e.name))
-      .map((e) => note(`${NAIMA_DIR}/${e.name}/ belongs to no loaded type or plugin`))
+      .map((e) => note(`${ctx.trackerDir}/${e.name}/ belongs to no loaded type or plugin`))
   },
 }
 
@@ -119,7 +119,7 @@ const duplicates: Check = {
   },
 }
 
-export const coreChecks: Check[] = [readable, identity, fields, links, layout, duplicates]
+export const coreChecks: Check[] = [readable, identity, fields, links, layout, duplicates, formatCheck()]
 
 export interface CheckReport {
   problems: Finding[]

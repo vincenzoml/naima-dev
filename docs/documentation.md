@@ -24,7 +24,7 @@ does not:
 `naima docs` prints the reference generated from those manifests;
 `naima docs --write <file>` writes it, and `naima docs --check <file>` fails
 when the file differs from what the code generates, so the reference cannot
-drift. In this repository the development build runs that check (see [bootstrap policy](bootstrap.md#why-the-reference-is-checked-by-the-development-build)),
+drift. In this repository the working tree runs that check (see [Naima tracking itself](bootstrap.md#why-the-reference-is-checked-by-the-working-tree)),
 and the generated file is [reference.md](reference.md).
 
 ## 2. The tracker

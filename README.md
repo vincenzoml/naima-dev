@@ -1,12 +1,13 @@
 # Naima
 
-A project tracker for software built by people and AI agents together:
-bugs, work, features, tests and the proofs that close them, kept as plain
-files in the repository and checked like code. Formal-methods tools such as
-model checkers plug in, so that a property of the software is tracked and
-proven the same way a test is.
+Naima is a project tracker for software built by people and AI agents together: bugs, work, features, tests and the proofs that close them, kept as plain files in the repository and checked like code.
 
-Status: research project, private while it takes shape. Open source by design.
+Formal-methods tools such as model checkers plug in, so that a property of
+the software is tracked and proven the same way a test is.
+
+Status: research project, private while it takes shape. Open source by
+design: the file format is an open specification, and changing Naima to fit a
+project is encouraged.
 
 ## Why the name
 
@@ -39,21 +40,20 @@ branches, formal verifiers, the documentation rule — is a plugin.
 
 ## Quick start
 
-Requires Node 22.18 or later. No runtime dependencies.
-
-Naima lives anywhere on the disk; a project using it carries only one
-top-level `naima/` directory. In any git repository:
+Requires [Deno](https://deno.com) and git. No dependencies, no releases, no
+binaries: a project carries one folder, `naima-tracker/`, and runs a clone of
+Naima inside it, locked to one commit. In any git repository:
 
 ```sh
-npx naima init                              # naima/config.json, pinned to this Naima
-npx naima new bugs "Export drops the alpha channel"
-npx naima check
+git clone https://github.com/vincenzoml/naima.git naima-tracker/naima
+deno run -A naima-tracker/naima/naima.ts init
+deno run -A naima-tracker/naima/naima.ts new bugs "Export drops the alpha channel"
+deno run -A naima-tracker/naima/naima.ts check
 ```
 
-Until the first public release it is not on npm: clone this repository,
-`npm install` (which builds `dist/`), `npm link`, and use `naima` instead of
-`npx naima`. Details: [using Naima in your project](docs/using-naima.md). An
-agent can do all of this itself: [the Naima skill](docs/skill.md).
+Details: [installing and updating](docs/install.md), [using Naima in your
+project](docs/using-naima.md), [the format](docs/format.md). An agent can do
+all of this itself: [the Naima skill](docs/skill.md).
 
 ## Documentation
 
@@ -62,10 +62,10 @@ reference of every command, type, field, relation, check, gate and plugin, the
 plugin contract, the bootstrap policy, and the flows for people and AI agents.
 Rules for working on this repository: [AGENTS.md](AGENTS.md).
 
-Naima tracks itself, in `naima/`, managed by its previous stable release
-through the same pin every project has (`npm run naima`); `npm run verify`
-runs the typecheck, the tests, and `check` with both the stable and the
-working tree.
+Naima tracks itself, in `naima-tracker/`, managed by a clone of itself locked
+to a commit of its own `main`, as every project is (`deno task naima`);
+`deno task verify` runs the typecheck, the tests, and `check` with both the
+lock and the working tree: [Naima tracking itself](docs/bootstrap.md).
 
 ## Licence
 

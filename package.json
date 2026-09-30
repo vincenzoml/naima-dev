@@ -1,39 +1,10 @@
 {
   "name": "naima",
-  "version": "0.2.0",
   "description": "A file-based project tracker for software built by people and AI agents together.",
-  "type": "module",
   "private": true,
-  "engines": {
-    "node": ">=22.18"
-  },
-  "bin": {
-    "naima": "dist/cli.js"
-  },
-  "exports": {
-    "./core": "./dist/core/index.js",
-    "./core/testing": "./dist/core/testing.js"
-  },
-  "files": [
-    "dist",
-    "skills",
-    "docs"
-  ],
+  "type": "module",
+  "license": "Apache-2.0",
   "scripts": {
-    "naima": "node scripts/stable.mjs",
-    "naima:dev": "node src/cli.ts",
-    "stable:which": "node scripts/stable.mjs --which",
-    "stable:bump": "node scripts/stable.mjs --bump",
-    "docs": "node src/cli.ts docs --write docs/reference.md",
-    "typecheck": "tsc -p tsconfig.json",
-    "build": "tsc -p tsconfig.build.json",
-    "test": "node --test \"src/**/*.test.ts\"",
-    "verify": "npm run typecheck && npm test && node src/cli.ts check && node src/cli.ts docs --check docs/reference.md && node scripts/stable.mjs check",
-    "prepare": "npm run build"
-  },
-  "devDependencies": {
-    "@types/node": "^22.18.0",
-    "typescript": "^7.0.2"
-  },
-  "license": "Apache-2.0"
+    "test": "node --test \"src/**/*.test.ts\""
+  }
 }

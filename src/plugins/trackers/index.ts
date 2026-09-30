@@ -186,7 +186,7 @@ export default function trackers(): Plugin {
         statuses: {
           requested: { category: "open", says: "asked for; no code exists" },
           planned: { category: "open", says: "agreed and scheduled" },
-          shipped: { category: "done", says: "in a release" },
+          shipped: { category: "done", says: "on the trunk, with its documentation" },
           withdrawn: { category: "done", says: "decided against" },
         },
         initialStatus: "requested",
@@ -201,6 +201,7 @@ export default function trackers(): Plugin {
           partial: { category: "open", says: "performed in part" },
           failed: { category: "open", says: "performed, and what it proves does not hold" },
           passed: { category: "done", proves: true, says: "performed, and it holds; the page carries the measurement" },
+          withdrawn: { category: "done", says: "no longer applies: what it would prove was reversed; the page says by what" },
         },
         initialStatus: "open",
         template: gesture,

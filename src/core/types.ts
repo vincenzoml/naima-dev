@@ -191,13 +191,23 @@ export interface PluginEntry {
   options: PluginOptions
 }
 
-/** `naima/config.json`: only what the tool cannot infer. */
+/** How a project carries its program: a gitignored clone, plain committed files, or a git submodule. */
+export type Carry = "clone" | "vendored" | "submodule"
+
+/** `naima-data/naima.json`: the data format, the lock, and only what the tool cannot infer. */
 export interface Config {
-  /** The pin: the semver range of Naima versions that may manage the project. */
-  pin: string
+  /** The data format (docs/format.md). */
+  format: number
+  /** The git URL (or path) of the Naima this project runs: Naima's own, or a fork. */
+  source: string
+  /** The commit of `source` this project runs: the lock. */
+  commit: string
+  carry: Carry
+  /** The program directory, relative to the data directory. */
+  program: string
   /** The project's gates, by name; read by the gates plugin. */
   gates: Record<string, unknown>
-  /** Third-party plugins to add; every first-party plugin is always loaded. */
+  /** Third-party plugins to add, as paths inside the program; every first-party plugin is always loaded. */
   plugins: PluginEntry[]
 }
 
@@ -229,10 +239,14 @@ export interface Repo {
 }
 
 export interface Context {
-  /** Absolute project root. */
+  /** Absolute project root: the git repository that holds the data. */
   root: string
-  /** Absolute tracker directory: `<root>/naima`. */
+  /** Absolute data directory: `<root>/naima-tracker/naima-data` unless moved. */
   trackerRoot: string
+  /** The data directory from the project root, with forward slashes: what paths are printed from. */
+  trackerDir: string
+  /** Absolute program directory: the Naima that runs. Never part of the project's own files. */
+  program: string
   config: Config
   registry: Registry
   /** The items, read on first access and after `reload()`. */

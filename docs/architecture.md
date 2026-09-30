@@ -14,31 +14,37 @@ src/
     check.ts       the core invariants, and running every plugin's
     lifecycle.ts   questions answered from type declarations: open, proves, urgency
     git.ts         reading a directory across every branch worth reading
-    config.ts      naima/config.json, the pin, third-party plugin loading
-    semver.ts      the ranges a pin is written in
+    layout.ts      naima-tracker/ and its names; finding the data directory
+    config.ts      naima.json: the lock, gates, third-party plugin loading
+    format.ts      the data format, migrations, the one-format check
+    program.ts     the program directory: alignment, update, carry — all through git
     base.ts        the core's own contributions: generic fields, relations, commands
-    cli.ts         dispatch
+    cli.ts         dispatch, and the commands that move the program
     testing.ts     a throwaway project for tests
   plugins/<name>/  one directory per first-party plugin, with its tests:
                    trackers, coordination, triage, gates, beta-markers, verifier, docs
   builtins.ts      every first-party plugin, always loaded } the composition root:
-  cli.ts           the executable                         } the only modules that see both
+  cli.ts           the program's entry point             } the only modules that see both
+  launcher.ts      runs the program under Deno's permissions (install.md)
 ```
 
 ```
-scripts/stable.mjs  runs the newest release inside this repository's pin on its tracker (bootstrap.md)
+naima.ts            the launcher's executable: deno run -A naima.ts <command>
+deno.json           the tasks: naima, dev, typecheck, test, docs, verify
 skills/naima/       the agent skill (skill.md)
 docs/reference.md   generated from the manifests by naima docs; never edited by hand
+.github/workflows/  CI: verify on Deno, the tests on Node and Bun
 ```
 
 ## The tracker on disk
 
-Everything Naima writes into a project is under one top-level directory,
-`naima/` ([using Naima in your project](using-naima.md#the-naima-directory)):
+Everything Naima writes into a project is under one top-level folder,
+`naima-tracker/`, and the items are in its `naima-data/`
+([the format](format.md)):
 
 ```
-naima/
-  config.json                   the pin, and the facts that cannot be inferred (config.md)
+naima-tracker/naima-data/
+  naima.json                    the format, the lock, and the facts that cannot be inferred
   <type>/<slug>/README.md       prose
   <type>/<slug>/meta.json       fields: id, title, status, links, and whatever plugins declare
   <type>/<slug>/attachments/    evidence
@@ -62,7 +68,8 @@ records count.
 
 ## The dependency rule
 
-- The core imports only Node built-ins and itself.
+- The core imports only the `node:` built-ins that Deno, Node and Bun all
+  provide, and itself. There are no dependencies.
 - A plugin imports only `core/index.ts` and its own files. Its tests may also
   import `core/testing.ts`. Plugins never import each other: what one needs
   from another travels through the registry (a field, a relation, a status

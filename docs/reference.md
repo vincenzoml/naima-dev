@@ -20,7 +20,10 @@ Names are global: no two plugins may declare the same command, type, field, rela
 
 | Command | Plugin | What it does |
 |---|---|---|
-| [`init`](#naima-init) | core | make this git repository a Naima project: create naima/config.json, pinned to this Naima; nothing outside naima/ is touched |
+| [`init`](#naima-init) | core | make this git repository a Naima project: create naima-tracker/ — its README.md, its .gitignore and naima-data/naima.json, locked to the source and commit of the Naima that runs it; nothing outside naima-tracker/ is touched |
+| [`update`](#naima-update) | core | move the lock to the source's main: fetch it, migrate the data forward if its format moved, and record the new commit, as one change to commit; the only command that asks the source anything |
+| [`carry`](#naima-carry) | core | switch how the program is carried — a gitignored clone, vendored as committed files, or a git submodule — staging the switch as one change |
+| [`guide`](#naima-guide) | core | print where the running Naima's documentation is: the skill, the docs index, the flows, the format; read them as files |
 | [`help`](#naima-help) | core | list every command the loaded plugins provide, with its usage |
 | [`new`](#naima-new) | core | open an item |
 | [`show`](#naima-show) | core | print one item: fields, links in both directions, attachments, prose |
@@ -57,7 +60,7 @@ An item is a directory under `<tracker>/<TYPE>/<slug>/`: `README.md` for the pro
 
 ### naima init
 
-Make this git repository a Naima project: create naima/config.json, pinned to this Naima; nothing outside naima/ is touched.
+Make this git repository a Naima project: create naima-tracker/ — its README.md, its .gitignore and naima-data/naima.json, locked to the source and commit of the Naima that runs it; nothing outside naima-tracker/ is touched.
 
 ```sh
 naima init
@@ -67,6 +70,54 @@ Examples:
 
 ```sh
 naima init
+```
+
+### naima update
+
+Move the lock to the source's main: fetch it, migrate the data forward if its format moved, and record the new commit, as one change to commit; the only command that asks the source anything.
+
+```sh
+naima update [--check]
+```
+
+| Option | Default | What it does |
+|---|---|---|
+| `--check` |  | only say whether the source's main has moved past the locked commit; exit 1 when it has |
+
+Examples:
+
+```sh
+naima update --check
+naima update
+```
+
+### naima carry
+
+Switch how the program is carried — a gitignored clone, vendored as committed files, or a git submodule — staging the switch as one change.
+
+```sh
+naima carry <clone|vendored|submodule>
+```
+
+Examples:
+
+```sh
+naima carry vendored
+naima carry clone
+```
+
+### naima guide
+
+Print where the running Naima's documentation is: the skill, the docs index, the flows, the format; read them as files.
+
+```sh
+naima guide
+```
+
+Examples:
+
+```sh
+naima guide
 ```
 
 ### naima help
@@ -303,6 +354,7 @@ naima types
 | `links` | every link uses a declared relation and names an existing item other than its own |
 | `layout` | every directory under the tracker root belongs to an item type or a plugin |
 | `duplicates` | items of one type with the same title are linked as duplicates, or reported |
+| `one-format` | no item is still in a shape a format migration replaced: a tracker never mixes formats |
 
 **Summary sections**: `items`.
 
@@ -350,7 +402,7 @@ naima bugs
 
 ### type: bugs
 
-Bugs: something that is broken. Items live in `naima/bugs/`; a new one starts as `open`.
+Bugs: something that is broken. Items live in `naima-tracker/naima-data/bugs/`; a new one starts as `open`.
 
 | Status | Category | Proves | Meaning |
 |---|---|---|---|
@@ -360,7 +412,7 @@ Bugs: something that is broken. Items live in `naima/bugs/`; a new one starts as
 
 ### type: todos
 
-Todos: work that is not a defect: a task, a decision, a tidy-up. Items live in `naima/todos/`; a new one starts as `open`.
+Todos: work that is not a defect: a task, a decision, a tidy-up. Items live in `naima-tracker/naima-data/todos/`; a new one starts as `open`.
 
 | Status | Category | Proves | Meaning |
 |---|---|---|---|
@@ -371,18 +423,18 @@ Todos: work that is not a defect: a task, a decision, a tidy-up. Items live in `
 
 ### type: features
 
-Features: what the software does, or is asked to do. Items live in `naima/features/`; a new one starts as `requested`.
+Features: what the software does, or is asked to do. Items live in `naima-tracker/naima-data/features/`; a new one starts as `requested`.
 
 | Status | Category | Proves | Meaning |
 |---|---|---|---|
 | `requested` | open |  | asked for; no code exists |
 | `planned` | open |  | agreed and scheduled |
-| `shipped` | done |  | in a release |
+| `shipped` | done |  | on the trunk, with its documentation |
 | `withdrawn` | done |  | decided against |
 
 ### type: tests
 
-Tests: a gesture that proves something, and its result. Items live in `naima/tests/`; a new one starts as `open`.
+Tests: a gesture that proves something, and its result. Items live in `naima-tracker/naima-data/tests/`; a new one starts as `open`.
 
 | Status | Category | Proves | Meaning |
 |---|---|---|---|
@@ -390,10 +442,11 @@ Tests: a gesture that proves something, and its result. Items live in `naima/tes
 | `partial` | open |  | performed in part |
 | `failed` | open |  | performed, and what it proves does not hold |
 | `passed` | done | yes | performed, and it holds; the page carries the measurement |
+| `withdrawn` | done |  | no longer applies: what it would prove was reversed; the page says by what |
 
 ### type: closed
 
-Closed: the archive: resolved items, each with its proof. Items live in `naima/closed/`; a new one starts as `closed`; it is an archive: items arrive by being moved there, never by being opened.
+Closed: the archive: resolved items, each with its proof. Items live in `naima-tracker/naima-data/closed/`; a new one starts as `closed`; it is an archive: items arrive by being moved there, never by being opened.
 
 | Status | Category | Proves | Meaning |
 |---|---|---|---|
@@ -656,7 +709,7 @@ naima queue first-public --human
 
 | Gate | Title | What it is for | How it decides |
 |---|---|---|---|
-| `first-public` | First public release | The repository opens and a first version is tagged: licence chosen, the bootstrap policy in force, the agent flows written. | blocked by every open item with gate=first-public that still owes code: no fixedOn, and not itself a proving gesture. Fixed items and open proving gestures are owed, not blocking. |
+| `first-public` | First public release | The repository opens to the public: licence chosen, Naima tracking itself through its own lock, the agent flows written. | blocked by every open item with gate=first-public that still owes code: no fixedOn, and not itself a proving gesture. Fixed items and open proving gestures are owed, not blocking. |
 
 **Summary sections**: `gates`.
 
@@ -745,7 +798,7 @@ naima verifiers
 
 ### type: properties
 
-Properties: a property of the software, proven or refuted by a verifier. Items live in `naima/properties/`; a new one starts as `open`.
+Properties: a property of the software, proven or refuted by a verifier. Items live in `naima-tracker/naima-data/properties/`; a new one starts as `open`.
 
 | Status | Category | Proves | Meaning |
 |---|---|---|---|

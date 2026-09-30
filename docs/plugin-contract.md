@@ -6,7 +6,7 @@ says what each part is for.
 ## Shape
 
 ```ts
-import type { Plugin } from "naima/core"   // in-tree: "../../core/index.ts"
+import type { Plugin } from "../src/core/index.ts"   // a path inside the program
 
 export default function myPlugin(options: Record<string, unknown>): Plugin {
   return { name: "my-plugin", says: "one line", /* contributions */ }
@@ -14,11 +14,11 @@ export default function myPlugin(options: Record<string, unknown>): Plugin {
 ```
 
 The first-party plugins are always loaded. A third-party plugin is added
-under `plugins` in `naima/config.json`, by a path relative to the project
-root or by package name, with optional `options` ([configuration](config.md)):
+under `plugins` in `naima.json`, by its path inside the program — a fork of
+Naima that carries it — with optional `options` ([configuration](config.md)):
 
 ```json
-{ "naima": "^0.2.0", "plugins": [{ "name": "./tools/mine.mjs", "options": {} }] }
+{ "plugins": [{ "name": "plugins/mine.ts", "options": {} }] }
 ```
 
 ## Contributions
@@ -50,7 +50,9 @@ every option entry is what `naima docs` turns into the reference, and with the
 
 ## The context
 
-Every hook receives a `Context`: the project `root`, the `trackerRoot`, the
+Every hook receives a `Context`: the project `root`, the data directory
+`trackerRoot` and its path from the root `trackerDir`, the `program` directory
+(never part of the project's files: pass it to `projectFiles`), the
 `config`, the merged `registry`, the `repo` (items, `byId`, `resolve`,
 `linksOf` with inverses), `reload()` after writing, `out`/`err`, and `now()`.
 Write through the public helpers (`createItem`, `saveMeta`, `setFields`,
