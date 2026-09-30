@@ -11,7 +11,7 @@ import { test } from "node:test"
 import { fileURLToPath } from "node:url"
 import { firstParty } from "./builtins.ts"
 import { type Plugin, runCli } from "./core/index.ts"
-import { gitIn as git } from "./core/testing.ts"
+import { gitIn as git, removeTemp } from "./core/testing.ts"
 
 const NAIMA = dirname(dirname(fileURLToPath(import.meta.url)))
 
@@ -27,7 +27,7 @@ function world() {
   const program = join(root, "naima-tracker", "naima")
   git(base, "clone", "-q", "--", NAIMA, program)
   git(program, "update-ref", "refs/remotes/origin/pushed", "HEAD")
-  return { base, root, program, cleanup: () => rmSync(base, { recursive: true, force: true }) }
+  return { base, root, program, cleanup: () => removeTemp(base) }
 }
 
 async function naima(cwd: string, argv: string[], programRoot: string, plugins: typeof firstParty = firstParty) {

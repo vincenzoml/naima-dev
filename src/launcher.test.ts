@@ -10,7 +10,7 @@ import { dirname, join } from "node:path"
 import { test } from "node:test"
 import { fileURLToPath } from "node:url"
 import { allowedEnv } from "./launcher.ts"
-import { gitIn as git } from "./core/testing.ts"
+import { gitIn as git, removeTemp } from "./core/testing.ts"
 
 const NAIMA = dirname(dirname(fileURLToPath(import.meta.url)))
 const hasDeno = spawnSync("deno", ["--version"]).status === 0
@@ -53,7 +53,7 @@ function world(name = "project") {
   git(host, "add", "-A")
   git(host, "commit", "-q", "-m", "init")
   git(host, "clone", "-q", "--", source, "naima-tracker/naima")
-  return { base, source, host, cleanup: () => rmSync(base, { recursive: true, force: true }) }
+  return { base, source, host, cleanup: () => removeTemp(base) }
 }
 
 test("the environment allow-list keeps Naima's, git's, ssh's and the locale's variables, and nothing else", () => {

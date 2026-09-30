@@ -10,7 +10,7 @@ import { dirname, join } from "node:path"
 import { test } from "node:test"
 import { fileURLToPath } from "node:url"
 import { firstParty } from "./builtins.ts"
-import { gitIn } from "./core/testing.ts"
+import { gitIn, removeTemp } from "./core/testing.ts"
 import { ABOUT, FORMAT, TRACKER_README, runCli } from "./core/index.ts"
 
 const NAIMA = dirname(dirname(fileURLToPath(import.meta.url)))
@@ -40,7 +40,7 @@ function host() {
   writeFileSync(join(root, "src", "main.py"), "print('hello')\n")
   git("add", "-A")
   git("-c", "user.email=test@example.invalid", "-c", "user.name=test", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "init")
-  return { base, root, git, cleanup: () => rmSync(base, { recursive: true, force: true }) }
+  return { base, root, git, cleanup: () => removeTemp(base) }
 }
 
 async function naima(cwd: string, argv: string[], programRoot = PROGRAM) {
@@ -221,6 +221,42 @@ export default () => ({ name: "codes", says: "exit codes", commands: [
     assert.match(bug.err, /^naima: internal error: TypeError: .*NAIMA_DEBUG=1/)
     const usage = await naima(h.root, ["show"], program)
     assert.deepEqual([usage.code, usage.err], [2, "naima: usage: naima show <item>"])
+  } finally {
+    h.cleanup()
+  }
+})
+
+test("list, unlink, view, types and help each do what their usage says", async () => {
+  const h = host()
+  try {
+    assert.equal((await naima(h.root, ["init"])).code, 0)
+    await naima(h.root, ["new", "bugs", "Export drops alpha", "--set", "impact=high"])
+    await naima(h.root, ["new", "todos", "Write the release notes"])
+    await naima(h.root, ["set", "write-release-notes", "status=done"])
+    await naima(h.root, ["link", "export-drops-alpha", "blocked-by", "write-release-notes"])
+
+    const all = await naima(h.root, ["list"])
+    assert.match(all.out, /open\s+Export drops alpha {2}— bugs\/export-drops-alpha\n.*done\s+Write the release notes.*\n2 items$/)
+    assert.equal((await naima(h.root, ["list", "bugs", "--open"])).out.split("\n").at(-1), "1 item")
+    assert.equal((await naima(h.root, ["list", "nope"])).code, 2)
+
+    assert.match((await naima(h.root, ["unlink", "export-drops-alpha", "blocked-by", "write-release-notes"])).out, /^removed bugs\/export-drops-alpha blocked-by todos\/write-release-notes$/)
+    assert.doesNotMatch((await naima(h.root, ["show", "export-drops-alpha"])).out, /waits on/)
+    const again = await naima(h.root, ["unlink", "export-drops-alpha", "blocked-by", "write-release-notes"])
+    assert.deepEqual([again.code, again.err], [2, 'naima: bugs/export-drops-alpha stores no "blocked-by" link to todos/write-release-notes'])
+
+    assert.match((await naima(h.root, ["view"])).out, /^ {2}next {13}open items, most urgent first$/m)
+    assert.match((await naima(h.root, ["view", "next", "1"])).out, /high .*bugs\/export-drops-alpha/)
+    assert.match((await naima(h.root, ["view", "nope"])).err, /no view "nope" — views: next/)
+
+    const types = (await naima(h.root, ["types"])).out
+    assert.match(types, /^bugs \(naima-tracker\/naima-data\/bugs\/\) — something that is broken$/m)
+    assert.match(types, /^ {2}passed {5}done, proves — /m)
+
+    const help = (await naima(h.root, ["help"])).out
+    for (const name of ["init", "update", "new", "list", "claim", "triage", "verify", "docs"]) assert.match(help, new RegExp(`^  ${name} `, "m"))
+    assert.doesNotMatch(help, /^ {2}help /m)
+    assert.equal((await naima(h.root, ["--help"])).out, help)
   } finally {
     h.cleanup()
   }

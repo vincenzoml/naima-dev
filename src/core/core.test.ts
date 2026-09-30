@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, symlinkSync, writeFil
 import { dirname, join } from "node:path"
 import { test } from "node:test"
 import { fileURLToPath } from "node:url"
-import { FORMAT, addLink, buildRegistry, createItem, fieldError, findData, parseConfig, runChecks, setFields, slugify, uniqueSlug, type Plugin } from "./index.ts"
+import { FORMAT, addLink, buildRegistry, createItem, fieldError, findData, parseConfig, parseFieldValue, runChecks, setFields, slugify, uniqueSlug, type Plugin } from "./index.ts"
 import { corePlugin } from "./base.ts"
 import { tempProject } from "./testing.ts"
 
@@ -373,5 +373,45 @@ test("the registry and the config cannot be changed once the project is loaded",
     assert.ok(registry.commands.has("show") && registry.types.has("notes"))
   } finally {
     p.cleanup()
+  }
+})
+
+/** A small seeded generator: the same cases on every run and every runtime. */
+function* cases(seed: number, n: number, alphabet: string[], maxLength = 24): Generator<string> {
+  let s = seed
+  const next = () => (s = (s * 1103515245 + 12345) % 2 ** 31) / 2 ** 31
+  for (let i = 0; i < n; i++) yield Array.from({ length: Math.floor(next() * maxLength) }, () => alphabet[Math.floor(next() * alphabet.length)]).join("")
+}
+
+test("properties: a slug is lowercase letters, digits and single dashes, at most 60 long, and slugifying it again changes nothing", () => {
+  const alphabet = [..."abcXYZ09 -_.,!?/é", "Ж", "ы", "导", "出", "が", "\t", "ﬁ", "²"]
+  for (const title of cases(7, 2000, alphabet)) {
+    const slug = slugify(title)
+    assert.match(slug, /^(?:[\p{Ll}\p{Lo}\p{Nd}\p{No}]+(?:-[\p{Ll}\p{Lo}\p{Nd}\p{No}]+)*|item)$/u, JSON.stringify(title))
+    assert.ok([...slug].length <= 60, title)
+    assert.equal(slugify(slug), slug, JSON.stringify(title))
+  }
+})
+
+test("properties: every value a field's kind accepts comes back from the command line as it went in", () => {
+  const defs = {
+    string: { name: "s", kind: "string", says: "" },
+    strings: { name: "l", kind: "strings", says: "" },
+    number: { name: "n", kind: "number", says: "" },
+    boolean: { name: "b", kind: "boolean", says: "" },
+    date: { name: "d", kind: "date", says: "" },
+    object: { name: "o", kind: "object", says: "" },
+  } as const
+  const words = [...cases(11, 300, [..."abz09 ._"])].map((w) => w.trim()).filter((w) => w && !w.includes(","))
+  for (const w of words) {
+    assert.equal(parseFieldValue(defs.string, w), w)
+    assert.deepEqual(parseFieldValue(defs.strings, [w, w].join(",")), [w, w])
+    assert.deepEqual(parseFieldValue(defs.object, JSON.stringify({ w })), { w })
+  }
+  for (const n of [0, 1, -3, 2.5, 1e6]) assert.equal(parseFieldValue(defs.number, String(n)), n)
+  for (const b of [true, false]) assert.equal(parseFieldValue(defs.boolean, String(b)), b)
+  for (let d = new Date("2023-12-25T00:00:00Z"); d < new Date("2024-03-10T00:00:00Z"); d = new Date(d.getTime() + 86_400_000)) {
+    const day = d.toISOString().slice(0, 10)
+    assert.equal(parseFieldValue(defs.date, day), day)
   }
 })

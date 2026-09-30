@@ -34,11 +34,12 @@ src/
 
 ```
 naima.ts            the launcher's executable: deno run -A naima.ts <command>
-deno.json           the tasks: naima, dev, typecheck, test, docs, verify, dist
+deno.json           the tasks: naima, dev, typecheck, test, docs, verify, dist, coverage
 skills/naima/       the agent skill (skill.md), and the flow commands in commands/flow/
 docs/reference.md   generated from the manifests by naima docs; never edited by hand
 dist.json           the runtime allowlist: the files a dist commit, and so a project, holds
 scripts/dist.ts     builds the dist commit of a main commit from dist.json (install.md#the-dist-branch)
+scripts/coverage.ts coverage of the whole test run, the launched copies of the program counted as the files they copy
 .claude/commands/   a link to skills/naima/commands/, for this repository's own agents
 .github/workflows/  CI: verify on Deno, the tests on Node and Bun, on Linux and macOS; the dist on main
 ```

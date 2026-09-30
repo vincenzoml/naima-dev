@@ -166,3 +166,16 @@ test("a setext heading, underlined with === or ---, is an anchor links resolve t
     p.cleanup()
   }
 })
+
+test("properties: an anchor is lowercase, has no whitespace or punctuation but - and _, and a heading's anchor is found in its file", () => {
+  let s = 3
+  const next = () => (s = (s * 1103515245 + 12345) % 2 ** 31) / 2 ** 31
+  const alphabet = [..."aZ9 -_.,:`()[]!?#é", "Ж", "导"]
+  for (let i = 0; i < 1000; i++) {
+    const heading = "x" + Array.from({ length: Math.floor(next() * 20) }, () => alphabet[Math.floor(next() * alphabet.length)]).join("")
+    const a = anchor(heading)
+    assert.match(a, /^[\p{Ll}\p{Lo}\p{N}_-]*$/u, heading)
+    assert.equal(anchor(a), a)
+    assert.ok(anchorsOf(`# ${heading.replace(/#+\s*$/, "")}\n`).size === 1, heading)
+  }
+})

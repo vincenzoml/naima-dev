@@ -30,6 +30,11 @@ const IDENTITY = ["-c", "user.email=test@example.invalid", "-c", "user.name=test
 /** Git in `cwd` for a test, with a fixed author: the output, trimmed; an error with git's reason on failure. */
 export const gitIn = (cwd: string, ...args: string[]): string => mustGit(cwd, ...IDENTITY, ...args)
 
+/** Remove a test's temporary directory, unless NAIMA_KEEP_TEMP=1 (scripts/coverage.ts reads the copies it holds). */
+export const removeTemp = (dir: string): void => {
+  if (process.env.NAIMA_KEEP_TEMP !== "1") rmSync(dir, { recursive: true, force: true })
+}
+
 export const FIXED_NOW = new Date("2026-01-15T10:00:00.000Z")
 
 export function tempProject(plugins: Plugin[], opts: { git?: boolean; now?: Date } = {}): TempProject {
@@ -67,6 +72,6 @@ export function tempProject(plugins: Plugin[], opts: { git?: boolean; now?: Date
       return cmd.run(args, ctx)
     },
     git,
-    cleanup: () => rmSync(root, { recursive: true, force: true }),
+    cleanup: () => removeTemp(root),
   }
 }

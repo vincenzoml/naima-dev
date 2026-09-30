@@ -12,7 +12,7 @@ import { dirname, join } from "node:path"
 import { test } from "node:test"
 import { fileURLToPath } from "node:url"
 import { FORMAT, TRACKER_README } from "./core/index.ts"
-import { gitIn as git } from "./core/testing.ts"
+import { gitIn as git, removeTemp } from "./core/testing.ts"
 
 const NAIMA = dirname(dirname(fileURLToPath(import.meta.url)))
 
@@ -48,7 +48,7 @@ function world() {
       git(source, "commit", "-q", "-m", `change ${file}`)
       return git(source, "rev-parse", "HEAD")
     },
-    cleanup: () => rmSync(base, { recursive: true, force: true }),
+    cleanup: () => removeTemp(base),
   }
 }
 

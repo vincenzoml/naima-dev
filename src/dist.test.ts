@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url"
 import { GUIDE_PAGES } from "./core/cli.ts"
 import { DIST_BRANCH } from "./core/index.ts"
 import { MANIFEST, TRAILER, buildDist, globRegex, parseManifest, selectRuntime, sourceCommit } from "../scripts/dist.ts"
-import { gitIn as git } from "./core/testing.ts"
+import { gitIn as git, removeTemp } from "./core/testing.ts"
 
 const NAIMA = dirname(dirname(fileURLToPath(import.meta.url)))
 
@@ -125,7 +125,7 @@ test("the dist commit: the allowlisted files of a main commit, traced by its tra
     const late = buildDist(repo, main)
     assert.deepEqual({ created: late.created, commit: late.commit }, { created: false, commit: next.commit }, "a late run for an older commit never moves the dist back")
   } finally {
-    rmSync(base, { recursive: true, force: true })
+    removeTemp(base)
   }
 })
 
@@ -161,7 +161,7 @@ function world() {
   git(host, "init", "-q", "-b", "main")
   git(host, "add", "-A")
   git(host, "commit", "-q", "-m", "init")
-  return { base, source, host, cleanup: () => rmSync(base, { recursive: true, force: true }) }
+  return { base, source, host, cleanup: () => removeTemp(base) }
 }
 
 test("a project clones the dist: its program holds exactly the allowlist, and init, check, new, guide, a new worktree and update all work on it", { skip: !hasDeno && "deno is not on PATH" }, () => {
