@@ -33,7 +33,7 @@ export function buildRegistry(plugins: Plugin[]): Registry {
     if (names.has(p.name)) throw new Error(`plugin "${p.name}" is loaded twice`)
     names.add(p.name)
     for (const t of p.types ?? []) {
-      if (!(t.initialStatus in t.statuses)) throw new Error(`type "${t.id}": initial status "${t.initialStatus}" is not one of its statuses`)
+      if (!Object.hasOwn(t.statuses, t.initialStatus)) throw new Error(`type "${t.id}": initial status "${t.initialStatus}" is not one of its statuses`)
       put(registry.types, t.id, t, "type", p.name, owners)
       if (registry.dirs.has(t.dir)) throw new Error(`directory "${t.dir}" is claimed twice`)
       registry.dirs.add(t.dir)

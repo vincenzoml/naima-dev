@@ -139,3 +139,20 @@ test("board and summary are derived from the items", async () => {
     p.cleanup()
   }
 })
+
+test("a status is only one the type declares itself, never an Object.prototype key", () => {
+  const p = tempProject([notes])
+  try {
+    const item = createItem(p.ctx, p.ctx.registry.types.get("notes")!, "One")
+    for (const status of ["__proto__", "constructor", "toString"]) {
+      assert.throws(() => setFields(p.ctx, item, [["status", status]]), /is not one of: open, done/)
+    }
+    const meta = JSON.parse(readFileSync(join(item.dir, "meta.json"), "utf8"))
+    writeFileSync(join(item.dir, "meta.json"), JSON.stringify({ ...meta, status: "constructor" }))
+    p.ctx.reload()
+    assert.match(messages(runChecks(p.ctx)), /status "constructor" is not one of/)
+    assert.throws(() => buildRegistry([corePlugin, { ...notes, types: [{ ...notes.types![0]!, initialStatus: "toString" }] }]), /initial status "toString"/)
+  } finally {
+    p.cleanup()
+  }
+})

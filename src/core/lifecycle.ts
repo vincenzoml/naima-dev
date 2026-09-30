@@ -1,9 +1,11 @@
 // Questions about an item that depend only on what its type declares.
 
-import type { Context, Item } from "./types.ts"
+import type { Context, Item, StatusDef } from "./types.ts"
 
-export function statusDef(ctx: Context, item: Item) {
-  return ctx.registry.types.get(item.type)?.statuses[item.meta.status]
+/** The definition of an item's status; undefined for one its type does not declare, never an Object.prototype key. */
+export function statusDef(ctx: Context, item: Item): StatusDef | undefined {
+  const statuses = ctx.registry.types.get(item.type)?.statuses
+  return statuses && Object.hasOwn(statuses, item.meta.status) ? statuses[item.meta.status] : undefined
 }
 
 export const isOpen = (ctx: Context, item: Item): boolean => statusDef(ctx, item)?.category !== "done"

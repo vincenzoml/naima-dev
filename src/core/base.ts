@@ -22,7 +22,7 @@ export function setFields(ctx: Context, item: Item, assignments: [string, string
   for (const [name, raw] of assignments) {
     if (name === "status") {
       const statuses = ctx.registry.types.get(item.type)?.statuses ?? {}
-      if (!(raw in statuses)) throw new Error(`status "${raw}" is not one of: ${Object.keys(statuses).join(", ")}`)
+      if (!Object.hasOwn(statuses, raw)) throw new Error(`status "${raw}" is not one of: ${Object.keys(statuses).join(", ")}`)
       item.meta.status = raw
       continue
     }

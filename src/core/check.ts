@@ -35,7 +35,7 @@ const identity: Check = {
       else seen.set(id, where)
       if (typeof title !== "string" || !title.trim()) out.push(problem(`${where}: no title`, item))
       const statuses = ctx.registry.types.get(item.type)?.statuses ?? {}
-      if (typeof status !== "string" || !(status in statuses)) {
+      if (typeof status !== "string" || !Object.hasOwn(statuses, status)) {
         out.push(problem(`${where}: status ${JSON.stringify(status)} is not one of: ${Object.keys(statuses).join(", ")}`, item))
       }
     }
