@@ -32,7 +32,7 @@ git add naima-tracker && git commit -m "Track this project with Naima"
 `init` writes `naima-tracker/README.md`, `naima-tracker/.gitignore` (which
 ignores `naima/`) and `naima-tracker/naima-data/naima.json`, locked to the
 source and commit of the clone that ran it. Nothing else in the project is
-touched ([unless asked](#the-host-s-own-tools)). What goes in the folder:
+touched ([unless asked](#the-hosts-own-tools)). What goes in the folder:
 [using Naima in your project](using-naima.md).
 
 `init` locks only what everyone else can fetch: it refuses a clone with

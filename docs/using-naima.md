@@ -18,7 +18,7 @@ prints the one next command. It asks nothing and touches no file outside
 tool that would read the program's `.ts` files — `deno.json`, `tsconfig.json`,
 prettier — it also prints the line that excludes `naima-tracker/naima/` from
 it, and writes those lines only when asked: `naima init --write-excludes`
-([the host's own tools](install.md#the-host-s-own-tools)). Then:
+([the host's own tools](install.md#the-hosts-own-tools)). Then:
 
 ```sh
 naima new bugs "Export drops the alpha channel"
