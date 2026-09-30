@@ -23,6 +23,7 @@ import {
   saveMeta,
   today,
   typeOrThrow,
+  usageError,
 } from "../../core/index.ts"
 
 const ABOUT = `Three words that are not synonyms:
@@ -102,7 +103,7 @@ const close: Command = {
   examples: ["close export-drops"],
   run(args, ctx) {
     const ref = parse(args).positionals[0]
-    if (!ref?.trim()) throw new Error(`usage: naima ${this.usage}`)
+    if (!ref?.trim()) throw usageError(this)
     const item = ctx.repo.resolve(ref)
     const state = lifecycle(ctx, item)
     if (state === "closed") throw new Error(`${label(item)} is already closed`)

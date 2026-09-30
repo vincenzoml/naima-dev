@@ -83,3 +83,15 @@ test("view next takes a positive whole count", async () => {
     p.cleanup()
   }
 })
+
+test("each triage subcommand answers a misuse with its own usage", async () => {
+  const p = tempProject([things, triage()])
+  try {
+    await assert.rejects(p.run("triage", "set", "x"), /^Error: usage: naima triage set <item> field=value\.\.\.$/)
+    await assert.rejects(p.run("triage", "missing", "extra"), /^Error: usage: naima triage missing$/)
+    await assert.rejects(p.run("triage", "derive", "extra"), /^Error: usage: naima triage derive \[--write\]$/)
+    await assert.rejects(p.run("triage", "nope"), /^Error: usage: naima triage \| triage set <item> field=value\.\.\. \| triage missing \| triage derive \[--write\]$/)
+  } finally {
+    p.cleanup()
+  }
+})

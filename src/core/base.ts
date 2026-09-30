@@ -4,7 +4,7 @@
 
 import { existsSync, readdirSync } from "node:fs"
 import { join } from "node:path"
-import { bool, pairs, parse, str, strs } from "./args.ts"
+import { bool, pairs, parse, str, strs, usageError } from "./args.ts"
 import { coreChecks, runChecks } from "./check.ts"
 import { groupBy } from "./collections.ts"
 import { parseFieldValue, appliesTo } from "./fields.ts"
@@ -81,7 +81,7 @@ const newCommand: Command = {
     const [typeId, title] = p.positionals
     const type = typeOrThrow(ctx, typeId)
     if (type.creatable === false) throw new Error(`${type.id} is an archive: items arrive by being moved there, not by being opened`)
-    if (!title?.trim()) throw new Error(`usage: naima ${this.usage}`)
+    if (!title?.trim()) throw usageError(this)
     const section = str(p, "section")
     // Every assignment is validated before the item exists: a typo leaves nothing behind.
     const fields = withFields(ctx, type.id, section ? { section } : {}, pairs(strs(p, "set")))
@@ -98,7 +98,7 @@ const show: Command = {
   examples: ["show export-drops", "show bugs/export-drops-alpha-channel"],
   run(args, ctx) {
     const ref = parse(args).positionals[0]
-    if (!ref?.trim()) throw new Error(`usage: naima ${this.usage}`)
+    if (!ref?.trim()) throw usageError(this)
     const item = ctx.repo.resolve(ref)
     const { id, title, status, links: _links, ...rest } = item.meta
     ctx.out(`${title}\n${label(item)}  ${id}  [${status}]`)
@@ -141,7 +141,7 @@ const set: Command = {
   examples: ["set export-drops status=partial area=export", "set export-drops area="],
   run(args, ctx) {
     const [ref, ...rest] = parse(args).positionals
-    if (!ref?.trim() || !rest.length) throw new Error(`usage: naima ${this.usage}`)
+    if (!ref?.trim() || !rest.length) throw usageError(this)
     const item = ctx.repo.resolve(ref)
     setFields(ctx, item, pairs(rest))
     ctx.out(`${label(item)}: ${rest.join(" ")}`)
@@ -156,7 +156,7 @@ const link: Command = {
   examples: ["link export-keeps verifies export-drops", "link export-drops blocked-by release-notes"],
   run(args, ctx) {
     const [from, rel, to] = parse(args).positionals
-    if (!from || !rel || !to) throw new Error(`usage: naima ${this.usage}`)
+    if (!from || !rel || !to) throw usageError(this)
     const a = ctx.repo.resolve(from)
     const b = ctx.repo.resolve(to)
     ctx.out(addLink(ctx, a, rel, b) ? `${label(a)} ${rel} ${label(b)}` : "already linked")
@@ -171,7 +171,7 @@ const unlink: Command = {
   examples: ["unlink export-keeps verifies export-drops"],
   run(args, ctx) {
     const [from, rel, to] = parse(args).positionals
-    if (!from || !rel || !to) throw new Error(`usage: naima ${this.usage}`)
+    if (!from || !rel || !to) throw usageError(this)
     const a = ctx.repo.resolve(from)
     const b = ctx.repo.resolve(to)
     const before = a.meta.links?.length ?? 0

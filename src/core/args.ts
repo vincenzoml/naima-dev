@@ -1,6 +1,7 @@
 // Command-line arguments, on top of node:util's parser.
 
 import { parseArgs } from "node:util"
+import type { Command } from "./types.ts"
 
 export type Flags = Record<string, { type: "string" | "boolean"; multiple?: boolean; short?: string }>
 
@@ -41,3 +42,6 @@ export function positiveInt(raw: string | undefined, fallback: number, what: str
   if (!/^\d+$/.test(raw) || Number(raw) < 1) throw new Error(`${what}: the count must be a positive whole number, got ${JSON.stringify(raw)}`)
   return Number(raw)
 }
+
+/** The error a command throws when it is misused: its own usage line, the one place that line is spelled. */
+export const usageError = (cmd: Pick<Command, "usage">): Error => new Error(`usage: naima ${cmd.usage}`)

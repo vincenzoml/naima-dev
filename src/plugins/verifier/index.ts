@@ -26,6 +26,7 @@ import {
   label,
   parse,
   saveMeta,
+  usageError,
 } from "../../core/index.ts"
 import { exampleRegex } from "./adapters/example-regex.ts"
 
@@ -103,7 +104,7 @@ const verify: Command = {
   async run(args, ctx) {
     const p = parse(args, { all: { type: "boolean" } })
     const items = bool(p, "all") ? properties(ctx) : p.positionals.map((r) => ctx.repo.resolve(r))
-    if (!items.length) throw new Error(`usage: naima ${this.usage}`)
+    if (!items.length) throw usageError(this)
     let failing = 0
     for (const item of items) {
       if (item.type !== TYPE) throw new Error(`${label(item)} is not a property`)

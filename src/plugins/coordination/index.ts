@@ -29,6 +29,7 @@ import {
   str,
   today,
   writeJson,
+  usageError,
 } from "../../core/index.ts"
 
 export const CLAIMS = "claims"
@@ -118,7 +119,7 @@ const claim: Command = {
   examples: ['claim export-drops export-keeps --note "alpha channel in the exporter"'],
   run(args, ctx) {
     const p = parse(args, { note: { type: "string" } })
-    if (!p.positionals.length) throw new Error(`usage: naima ${this.usage}`)
+    if (!p.positionals.length) throw usageError(this)
     const items = p.positionals.map((r) => ctx.repo.resolve(r))
     const branch = currentBranch(ctx.root)
     const all = readClaims(ctx)
@@ -147,7 +148,7 @@ const release: Command = {
   examples: ["release export-drops"],
   run(args, ctx) {
     const refs = parse(args).positionals
-    if (!refs.length) throw new Error(`usage: naima ${this.usage}`)
+    if (!refs.length) throw usageError(this)
     const branch = currentBranch(ctx.root)
     const mine = myClaim(ctx, branch)
     if (!mine) throw new Error(`nothing to release: ${branch} holds no claim here`)
@@ -238,7 +239,7 @@ const pass: Command = {
     }
     const file = str(p, "file")
     const text = (file ? readFileSync(file, "utf8") : p.positionals.join(" ")).trim()
-    if (!text) throw new Error(`usage: naima ${this.usage}`)
+    if (!text) throw usageError(this)
     const now = ctx.now()
     const date = now.toISOString().slice(0, 10)
     const branch = currentBranch(ctx.root)

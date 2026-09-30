@@ -31,6 +31,7 @@ import {
   saveMeta,
   setFields,
   today,
+  usageError,
 } from "../../core/index.ts"
 
 export const FIELDS: FieldDef[] = [
@@ -101,48 +102,16 @@ const rank: RankTerm[] = [
 
 const openItems = (ctx: Context): Item[] => ctx.repo.items.filter((i) => isOpen(ctx, i))
 
-const triage: Command = {
-  name: "triage",
-  says: "coverage of the four fields; set them; list what needs a human; derive what the page proves",
-  usage: "triage | triage set <item> field=value... | triage missing | triage derive [--write]",
-  options: [{ name: "--write", says: "with derive: save the derived values instead of reporting them" }],
-  examples: ["triage", "triage set export-drops impact=high priority=now effort=M", "triage missing", "triage derive --write"],
+/** One `triage <sub>`: its own usage, so a misuse is answered with the line that fits it. */
+interface Subcommand {
+  usage: string
+  run(args: string[], ctx: Context): number
+}
+
+const coverage: Subcommand = {
+  usage: "triage",
   run(args, ctx) {
-    const [sub, ...rest] = args
-    if (sub === "set") {
-      const [ref, ...assignments] = rest
-      if (!ref?.trim() || !assignments.length) throw new Error(`usage: naima ${this.usage}`)
-      const item = ctx.repo.resolve(ref)
-      setFields(ctx, item, pairs(assignments))
-      // A value set by hand is judgement; it stops being inference.
-      if (item.meta.triagedBy === "derived") delete item.meta.triagedBy
-      item.meta.triagedOn = today(ctx)
-      saveMeta(item)
-      ctx.out(`${label(item)}: ${assignments.join(" ")}`)
-      return 0
-    }
-    if (sub === "missing") {
-      const unsized = openItems(ctx).filter((i) => !i.meta.effort)
-      ctx.out(`${unsized.length} open items without effort — the field only a person can set:`)
-      for (const i of byUrgency(ctx, unsized)) ctx.out(`  ${label(i)}  ${i.meta.title}`)
-      return 0
-    }
-    if (sub === "derive") {
-      const write = bool(parse(rest, { write: { type: "boolean" } }), "write")
-      let touched = 0
-      for (const item of openItems(ctx)) {
-        const m = item.meta
-        const decided = m.triagedBy !== "derived" && TRIAGE.some((f) => m[f] !== undefined)
-        if (decided || m.confidence) continue
-        m.confidence = confidenceFrom(readReadme(item))
-        m.triagedBy = "derived"
-        touched++
-        if (write) saveMeta(item)
-      }
-      ctx.out(`${touched} items ${write ? "updated" : "would change (dry run — pass --write)"}; effort is never derived`)
-      return 0
-    }
-    if (sub !== undefined) throw new Error(`usage: naima ${this.usage}`)
+    if (args.length) throw usageError(this)
     ctx.out(`  ${"type".padEnd(12)} open  ${TRIAGE.map((f) => f.padStart(10)).join("")}   derived`)
     for (const type of ctx.registry.types.values()) {
       const mine = openItems(ctx).filter((i) => i.type === type.id)
@@ -151,6 +120,67 @@ const triage: Command = {
       ctx.out(`  ${type.id.padEnd(12)} ${String(mine.length).padStart(4)}  ${cells}   ${mine.filter((i) => i.meta.triagedBy === "derived").length}`)
     }
     return 0
+  },
+}
+
+const SUBCOMMANDS: Record<string, Subcommand> = {
+  set: {
+    usage: "triage set <item> field=value...",
+    run(args, ctx) {
+      const [ref, ...assignments] = args
+      if (!ref?.trim() || !assignments.length) throw usageError(this)
+      const item = ctx.repo.resolve(ref)
+      setFields(ctx, item, pairs(assignments))
+      // A value set by hand is judgement; it stops being inference.
+      if (item.meta.triagedBy === "derived") delete item.meta.triagedBy
+      item.meta.triagedOn = today(ctx)
+      saveMeta(item)
+      ctx.out(`${label(item)}: ${assignments.join(" ")}`)
+      return 0
+    },
+  },
+  missing: {
+    usage: "triage missing",
+    run(args, ctx) {
+      if (args.length) throw usageError(this)
+      const unsized = openItems(ctx).filter((i) => !i.meta.effort)
+      ctx.out(`${unsized.length} open items without effort — the field only a person can set:`)
+      for (const i of byUrgency(ctx, unsized)) ctx.out(`  ${label(i)}  ${i.meta.title}`)
+      return 0
+    },
+  },
+  derive: {
+    usage: "triage derive [--write]",
+    run(args, ctx) {
+      const p = parse(args, { write: { type: "boolean" } })
+      if (p.positionals.length) throw usageError(this)
+      const write = bool(p, "write")
+      let touched = 0
+      for (const item of openItems(ctx)) {
+        const m = item.meta
+        const decided = m.triagedBy !== "derived" && TRIAGE.some((f) => m[f] !== undefined)
+        if (decided || m.confidence) continue
+        touched++
+        if (write) saveMeta({ ...item, meta: { ...m, confidence: confidenceFrom(readReadme(item)), triagedBy: "derived" } })
+      }
+      ctx.out(`${touched} items ${write ? "updated" : "would change (dry run — pass --write)"}; effort is never derived`)
+      return 0
+    },
+  },
+}
+
+const triage: Command = {
+  name: "triage",
+  says: "coverage of the four fields; set them; list what needs a human; derive what the page proves",
+  usage: [coverage, ...Object.values(SUBCOMMANDS)].map((s) => s.usage).join(" | "),
+  options: [{ name: "--write", says: "with derive: save the derived values instead of reporting them" }],
+  examples: ["triage", "triage set export-drops impact=high priority=now effort=M", "triage missing", "triage derive --write"],
+  run(args, ctx) {
+    const [sub, ...rest] = args
+    if (sub === undefined) return coverage.run([], ctx)
+    const found = Object.hasOwn(SUBCOMMANDS, sub) ? SUBCOMMANDS[sub] : undefined
+    if (!found) throw usageError(this)
+    return found.run(rest, ctx)
   },
 }
 
