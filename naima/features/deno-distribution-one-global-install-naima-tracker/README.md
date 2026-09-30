@@ -106,6 +106,64 @@ implementation until the owner says go (owner rule 3).*
     markdown files in the clone, read directly as files; `naima guide` only
     prints the index and paths.
 
+## Risk review (2026-09-30) and the mitigations now part of the behaviour
+
+13. **Local changes in the clone are never overwritten.** Alignment (3) and
+    `naima update` refuse when `naima-tracker/naima/` has uncommitted changes
+    or commits that are not on the recorded source, and say: publish it as a
+    fork and set `source`. Without this, aligning would silently destroy
+    someone's modifications.
+14. **An unreachable commit is a clear refusal.** If the recorded commit
+    cannot be fetched from `source` (a rewritten history, or a deleted fork),
+    the tool refuses and names the source and commit. Naima's own `main` is
+    never rewritten: this is a repository rule.
+15. **Format migrations and parallel branches.** A migration runs only through
+    `naima update`, is idempotent, and `check` fails on a tracker that mixes
+    formats. The flow says: update on its own branch, merge it first, then
+    other branches merge `main` and run `naima update` again, which is a no-op
+    or finishes the migration of their new items. Without this, two branches
+    could merge a half-migrated tracker.
+16. **Every worktree has its own clone.** `naima-tracker/naima/` is ignored,
+    so each git worktree of a project gets its own clone. That is accepted:
+    the clones are small. Alignment clones from an existing local clone when
+    one is available (`git clone --reference`), so a new worktree does not
+    download it again.
+17. **Configurable locations, with one fixed anchor.** The defaults are
+    `naima-tracker/naima/` and `naima-tracker/naima-data/`. Both are
+    configurable:
+    - the program directory: `program` in `naima.json`, a path relative to
+      the data directory;
+    - the data directory: found by walking up from the working directory to
+      the first `naima-tracker/naima-data/naima.json`, or given by `--data
+      <dir>` or `NAIMA_DATA`. A project that moves its data directory
+      documents the flag in its tracker README.
+
+    The anchor is always a `naima.json` carrying `format`.
+18. **What the permissions do and do not protect.** Deno's permissions (7)
+    are applied by the launcher. They stop a bug or a compromised dependency
+    from reaching beyond `naima-tracker/` and `git`. They cannot stop a
+    malicious commit that a project has chosen to update to, because the
+    launcher is part of that commit. The protection against that is (4): an
+    update is an explicit commit in the project, reviewable like any other.
+    This limitation is written in `docs/install.md`, not hidden.
+19. **First run needs git and network**, to clone. Offline, with no clone, the
+    tool says so in one line. Once cloned, every run works offline.
+
+## Naima tracking itself
+
+Naima's own repository uses exactly the same model, with no special case:
+- its data is `naima-tracker/naima-data/`;
+- its `naima-tracker/naima/` is a gitignored clone of **Naima itself**, locked
+  to a recorded commit of its own `main`. That locked commit is the "previous
+  version" that manages the tracker;
+- the working tree at the root is the development version: tested against the
+  data, never managing it;
+- `naima update`, run after a change is merged, verified and pushed, moves the
+  lock to the new `main`. That is the bootstrap, and it is the same mechanism
+  every project uses;
+- `source` is Naima's own repository URL. Alignment can clone from the local
+  repository's objects, so it needs no network.
+
 ## Reversals (owner rule: record, never overwrite)
 
 - The per-project tool pin (a semver range in the config), and the refusal
