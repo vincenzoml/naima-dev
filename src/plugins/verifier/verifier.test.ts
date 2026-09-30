@@ -1,9 +1,11 @@
 import assert from "node:assert/strict"
-import { readdirSync, readFileSync, writeFileSync } from "node:fs"
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { test } from "node:test"
 import { createItem, runChecks, type Plugin, type Verifier } from "../../core/index.ts"
 import { tempProject } from "../../core/testing.ts"
+import { exampleRegex } from "./adapters/example-regex.ts"
 import verifier, { readRun } from "./index.ts"
 
 test("a run is attached as evidence, with the counterexample and the model's hash", async () => {
@@ -58,5 +60,21 @@ test("adapters come from any plugin; a missing verifier or model is a problem", 
     await assert.rejects(async () => p.run("verify", "broken"), /no verifier "nope"/)
   } finally {
     p.cleanup()
+  }
+})
+
+test("the example adapter reads lines as written: no phantom last line, no trailing \\r", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "naima-regex-"))
+  try {
+    const run = async (text: string, property: string) => {
+      writeFileSync(join(dir, "m.txt"), text)
+      return (await exampleRegex.verify({ model: join(dir, "m.txt"), property, options: {} }, {} as never)).verdict
+    }
+    assert.equal(await run("a\nb\n", "never ^$"), "holds")
+    assert.equal(await run("a\r\nb\r\n", "never ^$"), "holds")
+    assert.equal(await run("a\r\nb\r\n", "some ^b$"), "holds")
+    assert.equal(await run("a\n\nb\n", "never ^$"), "violated")
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
   }
 })

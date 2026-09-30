@@ -22,7 +22,8 @@ export const exampleRegex: Verifier = {
     } catch (e) {
       return { verdict: "error", output: `bad regex: ${(e as Error).message}` }
     }
-    const lines = readFileSync(model, "utf8").split("\n")
+    // One trailing newline ends the last line; it does not start another. CRLF files match as LF ones.
+    const lines = readFileSync(model, "utf8").replace(/\r?\n$/, "").split(/\r?\n/)
     const hit = lines.findIndex((l) => re.test(l))
     if (m[1] === "some") return hit === -1 ? { verdict: "violated", output: "no line matches", counterexample: `no line of the model matches /${m[2]}/` } : { verdict: "holds", output: `line ${hit + 1} matches` }
     return hit === -1 ? { verdict: "holds", output: `none of ${lines.length} lines matches` } : { verdict: "violated", output: `line ${hit + 1} matches`, counterexample: `${hit + 1}: ${lines[hit]}` }
