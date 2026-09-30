@@ -1,0 +1,18 @@
+{
+  "id": "4bedcfee-b20d-4694-8d50-7adddfa5d6a3",
+  "title": "Naima runs its own repository on naima/ under v0.2.0, verified by stable and working tree",
+  "status": "open",
+  "created": "2026-09-30",
+  "runBy": "agent",
+  "area": "release",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "ca825fa4-f0b5-46d7-b422-84fc3fb6ad3e"
+    }
+  ],
+  "impact": "high",
+  "priority": "next",
+  "confidence": "measured",
+  "triagedOn": "2026-09-30"
+}
