@@ -1,4 +1,6 @@
 import assert from "node:assert/strict"
+import { writeFileSync } from "node:fs"
+import { join } from "node:path"
 import { test } from "node:test"
 import { byUrgency, createItem, runChecks, type Plugin } from "../../core/index.ts"
 import { tempProject } from "../../core/testing.ts"
@@ -52,4 +54,21 @@ test("confidence is read off the page's own words", () => {
   assert.equal(confidenceFrom("The cause is a race"), "diagnosed")
   assert.equal(confidenceFrom("Not reproduced here"), "unclear")
   assert.equal(confidenceFrom("It broke"), "reported")
+})
+
+test("negated evidence is not evidence: a page that could not reproduce it is unclear, not measured", async () => {
+  for (const text of ["Could not be reproduced on main.", "We were unable to reproduce it", "It has never been reproduced", "Not yet verified by anyone", "cannot confirm the crash", "wasn't measured"]) {
+    assert.equal(confidenceFrom(text), "unclear", text)
+  }
+  assert.equal(confidenceFrom("Reproduced on main, and not only there"), "measured")
+  assert.equal(confidenceFrom("It was not easy, but we reproduced it and measured 3 s"), "measured")
+  const p = tempProject([things, triage()])
+  try {
+    const item = createItem(p.ctx, p.ctx.registry.types.get("things")!, "Flaky crash")
+    writeFileSync(join(item.dir, "README.md"), "# Flaky crash\n\nThe crash could not be reproduced on a clean checkout.\n")
+    await p.run("triage", "derive", "--write")
+    assert.equal(p.ctx.repo.resolve(item.slug).meta.confidence, "unclear")
+  } finally {
+    p.cleanup()
+  }
 })

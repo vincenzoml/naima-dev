@@ -74,11 +74,20 @@ export const FIELDS: FieldDef[] = [
 const TRIAGE = ["priority", "impact", "effort", "confidence"] as const
 const field = (name: string) => FIELDS.find((f) => f.name === name)
 
+const EVIDENCE = new Set(["measured", "verified", "reproduced", "confirmed"])
+/** Any form of an evidence verb: "unable to reproduce" negates evidence as surely as "not reproduced". */
+const EVIDENCE_STEM = /^(measur|verif|reproduc|confirm)/
+const NEGATION = new Set(["not", "never", "no", "nobody", "cannot", "unable", "without", "can't", "couldn't", "wasn't", "weren't", "isn't", "aren't", "didn't", "doesn't", "don't", "hasn't", "haven't", "won't"])
+/** How many words before an evidence verb a negation still reverses it: "could not be reproduced". */
+const NEGATION_REACH = 3
+
 /** Confidence read off the page's own words; the only field derived from prose. */
 export function confidenceFrom(body: string): string {
-  const t = body.toLowerCase()
-  if (/not reproduced|undiagnosed|nobody knows|\bunclear\b/.test(t)) return "unclear"
-  if (/\bmeasured\b|\bverified\b|\breproduced\b|\bconfirmed\b/.test(t)) return "measured"
+  const t = body.toLowerCase().replace(/’/g, "'")
+  const words = t.split(/[^a-z']+/).filter(Boolean)
+  const negated = (i: number): boolean => words.slice(Math.max(0, i - NEGATION_REACH), i).some((w) => NEGATION.has(w))
+  if (/undiagnosed|nobody knows|\bunclear\b/.test(t) || words.some((w, i) => EVIDENCE_STEM.test(w) && negated(i))) return "unclear"
+  if (words.some((w) => EVIDENCE.has(w))) return "measured"
   if (/\bcause\b|\bmechanism\b|\bdiagnos|\bbecause\b/.test(t)) return "diagnosed"
   return "reported"
 }
@@ -172,7 +181,7 @@ export default function triagePlugin(): Plugin {
     says: "priority, impact, effort, confidence; the urgency ranking built from them",
     about:
       "Four fields rank an item, and no more. `effort` is never derived: nothing in a report says what a fix costs, and a size guessed from the wording is how an XL hides inside an S. " +
-      "`triage derive` infers only `confidence`, from the page's own words, and stamps `triagedBy: derived` so a value a person set is never overwritten. " +
+      "`triage derive` infers only `confidence`, from the page's own words — an evidence verb negated up to three words before it (\"could not be reproduced\") reads as `unclear`, never `measured` — and stamps `triagedBy: derived` so a value a person set is never overwritten. " +
       "Urgency is the sum of every plugin's rank terms, lower first; this plugin adds impact (×1.5), priority (×1.2) and effort (×0.3), each by its value's rank, unset counting as the middle.",
     fields: FIELDS,
     rank,
