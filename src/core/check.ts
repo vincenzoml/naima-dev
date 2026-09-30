@@ -7,7 +7,8 @@ import { formatCheck } from "./format.ts"
 import { fieldError, fieldsOf } from "./fields.ts"
 import { README, isUuid, titleWords } from "./item.ts"
 import { label } from "./lifecycle.ts"
-import type { Check, Context, Finding } from "./types.ts"
+import { storedLinks } from "./repo.ts"
+import type { Check, Context, Finding, Item } from "./types.ts"
 
 const problem = (message: string, item?: Finding["item"]): Finding => (item ? { level: "problem", message, item } : { level: "problem", message })
 const note = (message: string): Finding => ({ level: "note", message })
@@ -81,6 +82,13 @@ const links: Check = {
         if (!ctx.registry.relations.has(link.rel)) out.push(problem(`${where}: relation "${link.rel}" is not one of: ${relations.join(", ")}`, item))
         if (link.id === item.meta.id) out.push(problem(`${where}: links to itself`, item))
         else if (!ctx.repo.byId.has(link.id)) out.push(problem(`${where}: ${link.rel} names ${link.id}, which is no item`, item))
+        else {
+          // The other item also stores the inverse: one link, written twice. Reported once, from the lower id.
+          const other = ctx.repo.byId.get(link.id) as Item
+          const inverse = ctx.registry.relations.get(link.rel)?.inverse
+          const twice = inverse !== undefined && storedLinks(other.meta).some((l) => l.rel === inverse && l.id === item.meta.id)
+          if (twice && item.meta.id < other.meta.id) out.push(problem(`${where}: both directions of one link are stored — ${link.rel} ${label(other)}, and its inverse on ${label(other)}; unlink one`, item))
+        }
       }
     }
     return out

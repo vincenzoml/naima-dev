@@ -256,3 +256,30 @@ test("an empty item reference is a usage error, never the only item", async () =
     p.cleanup()
   }
 })
+
+test("a link is stored in one direction only: its inverse is already the link", async () => {
+  const p = tempProject([notes])
+  try {
+    const type = p.ctx.registry.types.get("notes")!
+    const a = createItem(p.ctx, type, "Alpha")
+    const b = createItem(p.ctx, type, "Beta")
+    const stored = () => p.ctx.repo.items.flatMap((i) => (i.meta.links ?? []).map((l) => `${i.slug} ${l.rel}`))
+    assert.equal(await p.run("link", "alpha", "relates-to", "beta"), 0)
+    p.output.length = 0
+    assert.equal(await p.run("link", "beta", "relates-to", "alpha"), 0)
+    assert.deepEqual(p.output, ["already linked"])
+    assert.equal(await p.run("link", "alpha", "blocks", "beta"), 0)
+    assert.equal(await p.run("link", "beta", "blocked-by", "alpha"), 0)
+    p.ctx.reload()
+    assert.deepEqual(stored(), ["alpha relates-to", "alpha blocks"])
+    assert.equal(p.ctx.repo.linksOf(p.ctx.repo.resolve(b.meta.id)).length, 2)
+
+    const path = join(b.dir, "meta.json")
+    const meta = JSON.parse(readFileSync(path, "utf8"))
+    writeFileSync(path, JSON.stringify({ ...meta, links: [{ rel: "blocked-by", id: a.meta.id }] }))
+    p.ctx.reload()
+    assert.match(messages(runChecks(p.ctx)), /both directions of one link are stored/)
+  } finally {
+    p.cleanup()
+  }
+})

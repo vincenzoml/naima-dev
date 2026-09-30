@@ -56,8 +56,9 @@ export function setFields(ctx: Context, item: Item, assignments: [string, string
 export function addLink(ctx: Context, from: Item, rel: string, to: Item): boolean {
   if (!ctx.registry.relations.has(rel)) throw new Error(`relation "${rel}" is not one of: ${[...ctx.registry.relations.keys()].join(", ")}`)
   if (from.meta.id === to.meta.id) throw new Error("an item cannot link to itself")
+  // Stored here, or stored on `to` as the inverse: either way the link already exists.
+  if (ctx.repo.linksOf(from).some((l) => l.rel === rel && l.id === to.meta.id)) return false
   const links = from.meta.links ?? []
-  if (links.some((l) => l.rel === rel && l.id === to.meta.id)) return false
   from.meta.links = [...links, { rel, id: to.meta.id }]
   saveMeta(from)
   ctx.reload()
