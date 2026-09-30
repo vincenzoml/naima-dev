@@ -713,7 +713,7 @@ naima queue first-public --human
 
 Markers in the code for behaviour shipped without proof.
 
-A marker is a comment in the project's own source naming the item whose passing would prove the marked behaviour: `// naima:beta tests/export-keeps-alpha  export of layered files is unproven`. Always on: it scans every source file of the project, so a marker anywhere is held without listing where to look. A marker is wrong in two ways: it names nothing (dangling), or it outlives its proof — the item it names has passed or is no longer open (stale). Both fail `naima check`: a stale marker teaches readers that markers mean nothing.
+A marker is a comment in the project's own source naming the item whose passing would prove the marked behaviour: `// naima:beta tests/export-keeps-alpha  export of layered files is unproven`. Always on: it scans every source file of the project, so a marker anywhere is held without listing where to look. A marker names its item as any item reference; a `type/slug` written before the item was archived still finds it in the archive. A marker is wrong in two ways: it names nothing (dangling, said with why), or it outlives its proof — the item it names has passed or is no longer open (stale). Both fail `naima check`: a stale marker teaches readers that markers mean nothing.
 
 Options, each with the default it takes when nothing sets it:
 

@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { mkdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { test } from "node:test"
-import { createItem, runChecks, setFields, type Plugin } from "../../core/index.ts"
+import { createItem, moveItem, runChecks, setFields, type Plugin } from "../../core/index.ts"
 import { tempProject } from "../../core/testing.ts"
 import betaMarkers from "./index.ts"
 
@@ -59,6 +59,33 @@ test("with nothing configured, every source file of the project is scanned, and 
     writeFileSync(join(p.root, "node_modules", "c.ts"), marker("tests/ghost", "a dependency") + "\n")
     const problems = runChecks(p.ctx).problems.map((f) => f.message)
     assert.deepEqual(problems, ['lib/deep/a.py:1: beta marker names "tests/ghost", which is no item'])
+  } finally {
+    p.cleanup()
+  }
+})
+
+test("a marker naming an item since archived is found through the archive, and a bad reference says why", async () => {
+  const archive: Plugin = {
+    name: "archive",
+    says: "",
+    types: [
+      { id: "bugs", dir: "BUGS", title: "", says: "", statuses: { open: { category: "open", says: "" } }, initialStatus: "open" },
+      { id: "closed", dir: "CLOSED", title: "", says: "", statuses: { closed: { category: "done", says: "" } }, initialStatus: "closed", creatable: false },
+    ],
+    fields: [{ name: "closedFrom", kind: "string", says: "" }],
+  }
+  const p = tempProject([archive, betaMarkers({ paths: ["app"] })])
+  try {
+    const bug = createItem(p.ctx, p.ctx.registry.types.get("bugs")!, "Export drops alpha")
+    createItem(p.ctx, p.ctx.registry.types.get("bugs")!, "Export drops beta")
+    mkdirSync(join(p.root, "app"))
+    writeFileSync(join(p.root, "app", "a.ts"), marker("bugs/export-drops-alpha", "unproven") + "\n" + marker("export-drops", "which one") + "\n")
+    setFields(p.ctx, bug, [["closedFrom", "bugs"]])
+    const moved = moveItem(p.ctx, p.ctx.repo.resolve(bug.meta.id), p.ctx.registry.types.get("closed")!)
+    setFields(p.ctx, p.ctx.repo.resolve(moved.meta.id), [["status", "closed"]])
+    const problems = runChecks(p.ctx).problems.map((f) => f.message).join("\n")
+    assert.match(problems, /a\.ts:1: beta marker outlived its proof — closed\/export-drops-alpha is closed/)
+    assert.match(problems, /a\.ts:2: beta marker names "export-drops", which does not resolve: "export-drops" is ambiguous/)
   } finally {
     p.cleanup()
   }

@@ -80,17 +80,29 @@ export function scanMarkers(root: string, opts: MarkerOptions, program?: string)
   return out
 }
 
-type State = { marker: Marker; item?: Item; state: "unproven" | "stale" | "dangling" }
+type State = { marker: Marker; item?: Item; why?: string; state: "unproven" | "stale" | "dangling" }
+
+/**
+ * The item a marker names, or why it names none. A `type/slug` written before
+ * the item was archived still finds it: the archive keeps the slug, and
+ * `closedFrom` the type it came from.
+ */
+function resolveMarker(ctx: Context, ref: string): { item: Item } | { why: string } {
+  try {
+    return { item: ctx.repo.resolve(ref) }
+  } catch (e) {
+    const [type, slug, ...rest] = ref.split("/")
+    const archived = slug && !rest.length ? ctx.repo.items.filter((i) => i.slug === slug && i.meta.closedFrom === type) : []
+    if (archived.length === 1 && archived[0]) return { item: archived[0] }
+    return { why: e instanceof Error ? e.message : String(e) }
+  }
+}
 
 function audit(ctx: Context, opts: MarkerOptions): State[] {
-  return scanMarkers(ctx.root, opts, ctx.program).map((marker) => {
-    let item: Item
-    try {
-      item = ctx.repo.resolve(marker.ref)
-    } catch {
-      return { marker, state: "dangling" }
-    }
-    return { marker, item, state: proves(ctx, item) || !isOpen(ctx, item) ? "stale" : "unproven" }
+  return scanMarkers(ctx.root, opts, ctx.program).map((marker): State => {
+    const found = resolveMarker(ctx, marker.ref)
+    if ("why" in found) return { marker, why: found.why, state: "dangling" }
+    return { marker, item: found.item, state: proves(ctx, found.item) || !isOpen(ctx, found.item) ? "stale" : "unproven" }
   })
 }
 
@@ -108,7 +120,7 @@ export default function betaMarkers(options: Record<string, unknown> = {}): Plug
           level: "problem",
           message:
             s.state === "dangling"
-              ? `${where(s.marker)}: beta marker names "${s.marker.ref}", which is no item`
+              ? `${where(s.marker)}: beta marker names "${s.marker.ref}", ${s.why?.startsWith("no item matches") ? "which is no item" : `which does not resolve: ${s.why}`}`
               : `${where(s.marker)}: beta marker outlived its proof — ${label(s.item as Item)} is ${s.item?.meta.status}; remove the marker`,
         })),
   }
@@ -144,7 +156,8 @@ export default function betaMarkers(options: Record<string, unknown> = {}): Plug
     about:
       "A marker is a comment in the project's own source naming the item whose passing would prove the marked behaviour: `// naima:beta tests/export-keeps-alpha  export of layered files is unproven`. " +
       "Always on: it scans every source file of the project, so a marker anywhere is held without listing where to look. " +
-      "A marker is wrong in two ways: it names nothing (dangling), or it outlives its proof — the item it names has passed or is no longer open (stale). Both fail `naima check`: a stale marker teaches readers that markers mean nothing.",
+      "A marker names its item as any item reference; a `type/slug` written before the item was archived still finds it in the archive. " +
+      "A marker is wrong in two ways: it names nothing (dangling, said with why), or it outlives its proof — the item it names has passed or is no longer open (stale). Both fail `naima check`: a stale marker teaches readers that markers mean nothing.",
     options: [
       { name: "paths", says: "files or directories, from the project root, to scan instead of the whole project", default: "every file git tracks or would track (outside git, every file under the root but hidden directories, node_modules, dist and build)" },
       { name: "extensions", says: "file extensions to scan", default: '[".ts", ".tsx", ".js", ".mjs", ".py", ".rs", ".go", ".java", ".c", ".h"]' },
