@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto"
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
+import { writeFileAtomic } from "./files.ts"
 import type { Context, Item, Meta, TypeDef } from "./types.ts"
 
 export const META = "meta.json"
@@ -76,9 +77,9 @@ let generation = 0
  */
 export const writes = (): number => generation
 
+/** Write a value as JSON, atomically (writeFileAtomic). */
 export function writeJson(path: string, value: unknown): void {
-  mkdirSync(dirname(path), { recursive: true })
-  writeFileSync(path, JSON.stringify(value, null, 2) + "\n")
+  writeFileAtomic(path, JSON.stringify(value, null, 2) + "\n")
   generation++
 }
 

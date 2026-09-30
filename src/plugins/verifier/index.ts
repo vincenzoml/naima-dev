@@ -10,7 +10,7 @@
 // when a property claims to hold and the model has changed since its run.
 
 import { createHash } from "node:crypto"
-import { existsSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import { isAbsolute, join, relative, resolve } from "node:path"
 import {
   ATTACHMENTS,
@@ -28,6 +28,8 @@ import {
   parse,
   saveMeta,
   usageError,
+  writeFileAtomic,
+  writeJson,
 } from "../../core/index.ts"
 import { exampleRegex } from "./adapters/example-regex.ts"
 
@@ -145,8 +147,8 @@ export async function verifyItem(ctx: Context, item: Item): Promise<Verdict> {
   const stamp = at.replace(/[:.]/g, "-")
   const record: RunRecord = { verifier: id, model, modelSha256: hash, property, optionsSha256: optionsHash(options), verdict: result.verdict, output: result.output, at, ...(result.counterexample !== undefined ? { counterexample: result.counterexample } : {}) }
   const name = `run-${stamp}.json`
-  writeFileSync(join(item.dir, ATTACHMENTS, name), JSON.stringify(record, null, 2) + "\n")
-  if (result.counterexample !== undefined) writeFileSync(join(item.dir, ATTACHMENTS, `counterexample-${stamp}.txt`), result.counterexample + "\n")
+  writeJson(join(item.dir, ATTACHMENTS, name), record)
+  if (result.counterexample !== undefined) writeFileAtomic(join(item.dir, ATTACHMENTS, `counterexample-${stamp}.txt`), result.counterexample + "\n")
   item.meta.status = STATUS[result.verdict]
   item.meta.lastRun = name
   saveMeta(item)

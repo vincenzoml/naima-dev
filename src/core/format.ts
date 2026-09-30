@@ -11,10 +11,11 @@
 // Each migration adds one, so the format this Naima reads is 1 + the number
 // of migrations it carries.
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { DATA_FILE } from "./layout.ts"
 import { META, listDirs } from "./item.ts"
+import { writeFileAtomic } from "./files.ts"
 import { label } from "./lifecycle.ts"
 import type { Check, Finding } from "./types.ts"
 
@@ -91,9 +92,9 @@ export function migrate(data: string, migrations: readonly Migration[] = MIGRATI
   // Read everything before writing anything: a migration that throws leaves the data as it was.
   for (const i of items) {
     const text = stringify(i.meta)
-    if (text !== i.text) writeFileSync(i.path, text)
+    if (text !== i.text) writeFileAtomic(i.path, text)
   }
-  writeFileSync(configPath, stringify(withFormat(config, target)))
+  writeFileAtomic(configPath, stringify(withFormat(config, target)))
   return steps.map((s) => s.from)
 }
 

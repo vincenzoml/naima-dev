@@ -47,6 +47,7 @@ function jsonExclude(path: string, entry: string, fallback: string[]): Omit<Excl
       if (!isObject(raw)) return false
       if (present) return true
       raw.exclude = [...(list ?? fallback), entry]
+      // Not writeFileAtomic: the launcher grants write access to this one host file, not to a temporary file beside it.
       writeFileSync(path, JSON.stringify(raw, null, 2) + "\n")
       return true
     },

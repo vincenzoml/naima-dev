@@ -7,10 +7,11 @@
 // project's gates, and third-party plugins to add. Nothing in it switches
 // anything on. The format is specified in docs/format.md.
 
-import { readFileSync, writeFileSync } from "node:fs"
+import { readFileSync } from "node:fs"
 import { isAbsolute, join, relative, resolve, sep } from "node:path"
 import { pathToFileURL } from "node:url"
 import { message } from "./errors.ts"
+import { writeFileAtomic } from "./files.ts"
 import { DATA_FILE, DEFAULT_PROGRAM } from "./layout.ts"
 import { FORMAT, formatRefusal } from "./format.ts"
 import type { Carry, Config, Plugin, PluginEntry, PluginFactory, PluginOptions } from "./types.ts"
@@ -98,7 +99,7 @@ export const readConfig = (data: string): Config => parseConfig(readRaw(data))
 
 /** Write `<data>/naima.json`, keys in the order given. */
 export function writeRaw(data: string, raw: Record<string, unknown>): void {
-  writeFileSync(join(data, DATA_FILE), JSON.stringify(raw, null, 2) + "\n")
+  writeFileAtomic(join(data, DATA_FILE), JSON.stringify(raw, null, 2) + "\n")
 }
 
 /**

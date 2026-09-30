@@ -15,7 +15,7 @@
 // Always on, with nothing to configure: the markdown is every file git
 // tracks. A reference file is held only when the plugin is given one.
 
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs"
 import { dirname, join, relative, resolve } from "node:path"
 import {
   DEFAULT_DATA,
@@ -31,6 +31,7 @@ import {
   parse,
   projectFiles,
   walkFiles,
+  writeFileAtomic,
 } from "../../core/index.ts"
 
 export interface DocsOptions {
@@ -374,7 +375,7 @@ export default function docs(options: Record<string, unknown> = {}): Plugin {
       const file = join(ctx.root, path)
       if (bool(p, "write")) {
         mkdirSync(dirname(file), { recursive: true })
-        writeFileSync(file, text)
+        writeFileAtomic(file, text)
         ctx.out(`wrote ${path}`)
       }
       const gaps = documentationGaps(ctx)

@@ -139,7 +139,9 @@ naima update             # move the lock to it
 publishes no dist (a fork, a local source). It fetches that head, moves the
 program to it, migrates the
 data forward if its format moved ([migrations](format.md#migrations)), and
-records the new commit in `naima.json`. The result is one change to review and
+records the new commit in `naima.json`. A vendored program is checked out
+beside the old one and swapped in only once it is whole, so a failed update
+leaves the program that ran before. The result is one change to review and
 commit like any other:
 
 ```sh

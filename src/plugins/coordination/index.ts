@@ -8,7 +8,7 @@
 // by the tool. The collections are recombined at read time from every branch.
 
 import { randomUUID } from "node:crypto"
-import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs"
+import { mkdirSync, readFileSync, unlinkSync } from "node:fs"
 import { join } from "node:path"
 import {
   type BranchFile,
@@ -29,6 +29,7 @@ import {
   readAcrossBranches,
   str,
   today,
+  writeFileAtomic,
   writeJson,
   usageError,
 } from "../../core/index.ts"
@@ -276,7 +277,7 @@ const pass: Command = {
     const dir = join(ctx.root, rel(ctx, PASSES))
     mkdirSync(dir, { recursive: true })
     const name = `${date}-${randomUUID()}.md`
-    writeFileSync(join(dir, name), `---\ndate: ${date}\nat: ${now.toISOString()}\nbranch: ${branch}\n---\n\n${text}\n`)
+    writeFileAtomic(join(dir, name), `---\ndate: ${date}\nat: ${now.toISOString()}\nbranch: ${branch}\n---\n\n${text}\n`)
     ctx.out(`wrote ${join(rel(ctx, PASSES), name)} — commit it on ${branch} with the work it describes`)
     return 0
   },

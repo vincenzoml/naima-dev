@@ -16,7 +16,7 @@ src/
     errors.ts      how Naima fails: NaimaError, message(e), the exit codes
     collections.ts small shared helpers: groupBy, the frozen collections of the registry
     git.ts         the one git wrapper (runGit, gitOrNull, mustGit); reading across every branch; the project's files
-    files.ts       the one walker: regular files only, symbolic links never followed
+    files.ts       the one walker (regular files only, links never followed); writeFileAtomic
     layout.ts      naima-tracker/ and its names; finding the data directory
     config.ts      naima.json: the lock, gates, third-party plugin loading
     format.ts      the data format, migrations, the one-format check

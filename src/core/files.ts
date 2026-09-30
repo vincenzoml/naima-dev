@@ -1,7 +1,9 @@
-// Walking a directory for the files a plugin scans: one walker, one skip rule.
+// Files: walking a directory for the files a plugin scans (one walker, one
+// skip rule), and writing one so that a crash never leaves it half written.
 
-import { existsSync, lstatSync, readdirSync } from "node:fs"
-import { join } from "node:path"
+import { randomUUID } from "node:crypto"
+import { existsSync, lstatSync, mkdirSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs"
+import { basename, dirname, join } from "node:path"
 
 /** Never a project's own source, wherever they sit: version control, dependencies, build output. */
 export const NEVER_SOURCE: ReadonlySet<string> = new Set([".git", "node_modules", "dist", "build"])
@@ -37,4 +39,21 @@ export function walkFiles(path: string, opts: { skipHidden?: boolean } = {}): st
   }
   walk(path)
   return out.sort()
+}
+
+/**
+ * Write `path` whole or not at all: the content goes to a temporary file
+ * beside it, which is then renamed over it. An interrupted write (a crash, a
+ * kill) leaves the old file or the new one, never a truncated one.
+ */
+export function writeFileAtomic(path: string, data: string): void {
+  mkdirSync(dirname(path), { recursive: true })
+  const temp = join(dirname(path), `.${basename(path)}.${randomUUID()}.tmp`)
+  try {
+    writeFileSync(temp, data)
+    renameSync(temp, path)
+  } catch (e) {
+    rmSync(temp, { force: true })
+    throw e
+  }
 }

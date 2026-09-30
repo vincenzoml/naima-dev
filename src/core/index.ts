@@ -8,7 +8,7 @@ export { slugify, uniqueSlug, isUuid, today, writeJson, readReadme, saveMeta, cr
 export { storedLinks } from "./repo.ts"
 export { groupBy } from "./collections.ts"
 export { EXIT, NaimaError, isInternal, message } from "./errors.ts"
-export { walkFiles, isRegularFile, NEVER_SOURCE } from "./files.ts"
+export { walkFiles, isRegularFile, writeFileAtomic, NEVER_SOURCE } from "./files.ts"
 export { statusDef, isOpen, proves, isEvidenceType, linked, urgency, byUrgency, label } from "./lifecycle.ts"
 export { setFields, addLink, renderBoard, typeOrThrow } from "./base.ts"
 export { runChecks, type CheckReport } from "./check.ts"

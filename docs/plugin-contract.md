@@ -59,8 +59,9 @@ Every hook receives a `Context`: the project `root`, the data directory
 `config`, the merged `registry`, the `repo` (items, `byId`, `resolve`,
 `linksOf` with inverses), `reload()` for a change made on disk without the
 helpers, `out`/`err`, and `now()`. Write through the public helpers
-(`createItem`, `saveMeta`, `setFields`, `addLink`, `moveItem`, `writeJson`) so
-that ids and validation stay consistent: every write through them is seen by
+(`createItem`, `saveMeta`, `setFields`, `addLink`, `moveItem`, `writeJson`,
+`writeFileAtomic`) so that ids and validation stay consistent, and no crash
+leaves a file half written: every write through them is seen by
 the next read of `repo`, with no reload to remember. The `registry` and the
 `config` are frozen once the project is loaded: a plugin reads another's
 contributions and cannot change them.

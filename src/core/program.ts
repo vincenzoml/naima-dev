@@ -6,9 +6,10 @@
 // have, is refused, never reset. None ever pulls on its own: only `naima
 // update` asks the source where its main is.
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs"
-import { dirname, join, resolve } from "node:path"
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs"
+import { basename, dirname, join, resolve } from "node:path"
 import { isLocalSource, posixRelative } from "./config.ts"
+import { writeFileAtomic } from "./files.ts"
 import { gitReason, mustGit, runGit } from "./git.ts"
 import { DIST_BRANCH } from "./layout.ts"
 import type { Carry } from "./types.ts"
@@ -138,16 +139,27 @@ export function remoteHead(t: Target): Head {
 /** Vendored: replace the program with the tree of `commit`, fetched from the source into a scratch clone under the tracker folder. */
 export function vendor(t: Target, commit: string): void {
   const scratch = join(t.tracker, ".naima-update")
-  rmSync(scratch, { recursive: true, force: true })
+  // The new program is checked out beside the old one and swapped in only once it is whole:
+  // a failed clone, fetch or checkout leaves the program that ran before where it was.
+  const beside = (what: string): string => join(dirname(t.program), `.${basename(t.program)}-${what}`)
+  const next = beside("next")
+  const previous = beside("previous")
+  for (const dir of [scratch, next, previous]) rmSync(dir, { recursive: true, force: true })
   try {
     const r = runGit(t.root, ["clone", "--quiet", "--no-checkout", "--", t.source, scratch])
     if (!r.ok) throw new Error(`cannot clone ${t.source}: ${gitReason(r)}`)
     if (!has(scratch, commit)) mustGit(scratch, "fetch", "--quiet", "origin", commit)
-    rmSync(t.program, { recursive: true, force: true })
-    mkdirSync(t.program, { recursive: true })
-    mustGit(scratch, `--work-tree=${t.program}`, "checkout", "--quiet", "--force", commit, "--", ".")
+    mkdirSync(next, { recursive: true })
+    mustGit(scratch, `--work-tree=${next}`, "checkout", "--quiet", "--force", commit, "--", ".")
+    if (existsSync(t.program)) renameSync(t.program, previous)
+    try {
+      renameSync(next, t.program)
+    } catch (e) {
+      if (existsSync(previous)) renameSync(previous, t.program)
+      throw e
+    }
   } finally {
-    rmSync(scratch, { recursive: true, force: true })
+    for (const dir of [scratch, next, previous]) rmSync(dir, { recursive: true, force: true })
   }
 }
 
@@ -166,7 +178,7 @@ export function ignoreProgram(t: Target, ignored: boolean): string | null {
   const lines = existsSync(path) ? readFileSync(path, "utf8").split("\n").filter((l) => l !== "") : []
   const kept = lines.filter((l) => l !== line)
   const next = ignored ? [...kept, line] : kept
-  if (next.length) writeFileSync(path, next.join("\n") + "\n")
+  if (next.length) writeFileAtomic(path, next.join("\n") + "\n")
   else rmSync(path, { force: true })
   return path
 }
