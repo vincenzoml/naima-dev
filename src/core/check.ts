@@ -15,7 +15,7 @@ const note = (message: string): Finding => ({ level: "note", message })
 
 const readable: Check = {
   name: "readable",
-  says: "every item directory has a README.md and a meta.json that parses to an object whose id, title and status are strings",
+  says: "every item directory has a README.md and a meta.json that parses to an object whose id, title and status are strings; no symbolic link or _-prefixed directory sits unread among the items",
   run: (ctx) => [
     ...ctx.repo.unreadable,
     ...ctx.repo.items.filter((i) => !existsSync(join(i.dir, README))).map((i) => problem(`${label(i)}: no ${README}`, i)),
@@ -102,7 +102,7 @@ const layout: Check = {
     if (!existsSync(ctx.trackerRoot)) return [note(`${ctx.trackerDir}/ does not exist yet`)]
     return readdirSync(ctx.trackerRoot, { withFileTypes: true })
       .filter((e) => e.isDirectory() && !e.name.startsWith(".") && !ctx.registry.dirs.has(e.name))
-      .map((e) => note(`${ctx.trackerDir}/${e.name}/ belongs to no loaded type or plugin`))
+      .map((e) => problem(`${ctx.trackerDir}/${e.name}/ belongs to no loaded type or plugin — a misspelled type, or a plugin that is not loaded`))
   },
 }
 

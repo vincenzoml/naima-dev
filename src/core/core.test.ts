@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { spawn } from "node:child_process"
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { test } from "node:test"
 import { fileURLToPath } from "node:url"
@@ -103,7 +103,7 @@ test("check reports every broken invariant instead of crashing", () => {
     for (const expected of [/shares its id/, /status "weird"/, /size "XXL"/, /relation "nope"/, /which is no item/, /malformed link/, /broken: meta.json is not a JSON object/]) {
       assert.match(text, expected)
     }
-    assert.match(report.notes.map((n) => n.message).join(), /STRAY/)
+    assert.match(text, /STRAY\/ belongs to no loaded type or plugin/)
   } finally {
     p.cleanup()
   }
@@ -302,6 +302,25 @@ test("a meta.json whose id, title or status is not a string is unreadable, not a
     assert.match(text, /bad-status: meta\.json: status is not a string/)
     assert.match(text, /bad-title: meta\.json: title is not a string/)
     assert.match(text, /bad-id: meta\.json: id is not a string/)
+  } finally {
+    p.cleanup()
+  }
+})
+
+test("a directory check cannot read is a problem: a misspelled type, an _underscored or a symlinked item", () => {
+  const p = tempProject([notes])
+  try {
+    const item = createItem(p.ctx, p.ctx.registry.types.get("notes")!, "Real")
+    mkdirSync(join(p.ctx.trackerRoot, "NOETS", "typo"), { recursive: true })
+    mkdirSync(join(p.ctx.trackerRoot, "NOTES", "_draft"))
+    writeFileSync(join(p.ctx.trackerRoot, "NOTES", "_draft", "meta.json"), "{}")
+    symlinkSync(item.dir, join(p.ctx.trackerRoot, "NOTES", "linked"), "dir")
+    p.ctx.reload()
+    const text = messages(runChecks(p.ctx))
+    assert.match(text, /NOETS\/ belongs to no loaded type or plugin/)
+    assert.match(text, /NOTES\/_draft: not read as an item/)
+    assert.match(text, /NOTES\/linked: a symbolic link, not read as an item/)
+    assert.equal(p.ctx.repo.items.length, 1)
   } finally {
     p.cleanup()
   }

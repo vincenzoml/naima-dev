@@ -1,7 +1,7 @@
 // Reading the tracker: every registered type directory, every item in it.
 // Nothing here writes, and nothing is cached across `reload()`.
 
-import { existsSync, readFileSync } from "node:fs"
+import { existsSync, readFileSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 import { META, listDirs } from "./item.ts"
 import type { Finding, Item, Link, Meta, Registry, Repo, ResolvedLink } from "./types.ts"
@@ -12,10 +12,21 @@ export function storedLinks(meta: Meta): Link[] {
   return meta.links.filter((l): l is Link => !!l && typeof l.rel === "string" && typeof l.id === "string")
 }
 
+/** Entries of a type directory that look like items and are not read as one: said, never skipped in silence. */
+function notItems(typeDir: string, where: string): Finding[] {
+  if (!existsSync(typeDir)) return []
+  return readdirSync(typeDir, { withFileTypes: true }).flatMap((e): Finding[] => {
+    if (e.isSymbolicLink()) return [{ level: "problem", message: `${where}/${e.name}: a symbolic link, not read as an item — an item is a directory` }]
+    if (e.isDirectory() && e.name.startsWith("_")) return [{ level: "problem", message: `${where}/${e.name}: not read as an item — a name starting with _ is never an item; rename it or move it out` }]
+    return []
+  })
+}
+
 export function loadRepo(trackerRoot: string, registry: Registry): Repo {
   const items: Item[] = []
   const unreadable: Finding[] = []
   for (const type of registry.types.values()) {
+    unreadable.push(...notItems(join(trackerRoot, type.dir), type.dir))
     for (const slug of listDirs(join(trackerRoot, type.dir))) {
       const dir = join(trackerRoot, type.dir, slug)
       const where = `${type.dir}/${slug}`

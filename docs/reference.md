@@ -348,7 +348,7 @@ naima types
 
 | Check | What it holds |
 |---|---|
-| `readable` | every item directory has a README.md and a meta.json that parses to an object whose id, title and status are strings |
+| `readable` | every item directory has a README.md and a meta.json that parses to an object whose id, title and status are strings; no symbolic link or _-prefixed directory sits unread among the items |
 | `identity` | every item has a permanent uuid, a title and a status its type declares; ids are unique |
 | `fields` | every declared field holds a value of its declared kind |
 | `links` | every link uses a declared relation and names an existing item other than its own |
