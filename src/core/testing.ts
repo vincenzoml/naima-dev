@@ -28,10 +28,26 @@ export interface TempProject {
   cleanup(): void
 }
 
-/** An author for commits made by tests, so they never depend on the machine's git configuration. */
-const IDENTITY = ["-c", "user.email=test@example.invalid", "-c", "user.name=test", "-c", "commit.gpgsign=false"]
+/**
+ * An author for commits made by tests, so they never depend on the machine's git configuration; and no
+ * automatic maintenance. A commit starts `git maintenance run --auto` detached, which may repack and delete
+ * loose objects while the test goes on: a local clone listing the object directory then finds a file gone
+ * ("failed to copy file to '…/objects/…': No such file or directory"), as git 2.55 on the macOS runner did.
+ */
+const IDENTITY = [
+  "-c",
+  "user.email=test@example.invalid",
+  "-c",
+  "user.name=test",
+  "-c",
+  "commit.gpgsign=false",
+  "-c",
+  "maintenance.auto=false",
+  "-c",
+  "gc.auto=0",
+]
 
-/** Git in `cwd` for a test, with a fixed author: the output, trimmed; an error with git's reason on failure. */
+/** Git in `cwd` for a test, with a fixed author and no background maintenance: the output, trimmed; an error with git's reason on failure. */
 export const gitIn = (cwd: string, ...args: string[]): string => mustGit(cwd, ...IDENTITY, ...args)
 
 /** Remove a test's temporary directory, unless NAIMA_KEEP_TEMP=1 (scripts/coverage.ts reads the copies it holds). */

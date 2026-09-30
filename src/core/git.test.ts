@@ -38,6 +38,35 @@ test("records are recombined from every unmerged branch, with the working tree w
   }
 })
 
+test("a test's commit starts no background maintenance, so a local clone right after it finds every object", () => {
+  const base = mkdtempSync(join(tmpdir(), "naima-maint-"))
+  try {
+    const src = join(base, "src")
+    mkdirSync(src)
+    gitIn(src, "init", "-q", "-b", "main")
+    // The repository asks for maintenance after every commit, in the foreground: were it to run, the commit
+    // would return with its loose objects packed (in the background, packed and deleted under the clone).
+    for (
+      const [key, value] of [["gc.auto", "1"], ["gc.autoDetach", "false"], ["maintenance.autoDetach", "false"], ["maintenance.loose-objects.enabled", "true"], [
+        "maintenance.loose-objects.auto",
+        "1",
+      ]]
+    ) {
+      gitIn(src, "config", key as string, value as string)
+    }
+    for (let i = 0; i < 20; i++) writeFileSync(join(src, `f${i}`), `${i}\n`)
+    gitIn(src, "add", "-A")
+    gitIn(src, "commit", "-q", "-m", "many objects")
+    const counts = gitIn(src, "count-objects", "-v")
+    assert.match(counts, /^count: 22$/m, "20 blobs, a tree and a commit, all still loose")
+    assert.match(counts, /^packs: 0$/m, "no maintenance packed them")
+    gitIn(base, "clone", "-q", "--", src, "clone/nested") // relative target, hardlinked objects: the failing shape
+    assert.equal(gitIn(join(base, "clone", "nested"), "rev-parse", "HEAD"), gitIn(src, "rev-parse", "HEAD"))
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+})
+
 test("a project's files are regular files: never a submodule's directory, never through a symbolic link", () => {
   const p = tempProject([], { git: true })
   const outside = mkdtempSync(join(tmpdir(), "naima-outside-"))
