@@ -16,7 +16,7 @@
 
 import { readFileSync } from "node:fs"
 import { join, relative } from "node:path"
-import { NEVER_SOURCE, type Check, type Command, type Context, type Finding, type Item, type Plugin, type SummarySection, bool, isOpen, label, parse, projectFiles, proves, walkFiles } from "../../core/index.ts"
+import { NEVER_SOURCE, type Check, type Command, type Context, type Finding, type Item, type Plugin, type SummarySection, bool, fieldValue, isOpen, label, parse, projectFiles, proves, walkFiles } from "../../core/index.ts"
 
 export interface Marker {
   file: string
@@ -32,14 +32,16 @@ export interface MarkerOptions {
   pattern: RegExp
 }
 
+/** The trackers' archive field, read by name: where a closed item came from. */
+const CLOSED_FROM = { name: "closedFrom", kind: "string" } as const
 const DEFAULT_PATTERN = String.raw`^\s*(?:\/\/|#|--|;|\*)\s*naima:beta\s+(?<ref>\S+)\s*(?<what>.*)$`
 
 function readOptions(o: Record<string, unknown>): MarkerOptions {
   const list = (v: unknown, fallback: string[]): string[] => (Array.isArray(v) && v.every((x) => typeof x === "string") ? v : fallback)
   return {
-    ...(o.paths !== undefined ? { paths: list(o.paths, []) } : {}),
-    extensions: list(o.extensions, [".ts", ".tsx", ".js", ".mjs", ".py", ".rs", ".go", ".java", ".c", ".h"]),
-    pattern: new RegExp(typeof o.pattern === "string" ? o.pattern : DEFAULT_PATTERN),
+    ...(o["paths"] !== undefined ? { paths: list(o["paths"], []) } : {}),
+    extensions: list(o["extensions"], [".ts", ".tsx", ".js", ".mjs", ".py", ".rs", ".go", ".java", ".c", ".h"]),
+    pattern: new RegExp(typeof o["pattern"] === "string" ? o["pattern"] : DEFAULT_PATTERN),
   }
 }
 
@@ -60,7 +62,8 @@ export function scanMarkers(root: string, opts: MarkerOptions, program?: string)
       .split("\n")
       .forEach((text, i) => {
         const m = text.match(opts.pattern)
-        if (m?.groups?.ref) out.push({ file: relative(root, path), line: i + 1, ref: m.groups.ref, what: (m.groups.what ?? "").trim() })
+        const ref = m?.groups?.["ref"]
+        if (ref) out.push({ file: relative(root, path), line: i + 1, ref, what: (m?.groups?.["what"] ?? "").trim() })
       })
   }
   return out
@@ -78,7 +81,7 @@ function resolveMarker(ctx: Context, ref: string): { item: Item } | { why: strin
     return { item: ctx.repo.resolve(ref) }
   } catch (e) {
     const [type, slug, ...rest] = ref.split("/")
-    const archived = slug && !rest.length ? ctx.repo.items.filter((i) => i.slug === slug && i.meta.closedFrom === type) : []
+    const archived = slug && !rest.length ? ctx.repo.items.filter((i) => i.slug === slug && fieldValue(i, CLOSED_FROM) === type) : []
     if (archived.length === 1 && archived[0]) return { item: archived[0] }
     return { why: e instanceof Error ? e.message : String(e) }
   }

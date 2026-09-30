@@ -27,6 +27,7 @@ import {
   type Plugin,
   bool,
   cliCommands,
+  fieldValue,
   label,
   parse,
   projectFiles,
@@ -54,14 +55,16 @@ function readOptions(o: Record<string, unknown>): DocsOptions {
     if (!Array.isArray(v) || !v.every((x) => typeof x === "string")) throw new Error(`docs: options.${name} must be a list of strings`)
     return v
   }
-  if (o.reference !== undefined && typeof o.reference !== "string") throw new Error("docs: options.reference must be a path")
+  if (o["reference"] !== undefined && typeof o["reference"] !== "string") throw new Error("docs: options.reference must be a path")
   return {
-    ...(typeof o.reference === "string" ? { reference: o.reference } : {}),
-    featureTypes: list(o.featureTypes, "featureTypes", ["features"]),
-    documentedStatuses: list(o.documentedStatuses, "documentedStatuses", ["shipped"]),
-    ...(o.links !== undefined ? { links: list(o.links, "links", []) } : {}),
+    ...(typeof o["reference"] === "string" ? { reference: o["reference"] } : {}),
+    featureTypes: list(o["featureTypes"], "featureTypes", ["features"]),
+    documentedStatuses: list(o["documentedStatuses"], "documentedStatuses", ["shipped"]),
+    ...(o["links"] !== undefined ? { links: list(o["links"], "links", []) } : {}),
   }
 }
+
+const DOCS = { name: "docs", kind: "strings" } as const
 
 const markdownFiles = (root: string, program?: string): string[] => projectFiles(root, program).filter((f) => f.endsWith(".md"))
 
@@ -335,7 +338,7 @@ export default function docs(options: Record<string, unknown> = {}): Plugin {
     run(ctx) {
       const out: Finding[] = []
       for (const item of ctx.repo.items.filter((i) => opts.featureTypes.includes(i.type))) {
-        const refs = Array.isArray(item.meta.docs) ? (item.meta.docs as unknown[]).filter((d): d is string => typeof d === "string") : []
+        const refs = fieldValue(item, DOCS) ?? []
         if (opts.documentedStatuses.includes(item.meta.status) && !refs.length) {
           out.push({ level: "problem", message: `${label(item)} is ${item.meta.status} with no documentation — set docs=<path>[#heading]`, item })
         }

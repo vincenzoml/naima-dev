@@ -147,7 +147,7 @@ test("a property's inputs are checked: its options are a declared field, its pat
     const type = ctx.registry.types.get("properties")!
     assert.equal(ctx.registry.fields.get("verifierOptions")?.kind, "object")
     assert.equal(await p.run("new", "properties", "has options", "--set", 'verifierOptions={"depth":2}', "--set", "verifier=example-regex", "--set", "model=m", "--set", "property=some x"), 0)
-    assert.deepEqual(ctx.repo.resolve("has-options").meta.verifierOptions, { depth: 2 })
+    assert.deepEqual(ctx.repo.resolve("has-options").meta["verifierOptions"], { depth: 2 })
     await assert.rejects(p.run("set", "has-options", "verifierOptions=[1]"), /verifierOptions: "\[1\]" is not a JSON object/)
 
     const escape = createItem(ctx, type, "escapes", { verifier: "example-regex", model: "../../../../etc/passwd", property: "some root" })

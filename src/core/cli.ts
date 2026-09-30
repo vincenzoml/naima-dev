@@ -90,7 +90,7 @@ function locate(opts: CliOptions, flag: string | undefined): (Place & { lock: Lo
   if (!existsSync(join(found, DATA_FILE))) throw new Error(`${found} holds no ${DATA_FILE}`)
   const data = real(found) // as git names the root: relative paths between the two must not cross a symlink
   const raw = readRaw(data)
-  if (!isFormat(raw.format)) throw new Error(`${DATA_FILE} ${formatRefusal(raw.format)}`)
+  if (!isFormat(raw["format"])) throw new Error(`${DATA_FILE} ${formatRefusal(raw["format"])}`)
   const lock = parseLock(raw)
   return { root: toplevel(data) ?? dirname(dirname(data)), data, program: programDir(data, lock), lock, raw }
 }
@@ -181,7 +181,7 @@ function update(args: string[], place: Place, lock: Lock, raw: Record<string, un
     io.out(`locked ${short(lock.commit)} → ${short(main)}`)
     return RELAUNCH // the new Naima finishes: it is the one that knows the new format
   }
-  const from = raw.format
+  const from = raw["format"]
   const migrated = migrate(place.data)
   io.out(migrated.length ? `migrated the data from format ${String(from)} to ${FORMAT}` : `the data is format ${FORMAT}: nothing to migrate`)
   const tracker = posixRelative(place.root, trackerOf(place.data))

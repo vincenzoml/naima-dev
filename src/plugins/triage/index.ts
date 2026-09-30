@@ -22,6 +22,7 @@ import {
   bool,
   byUrgency,
   enumRank,
+  fieldValue,
   isOpen,
   label,
   pairs,
@@ -29,6 +30,7 @@ import {
   positiveInt,
   readReadme,
   saveMeta,
+  setFieldValue,
   setFields,
   today,
   usageError,
@@ -74,6 +76,13 @@ export const FIELDS: FieldDef[] = [
 ]
 
 const TRIAGE = ["priority", "impact", "effort", "confidence"] as const
+const enumRef = (name: string) => ({ name, kind: "enum" }) as const
+const IMPACT = enumRef("impact")
+const PRIORITY = enumRef("priority")
+const EFFORT = enumRef("effort")
+const CONFIDENCE = enumRef("confidence")
+const TRIAGED_BY = enumRef("triagedBy")
+const TRIAGED_ON = { name: "triagedOn", kind: "date" } as const
 const field = (name: string) => FIELDS.find((f) => f.name === name)
 
 const EVIDENCE = new Set(["measured", "verified", "reproduced", "confirmed"])
@@ -95,9 +104,9 @@ export function confidenceFrom(body: string): string {
 }
 
 const rank: RankTerm[] = [
-  { name: "impact", score: (i) => enumRank(field("impact"), i.meta.impact, 2.5) * 1.5 },
-  { name: "priority", score: (i) => enumRank(field("priority"), i.meta.priority, 2.5) * 1.2 },
-  { name: "effort", score: (i) => enumRank(field("effort"), i.meta.effort, 1.5) * 0.3 },
+  { name: "impact", score: (i) => enumRank(field("impact"), fieldValue(i, IMPACT), 2.5) * 1.5 },
+  { name: "priority", score: (i) => enumRank(field("priority"), fieldValue(i, PRIORITY), 2.5) * 1.2 },
+  { name: "effort", score: (i) => enumRank(field("effort"), fieldValue(i, EFFORT), 1.5) * 0.3 },
 ]
 
 const openItems = (ctx: Context): Item[] => ctx.repo.items.filter((i) => isOpen(ctx, i))
@@ -117,7 +126,7 @@ const coverage: Subcommand = {
       const mine = openItems(ctx).filter((i) => i.type === type.id)
       if (!mine.length) continue
       const cells = TRIAGE.map((f) => String(mine.filter((i) => i.meta[f] !== undefined).length).padStart(10)).join("")
-      ctx.out(`  ${type.id.padEnd(12)} ${String(mine.length).padStart(4)}  ${cells}   ${mine.filter((i) => i.meta.triagedBy === "derived").length}`)
+      ctx.out(`  ${type.id.padEnd(12)} ${String(mine.length).padStart(4)}  ${cells}   ${mine.filter((i) => fieldValue(i, TRIAGED_BY) === "derived").length}`)
     }
     return 0
   },
@@ -132,8 +141,8 @@ const SUBCOMMANDS: Record<string, Subcommand> = {
       const item = ctx.repo.resolve(ref)
       setFields(ctx, item, pairs(assignments))
       // A value set by hand is judgement; it stops being inference.
-      if (item.meta.triagedBy === "derived") delete item.meta.triagedBy
-      item.meta.triagedOn = today(ctx)
+      if (fieldValue(item, TRIAGED_BY) === "derived") setFieldValue(item, TRIAGED_BY, undefined)
+      setFieldValue(item, TRIAGED_ON, today(ctx))
       saveMeta(item)
       ctx.out(`${label(item)}: ${assignments.join(" ")}`)
       return 0
@@ -143,7 +152,7 @@ const SUBCOMMANDS: Record<string, Subcommand> = {
     usage: "triage missing",
     run(args, ctx) {
       if (args.length) throw usageError(this)
-      const unsized = openItems(ctx).filter((i) => !i.meta.effort)
+      const unsized = openItems(ctx).filter((i) => !fieldValue(i, EFFORT))
       ctx.out(`${unsized.length} open items without effort — the field only a person can set:`)
       for (const i of byUrgency(ctx, unsized)) ctx.out(`  ${label(i)}  ${i.meta.title}`)
       return 0
@@ -157,11 +166,10 @@ const SUBCOMMANDS: Record<string, Subcommand> = {
       const write = bool(p, "write")
       let touched = 0
       for (const item of openItems(ctx)) {
-        const m = item.meta
-        const decided = m.triagedBy !== "derived" && TRIAGE.some((f) => m[f] !== undefined)
-        if (decided || m.confidence) continue
+        const decided = fieldValue(item, TRIAGED_BY) !== "derived" && TRIAGE.some((f) => item.meta[f] !== undefined)
+        if (decided || fieldValue(item, CONFIDENCE)) continue
         touched++
-        if (write) saveMeta({ ...item, meta: { ...m, confidence: confidenceFrom(readReadme(item)), triagedBy: "derived" } })
+        if (write) saveMeta({ ...item, meta: { ...item.meta, [CONFIDENCE.name]: confidenceFrom(readReadme(item)), [TRIAGED_BY.name]: "derived" } })
       }
       ctx.out(`${touched} items ${write ? "updated" : "would change (dry run — pass --write)"}; effort is never derived`)
       return 0
@@ -191,7 +199,7 @@ const next: View = {
     const n = positiveInt(args[0], 15, "next")
     return byUrgency(ctx, openItems(ctx))
       .slice(0, n)
-      .map((i) => `  ${[i.meta.impact, i.meta.priority, i.meta.effort].map((v) => String(v ?? "·").padEnd(8)).join("")}${label(i)}  ${i.meta.title}`)
+      .map((i) => `  ${[IMPACT, PRIORITY, EFFORT].map((f) => (fieldValue(i, f) ?? "·").padEnd(8)).join("")}${label(i)}  ${i.meta.title}`)
   },
 }
 
@@ -201,7 +209,7 @@ const top: SummarySection = {
     const open = openItems(ctx)
     if (!open.length) return []
     const untriaged = open.filter((i) => TRIAGE.every((f) => i.meta[f] === undefined)).length
-    const unsized = open.filter((i) => !i.meta.effort).length
+    const unsized = open.filter((i) => !fieldValue(i, EFFORT)).length
     return [...next.render(["5"], ctx), `  (${untriaged} untriaged, ${unsized} without effort — naima triage missing)`]
   },
 }

@@ -51,9 +51,9 @@ export function parseLock(raw: Record<string, unknown>): Lock {
   const refusal = sourceRefusal(source)
   if (refusal) throw new Error(`${DATA_FILE}: source ${refusal}`)
   if (typeof commit !== "string" || !COMMIT.test(commit)) throw new Error(`${DATA_FILE}: commit must be the full hash of the Naima commit this project runs`)
-  const carry = raw.carry ?? "clone"
+  const carry = raw["carry"] ?? "clone"
   if (!CARRY_MODES.includes(carry as Carry)) throw new Error(`${DATA_FILE}: carry must be one of: ${CARRY_MODES.join(", ")}`)
-  const program = raw.program ?? DEFAULT_PROGRAM
+  const program = raw["program"] ?? DEFAULT_PROGRAM
   if (typeof program !== "string" || !program.trim()) throw new Error(`${DATA_FILE}: program must be a path, relative to the data directory`)
   return { source, commit, carry: carry as Carry, program }
 }
@@ -61,22 +61,22 @@ export function parseLock(raw: Record<string, unknown>): Lock {
 /** The contents of a naima.json in the format this Naima reads. Throws with the reason when it is not one. */
 export function parseConfig(raw: unknown): Config {
   if (!isObject(raw)) throw new Error(`${DATA_FILE} must hold a JSON object`)
-  const refusal = formatRefusal(raw.format)
+  const refusal = formatRefusal(raw["format"])
   if (refusal) throw new Error(`${DATA_FILE} ${refusal}`)
   for (const key of Object.keys(raw)) {
     if (!KEYS.has(key)) throw new Error(`${DATA_FILE}: unknown key "${key}" — it holds only ${[...KEYS].join(", ")}; everything else is inferred`)
   }
   const lock = parseLock(raw)
-  const gates = raw.gates ?? {}
+  const gates = raw["gates"] ?? {}
   if (!isObject(gates)) throw new Error(`${DATA_FILE}: gates must map a gate name to its definition`)
-  const extras = raw.plugins ?? []
+  const extras = raw["plugins"] ?? []
   if (!Array.isArray(extras)) throw new Error(`${DATA_FILE}: plugins must be a list of third-party plugins`)
   const plugins: PluginEntry[] = extras.map((p: unknown) => {
     if (typeof p === "string") return { name: p, options: {} }
-    if (isObject(p) && typeof p.name === "string") {
-      const options = p.options ?? {}
-      if (!isObject(options)) throw new Error(`${DATA_FILE}: options of plugin "${p.name}" must be an object`)
-      return { name: p.name, options: options as PluginOptions }
+    if (isObject(p) && typeof p["name"] === "string") {
+      const options = p["options"] ?? {}
+      if (!isObject(options)) throw new Error(`${DATA_FILE}: options of plugin "${p["name"]}" must be an object`)
+      return { name: p["name"], options: options as PluginOptions }
     }
     throw new Error(`${DATA_FILE}: a plugin entry is a path inside the program, or { "name", "options" }`)
   })
@@ -110,7 +110,7 @@ export function writeRaw(data: string, raw: Record<string, unknown>): void {
 export function programOf(data: string): string {
   try {
     const raw = readRaw(data)
-    return resolve(data, typeof raw.program === "string" ? raw.program : DEFAULT_PROGRAM)
+    return resolve(data, typeof raw["program"] === "string" ? raw["program"] : DEFAULT_PROGRAM)
   } catch {
     return resolve(data, DEFAULT_PROGRAM)
   }

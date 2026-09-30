@@ -6,7 +6,8 @@
     "noImplicitOverride": true,
     "noFallthroughCasesInSwitch": true,
     "verbatimModuleSyntax": true,
-    "erasableSyntaxOnly": true
+    "erasableSyntaxOnly": true,
+    "noPropertyAccessFromIndexSignature": true
   },
   "tasks": {
     "naima": "deno run -A naima.ts",

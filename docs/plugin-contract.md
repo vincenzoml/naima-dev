@@ -61,8 +61,12 @@ Every hook receives a `Context`: the project `root`, the data directory
 helpers, `out`/`err`, and `now()`. Write through the public helpers
 (`createItem`, `saveMeta`, `setFields`, `addLink`, `moveItem`, `writeJson`,
 `writeFileAtomic`) so that ids and validation stay consistent, and no crash
-leaves a file half written: every write through them is seen by
-the next read of `repo`, with no reload to remember. The `registry` and the
+leaves a file half written. Read a field through
+`fieldValue(item, { name: "fixedOn", kind: "date" } as const)`, typed by its
+kind (and `setFieldValue` to change one): the project compiles with
+`noPropertyAccessFromIndexSignature`, so `item.meta.fixdOn` is an error, not a
+silent `undefined`. Every write through the helpers is seen by the next read
+of `repo`, with no reload to remember. The `registry` and the
 `config` are frozen once the project is loaded: a plugin reads another's
 contributions and cannot change them.
 

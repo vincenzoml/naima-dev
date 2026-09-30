@@ -18,7 +18,7 @@ const fixture: Migration[] = [
     item: ({ area, ...rest }) => (area === undefined ? rest : { ...rest, where: area }),
     stale: (meta) => "area" in meta,
   },
-  { from: 2, says: "naima.json names its carry", config: (raw) => ({ ...raw, carry: raw.carry ?? "clone" }) },
+  { from: 2, says: "naima.json names its carry", config: (raw) => ({ ...raw, carry: raw["carry"] ?? "clone" }) },
 ]
 
 function files(dir: string): Record<string, string> {

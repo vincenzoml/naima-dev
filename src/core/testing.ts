@@ -32,7 +32,7 @@ export const gitIn = (cwd: string, ...args: string[]): string => mustGit(cwd, ..
 
 /** Remove a test's temporary directory, unless NAIMA_KEEP_TEMP=1 (scripts/coverage.ts reads the copies it holds). */
 export const removeTemp = (dir: string): void => {
-  if (process.env.NAIMA_KEEP_TEMP !== "1") rmSync(dir, { recursive: true, force: true })
+  if (process.env["NAIMA_KEEP_TEMP"] !== "1") rmSync(dir, { recursive: true, force: true })
 }
 
 export const FIXED_NOW = new Date("2026-01-15T10:00:00.000Z")

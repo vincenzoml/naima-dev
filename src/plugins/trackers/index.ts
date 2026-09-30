@@ -13,6 +13,7 @@ import {
   type Item,
   type Plugin,
   type SummarySection,
+  fieldValue,
   isOpen,
   label,
   linked,
@@ -21,6 +22,7 @@ import {
   proves,
   readReadme,
   saveMeta,
+  setFieldValue,
   today,
   typeOrThrow,
   usageError,
@@ -36,6 +38,12 @@ const ABOUT = `Three words that are not synonyms:
 
 An item whose proof needs a person says why in \`humanBecause\`. Only a judgement, a reserved decision, a credential or a physical act makes something a person's: needing the running software makes it \`agent-hands\`, not \`human\`.`
 
+const FIXED_ON = { name: "fixedOn", kind: "date" } as const
+const CLOSED_FROM = { name: "closedFrom", kind: "string" } as const
+const CLOSED_ON = { name: "closedOn", kind: "date" } as const
+const RUN_BY = { name: "runBy", kind: "enum" } as const
+const HUMAN_BECAUSE = { name: "humanBecause", kind: "enum" } as const
+
 export type Lifecycle = "unfixed" | "fixed" | "resolved" | "closed"
 
 const report = (title: string): string =>
@@ -47,7 +55,7 @@ const gesture = (title: string): string =>
 /** Where an item stands on the fixed → resolved → closed line. */
 export function lifecycle(ctx: Context, item: Item): Lifecycle {
   if (item.type === "closed") return "closed"
-  if (!item.meta.fixedOn) return "unfixed"
+  if (!fieldValue(item, FIXED_ON)) return "unfixed"
   return linked(ctx, item, "verified-by").some((p) => proves(ctx, p)) ? "resolved" : "fixed"
 }
 
@@ -92,7 +100,7 @@ const humanSaysWhy: Check = {
   says: "an open item whose proof needs a person (runBy human) says why in humanBecause",
   run: (ctx) =>
     ctx.repo.items
-      .filter((i) => i.meta.runBy === "human" && isOpen(ctx, i) && i.meta.humanBecause === undefined)
+      .filter((i) => fieldValue(i, RUN_BY) === "human" && isOpen(ctx, i) && fieldValue(i, HUMAN_BECAUSE) === undefined)
       .map((i): Finding => ({ level: "problem", message: `${label(i)} is handed to a person without saying why — set humanBecause, or runBy if an agent can do it`, item: i })),
 }
 
@@ -110,9 +118,9 @@ const close: Command = {
     if (state !== "resolved") {
       throw new Error(`${label(item)} is ${state}: closing takes fixedOn and a verified-by item that has passed`)
     }
-    item.meta.closedFrom = item.type
+    setFieldValue(item, CLOSED_FROM, item.type)
     item.meta.status = "closed"
-    item.meta.closedOn = today(ctx)
+    setFieldValue(item, CLOSED_ON, today(ctx))
     saveMeta(item)
     const moved = moveItem(ctx, item, typeOrThrow(ctx, "closed"))
     ctx.out(`closed → ${label(moved)}`)

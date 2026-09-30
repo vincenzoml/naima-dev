@@ -75,7 +75,7 @@ export function migrate(data: string, migrations: readonly Migration[] = MIGRATI
   const target = 1 + migrations.length
   const configPath = join(data, DATA_FILE)
   let config = JSON.parse(readFileSync(configPath, "utf8")) as Json
-  const from = config.format
+  const from = config["format"]
   const refusal = formatRefusal(from, target)
   if (!isFormat(from) || from > target) throw new Error(`${DATA_FILE} ${refusal}`)
   const steps = migrations.slice(from - 1)

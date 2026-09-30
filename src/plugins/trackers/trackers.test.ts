@@ -31,7 +31,7 @@ test("fixed, resolved, closed are three states, and closing needs the proof", as
 
     assert.equal(await p.run("close", bug.slug), 0)
     const closed = ctx.repo.resolve(bug.meta.id)
-    assert.deepEqual([closed.type, closed.meta.status, closed.meta.closedOn, closed.meta.closedFrom], ["closed", "closed", "2026-01-15", "bugs"])
+    assert.deepEqual([closed.type, closed.meta.status, closed.meta["closedOn"], closed.meta["closedFrom"]], ["closed", "closed", "2026-01-15", "bugs"])
     assert.deepEqual(runChecks(ctx).problems, [])
   } finally {
     p.cleanup()

@@ -7,7 +7,7 @@ import { join } from "node:path"
 import { bool, pairs, parse, str, strs, usageError } from "./args.ts"
 import { coreChecks, runChecks } from "./check.ts"
 import { groupBy } from "./collections.ts"
-import { parseFieldValue, appliesTo } from "./fields.ts"
+import { appliesTo, fieldValue, parseFieldValue } from "./fields.ts"
 import { ATTACHMENTS, createItem, readReadme, saveMeta } from "./item.ts"
 import { byUrgency, isOpen, label } from "./lifecycle.ts"
 import type { Command, Context, Item, Plugin, TypeDef } from "./types.ts"
@@ -29,12 +29,12 @@ export function withFields<M extends Record<string, unknown>>(ctx: Context, type
     if (name === "status") {
       const statuses = ctx.registry.types.get(type)?.statuses ?? {}
       if (!Object.hasOwn(statuses, raw)) throw new Error(`status "${raw}" is not one of: ${Object.keys(statuses).join(", ")}`)
-      next.status = raw
+      next["status"] = raw
       continue
     }
     if (name === "title") {
       if (!raw.trim()) throw new Error("title cannot be empty")
-      next.title = raw
+      next["title"] = raw
       continue
     }
     const def = ctx.registry.fields.get(name)
@@ -64,6 +64,8 @@ export function addLink(ctx: Context, from: Item, rel: string, to: Item): boolea
   saveMeta(from)
   return true
 }
+
+const SECTION = { name: "section", kind: "string" } as const
 
 const line = (item: Item): string => `  ${item.meta.status.padEnd(9)} ${item.meta.title}  — ${label(item)}`
 
@@ -211,7 +213,7 @@ export function renderBoard(ctx: Context, type: TypeDef, all: boolean): string[]
   const items = ctx.repo.items.filter((i) => i.type === type.id)
   const open = byUrgency(ctx, items.filter((i) => isOpen(ctx, i)))
   const out = [`# ${type.title}`, "", `${open.length} open, ${items.length - open.length} done`]
-  const sections = groupBy(open, (item) => (typeof item.meta.section === "string" ? item.meta.section : ""))
+  const sections = groupBy(open, (item) => fieldValue(item, SECTION) ?? "")
   for (const [section, group] of [...sections].sort(([a], [b]) => (a === "" ? 1 : b === "" ? -1 : a.localeCompare(b)))) {
     out.push("", `## ${section || "(no section)"}`, ...group.map(line))
   }

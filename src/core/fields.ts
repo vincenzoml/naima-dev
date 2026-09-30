@@ -1,7 +1,7 @@
 // Field validation and parsing. A field's definition is the only thing that
 // decides what a valid value is; unknown fields are preserved and not checked.
 
-import type { FieldDef, Item, Registry } from "./types.ts"
+import type { FieldDef, FieldKind, Item, Registry } from "./types.ts"
 
 const DATE = /^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?$/
 
@@ -74,4 +74,45 @@ export function enumRank(def: FieldDef | undefined, value: unknown, fallback: nu
   if (!def?.values || typeof value !== "string") return fallback
   const i = Object.keys(def.values).indexOf(value)
   return i === -1 ? fallback : i
+}
+
+/** A field as a reader names it: its name and its kind. A declared FieldDef is one; so is `{ name, kind } as const`. */
+export interface FieldRef<K extends FieldKind = FieldKind> {
+  readonly name: string
+  readonly kind: K
+}
+
+/** The value a field of kind K holds. */
+export type ValueOf<K extends FieldKind> = K extends "strings" ? string[] : K extends "boolean" ? boolean : K extends "number" ? number : K extends "object" ? Record<string, unknown> : string
+
+const isKind = (kind: FieldKind, v: unknown): boolean => {
+  switch (kind) {
+    case "strings":
+      return Array.isArray(v) && v.every((x) => typeof x === "string")
+    case "boolean":
+      return typeof v === "boolean"
+    case "number":
+      return typeof v === "number"
+    case "object":
+      return !!v && typeof v === "object" && !Array.isArray(v)
+    default:
+      return typeof v === "string"
+  }
+}
+
+/**
+ * An item's value of a field, typed by the field's kind; undefined when it is
+ * unset or holds a value of another kind (which the fields check reports).
+ * What plugins read fields through: a misspelt field is a misspelt constant,
+ * which does not compile, not a key that quietly reads undefined.
+ */
+export function fieldValue<K extends FieldKind>(item: Item, ref: FieldRef<K>): ValueOf<K> | undefined {
+  const v = item.meta[ref.name]
+  return isKind(ref.kind, v) ? (v as ValueOf<K>) : undefined
+}
+
+/** Set an item's value of a field in memory (undefined removes it); saveMeta writes it. */
+export function setFieldValue<K extends FieldKind>(item: Item, ref: FieldRef<K>, value: ValueOf<K> | undefined): void {
+  if (value === undefined) delete item.meta[ref.name]
+  else item.meta[ref.name] = value
 }

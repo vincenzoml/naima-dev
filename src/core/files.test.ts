@@ -25,7 +25,7 @@ test("a write replaces the file whole: new content lands beside it, then is rena
 
 test("a vendored update that fails to check out leaves the previous program in place", () => {
   const base = mkdtempSync(join(tmpdir(), "naima-vendor-"))
-  const saved = process.env.GIT_INDEX_FILE
+  const saved = process.env["GIT_INDEX_FILE"]
   try {
     const source = join(base, "source")
     mkdirSync(source)
@@ -44,17 +44,17 @@ test("a vendored update that fails to check out leaves the previous program in p
     writeFileSync(join(program, "naima.ts"), "v1\n")
     const t = { root, tracker, program, source, commit: "0".repeat(40), carry: "vendored" as const }
 
-    process.env.GIT_INDEX_FILE = join(base, "no", "such", "dir", "index") // the checkout cannot write its index
+    process.env["GIT_INDEX_FILE"] = join(base, "no", "such", "dir", "index") // the checkout cannot write its index
     assert.throws(() => vendor(t, next))
     assert.equal(readFileSync(join(program, "naima.ts"), "utf8"), "v1\n", "the program that ran before is still there")
-    delete process.env.GIT_INDEX_FILE
+    delete process.env["GIT_INDEX_FILE"]
     vendor(t, next)
     assert.equal(readFileSync(join(program, "naima.ts"), "utf8"), "v2\n")
     assert.deepEqual(readdirSync(tracker).sort(), ["naima"], "nothing is left beside it")
     assert.ok(existsSync(program))
   } finally {
-    if (saved === undefined) delete process.env.GIT_INDEX_FILE
-    else process.env.GIT_INDEX_FILE = saved
+    if (saved === undefined) delete process.env["GIT_INDEX_FILE"]
+    else process.env["GIT_INDEX_FILE"] = saved
     rmSync(base, { recursive: true, force: true })
   }
 })

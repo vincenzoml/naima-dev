@@ -27,6 +27,7 @@ import {
   type Plugin,
   type SummarySection,
   bool,
+  fieldValue,
   groupBy,
   isEvidenceType,
   isOpen,
@@ -42,7 +43,7 @@ export interface GateConfig {
 }
 
 function readOptions(options: Record<string, unknown>): Record<string, GateConfig> {
-  const gates = options.gates ?? {}
+  const gates = options["gates"] ?? {}
   if (!gates || typeof gates !== "object" || Array.isArray(gates)) throw new Error("gates: options.gates must be an object")
   for (const [name, g] of Object.entries(gates as Record<string, unknown>)) {
     const c = g as Partial<GateConfig> | null
@@ -52,11 +53,17 @@ function readOptions(options: Record<string, unknown>): Record<string, GateConfi
   return gates as Record<string, GateConfig>
 }
 
+// The fields gates reads: its own, and the trackers' it cooperates through by name.
+const GATE = { name: "gate", kind: "enum" } as const
+const FIXED_ON = { name: "fixedOn", kind: "date" } as const
+const RUN_BY = { name: "runBy", kind: "enum" } as const
+const HUMAN_BECAUSE = { name: "humanBecause", kind: "enum" } as const
+
 /** Fixed but unproven, or itself a proving gesture: owed, not blocking, under holdsOn "code". */
-const owesOnlyProof = (ctx: Context, item: Item): boolean => item.meta.fixedOn !== undefined || isEvidenceType(ctx, item.type)
+const owesOnlyProof = (ctx: Context, item: Item): boolean => fieldValue(item, FIXED_ON) !== undefined || isEvidenceType(ctx, item.type)
 
 export function evaluateGate(ctx: Context, name: string, holdsOn: "code" | "proof"): GateResult {
-  const open = ctx.repo.items.filter((i) => i.meta.gate === name && isOpen(ctx, i))
+  const open = ctx.repo.items.filter((i) => fieldValue(i, GATE) === name && isOpen(ctx, i))
   const blocking = holdsOn === "proof" ? open : open.filter((i) => !owesOnlyProof(ctx, i))
   const owed = open.filter((i) => !blocking.includes(i))
   return { holds: blocking.length === 0, blocking, owed }
@@ -64,8 +71,12 @@ export function evaluateGate(ctx: Context, name: string, holdsOn: "code" | "proo
 
 /** Who can perform an item's proof: its own `runBy`, else that of an item verifying it. */
 export function runByOf(ctx: Context, item: Item): string {
-  if (typeof item.meta.runBy === "string") return item.meta.runBy
-  for (const v of linked(ctx, item, "verified-by")) if (typeof v.meta.runBy === "string") return v.meta.runBy
+  const own = fieldValue(item, RUN_BY)
+  if (own !== undefined) return own
+  for (const v of linked(ctx, item, "verified-by")) {
+    const theirs = fieldValue(v, RUN_BY)
+    if (theirs !== undefined) return theirs
+  }
   return ""
 }
 
@@ -101,7 +112,7 @@ const queue: Command = {
   run(args, ctx) {
     const p = parse(args, { human: { type: "boolean" } })
     const gate = p.positionals[0]
-    const open = ctx.repo.items.filter((i) => isOpen(ctx, i) && (gate ? i.meta.gate === gate : i.meta.gate !== undefined))
+    const open = ctx.repo.items.filter((i) => isOpen(ctx, i) && (gate ? fieldValue(i, GATE) === gate : fieldValue(i, GATE) !== undefined))
     const by = groupBy(open, (i) => {
       const who = runByOf(ctx, i)
       return who === "agent" || who === "agent-hands" ? "agent" : who || "unclassified"
@@ -111,7 +122,7 @@ const queue: Command = {
     ctx.out(`  with no code yet: ${noCode}; owing only proof: ${open.length - noCode}`)
     if (bool(p, "human")) {
       for (const i of [...(by.get("human") ?? []), ...(by.get("build") ?? [])]) {
-        const why = typeof i.meta.humanBecause === "string" ? i.meta.humanBecause : runByOf(ctx, i)
+        const why = fieldValue(i, HUMAN_BECAUSE) ?? runByOf(ctx, i)
         ctx.out(`  ${label(i)}  ${i.meta.title}  (${why})`)
       }
     }
@@ -125,10 +136,10 @@ const gatedProofIsGated: Check = {
   run(ctx) {
     const out: Finding[] = []
     for (const item of ctx.repo.items) {
-      if (item.meta.gate !== undefined || !isOpen(ctx, item)) continue
+      if (fieldValue(item, GATE) !== undefined || !isOpen(ctx, item)) continue
       for (const target of linked(ctx, item, "verifies")) {
-        if (target.meta.gate !== undefined && isOpen(ctx, target)) {
-          out.push({ level: "problem", message: `${label(item)} verifies ${label(target)} (gate ${String(target.meta.gate)}) but has no gate`, item })
+        if (fieldValue(target, GATE) !== undefined && isOpen(ctx, target)) {
+          out.push({ level: "problem", message: `${label(item)} verifies ${label(target)} (gate ${String(fieldValue(target, GATE))}) but has no gate`, item })
         }
       }
     }
@@ -180,7 +191,7 @@ export default function gates(options: Record<string, unknown> = {}): Plugin {
       },
     ],
     gates: defs,
-    rank: [{ name: "gate", score: (i) => (i.meta.gate !== undefined ? 0 : 4) }],
+    rank: [{ name: "gate", score: (i) => (fieldValue(i, GATE) !== undefined ? 0 : 4) }],
     checks: [gatedProofIsGated],
     commands: [gatesCommand, queue],
     summary: [status],

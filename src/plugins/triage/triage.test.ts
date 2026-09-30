@@ -21,13 +21,13 @@ test("set stamps a human decision; derive never touches effort or a decided item
     const b = createItem(ctx, type, "Vague report")
     await p.run("triage", "set", a.slug, "impact=high", "effort=S")
     let meta = ctx.repo.resolve(a.slug).meta
-    assert.deepEqual([meta.impact, meta.effort, meta.triagedOn, meta.triagedBy], ["high", "S", "2026-01-15", undefined])
+    assert.deepEqual([meta["impact"], meta["effort"], meta["triagedOn"], meta["triagedBy"]], ["high", "S", "2026-01-15", undefined])
     await assert.rejects(async () => p.run("triage", "set", a.slug, "effort=huge"), /not one of/)
 
     await p.run("triage", "derive", "--write")
     meta = ctx.repo.resolve(b.slug).meta
-    assert.deepEqual([meta.confidence, meta.triagedBy, meta.effort], ["reported", "derived", undefined])
-    assert.equal(ctx.repo.resolve(a.slug).meta.confidence, undefined, "a decided item is left alone")
+    assert.deepEqual([meta["confidence"], meta["triagedBy"], meta["effort"]], ["reported", "derived", undefined])
+    assert.equal(ctx.repo.resolve(a.slug).meta["confidence"], undefined, "a decided item is left alone")
     assert.deepEqual(runChecks(ctx).problems, [])
   } finally {
     p.cleanup()
@@ -67,7 +67,7 @@ test("negated evidence is not evidence: a page that could not reproduce it is un
     const item = createItem(p.ctx, p.ctx.registry.types.get("things")!, "Flaky crash")
     writeFileSync(join(item.dir, "README.md"), "# Flaky crash\n\nThe crash could not be reproduced on a clean checkout.\n")
     await p.run("triage", "derive", "--write")
-    assert.equal(p.ctx.repo.resolve(item.slug).meta.confidence, "unclear")
+    assert.equal(p.ctx.repo.resolve(item.slug).meta["confidence"], "unclear")
   } finally {
     p.cleanup()
   }

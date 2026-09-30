@@ -114,11 +114,11 @@ test("set validates against the field's declaration", () => {
   try {
     const item = createItem(p.ctx, p.ctx.registry.types.get("notes")!, "One")
     setFields(p.ctx, item, [["size", "L"], ["tags", "a, b"], ["status", "done"]])
-    assert.deepEqual([item.meta.size, item.meta.tags, item.meta.status], ["L", ["a", "b"], "done"])
+    assert.deepEqual([item.meta["size"], item.meta["tags"], item.meta.status], ["L", ["a", "b"], "done"])
     assert.throws(() => setFields(p.ctx, item, [["size", "M"]]), /not one of: S, L/)
     assert.throws(() => setFields(p.ctx, item, [["colour", "red"]]), /not a field/)
     setFields(p.ctx, item, [["size", ""]])
-    assert.equal(item.meta.size, undefined)
+    assert.equal(item.meta["size"], undefined)
   } finally {
     p.cleanup()
   }
@@ -235,7 +235,7 @@ test("new validates every --set before it writes anything", async () => {
     assert.deepEqual(existsSync(dir) ? readdirSync(dir) : [], [])
     assert.equal(await p.run("new", "notes", "Half made", "--set", "size=L", "--set", "status=done"), 0)
     const [item] = p.ctx.repo.items
-    assert.deepEqual([item?.slug, item?.meta.size, item?.meta.status], ["half-made", "L", "done"])
+    assert.deepEqual([item?.slug, item?.meta["size"], item?.meta.status], ["half-made", "L", "done"])
   } finally {
     p.cleanup()
   }
@@ -251,7 +251,7 @@ test("an empty item reference is a usage error, never the only item", async () =
     await assert.rejects(p.run("show"), /usage: naima show <item>/)
     await assert.rejects(p.run("set", "", "size=L"), /usage: naima set <item> field=value/)
     await assert.rejects(p.run("set", item.slug), /usage: naima set <item> field=value/)
-    assert.equal(p.ctx.repo.resolve(item.meta.id).meta.size, undefined)
+    assert.equal(p.ctx.repo.resolve(item.meta.id).meta["size"], undefined)
   } finally {
     p.cleanup()
   }
@@ -338,7 +338,7 @@ test("a write is seen by the next read in the same run, with no reload", async (
     await cmd("unlink", "alpha", "blocks", "beta")
     assert.deepEqual(p.ctx.repo.linksOf(p.ctx.repo.resolve("beta")), [])
     await cmd("set", "beta", "size=L")
-    assert.equal(p.ctx.repo.resolve("beta").meta.size, "L")
+    assert.equal(p.ctx.repo.resolve("beta").meta["size"], "L")
   } finally {
     p.cleanup()
   }

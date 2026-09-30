@@ -3,7 +3,7 @@
 
 export type * from "./types.ts"
 export { parse, str, strs, bool, pairs, positiveInt, usageError, type Flags, type Parsed } from "./args.ts"
-export { fieldError, parseFieldValue, fieldsOf, appliesTo, enumRank } from "./fields.ts"
+export { fieldError, parseFieldValue, fieldsOf, appliesTo, enumRank, fieldValue, setFieldValue, type FieldRef, type ValueOf } from "./fields.ts"
 export { slugify, uniqueSlug, isUuid, today, writeJson, readReadme, saveMeta, createItem, moveItem, listDirs, META, README, ATTACHMENTS } from "./item.ts"
 export { storedLinks } from "./repo.ts"
 export { groupBy } from "./collections.ts"

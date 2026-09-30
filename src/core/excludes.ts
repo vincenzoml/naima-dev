@@ -38,7 +38,7 @@ function jsonExclude(path: string, entry: string, fallback: string[]): Omit<Excl
   } catch {
     raw = null
   }
-  const list = isObject(raw) && Array.isArray(raw.exclude) ? (raw.exclude as unknown[]) : null
+  const list = isObject(raw) && Array.isArray(raw["exclude"]) ? (raw["exclude"] as unknown[]) : null
   const present = !!list?.some((e) => typeof e === "string" && e.replace(/\/+$/, "") === entry.replace(/\/+$/, ""))
   return {
     line: `"exclude": [${[...(list ? [] : fallback), entry].map((e) => JSON.stringify(e)).join(", ")}]`,
@@ -46,7 +46,7 @@ function jsonExclude(path: string, entry: string, fallback: string[]): Omit<Excl
     write() {
       if (!isObject(raw)) return false
       if (present) return true
-      raw.exclude = [...(list ?? fallback), entry]
+      raw["exclude"] = [...(list ?? fallback), entry]
       // Not writeFileAtomic: the launcher grants write access to this one host file, not to a temporary file beside it.
       writeFileSync(path, JSON.stringify(raw, null, 2) + "\n")
       return true

@@ -24,9 +24,11 @@ import {
   type Verdict,
   type VerifyResult,
   bool,
+  fieldValue,
   label,
   parse,
   saveMeta,
+  setFieldValue,
   usageError,
   writeFileAtomic,
   writeJson,
@@ -34,6 +36,9 @@ import {
 import { exampleRegex } from "./adapters/example-regex.ts"
 
 export const TYPE = "properties"
+
+const LAST_RUN = { name: "lastRun", kind: "string" } as const
+const VERIFIER_OPTIONS = { name: "verifierOptions", kind: "object" } as const
 
 export interface RunRecord {
   verifier: string
@@ -71,7 +76,7 @@ const canonical = (v: unknown): string =>
 
 /** The options a property is verified with: its `verifierOptions` object, or none. */
 const optionsOf = (item: Item): Record<string, unknown> => {
-  const raw = item.meta.verifierOptions
+  const raw = fieldValue(item, VERIFIER_OPTIONS)
   return raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {}
 }
 const optionsHash = (options: Record<string, unknown>): string => createHash("sha256").update(canonical(options)).digest("hex")
@@ -85,7 +90,7 @@ function asRun(value: unknown): RunRecord | string {
   const r = value as Record<string, unknown>
   const missing = ["verifier", "model", "modelSha256", "property", "output", "at"].filter((k) => typeof r[k] !== "string")
   if (missing.length) return `${missing.join(", ")} missing or not text`
-  if (!VERDICTS.includes(r.verdict as Verdict)) return `verdict ${JSON.stringify(r.verdict)} is not one of ${VERDICTS.join(", ")}`
+  if (!VERDICTS.includes(r["verdict"] as Verdict)) return `verdict ${JSON.stringify(r["verdict"])} is not one of ${VERDICTS.join(", ")}`
   for (const k of ["optionsSha256", "counterexample"]) if (r[k] !== undefined && typeof r[k] !== "string") return `${k} is not text`
   return r as unknown as RunRecord
 }
@@ -95,7 +100,7 @@ const isAttachmentName = (name: string): boolean => /^[^/\\]+$/.test(name) && na
 
 /** The item's last run: the record, why it cannot be trusted, or null when there is none. */
 export function loadRun(item: Item): { run: RunRecord } | { problem: string } | null {
-  const name = item.meta.lastRun
+  const name = fieldValue(item, LAST_RUN)
   if (typeof name !== "string") return null
   if (!isAttachmentName(name)) return { problem: `lastRun ${JSON.stringify(name)} is not a file name in ${ATTACHMENTS}/` }
   const path = join(item.dir, ATTACHMENTS, name)
@@ -150,7 +155,7 @@ export async function verifyItem(ctx: Context, item: Item): Promise<Verdict> {
   writeJson(join(item.dir, ATTACHMENTS, name), record)
   if (result.counterexample !== undefined) writeFileAtomic(join(item.dir, ATTACHMENTS, `counterexample-${stamp}.txt`), result.counterexample + "\n")
   item.meta.status = STATUS[result.verdict]
-  item.meta.lastRun = name
+  setFieldValue(item, LAST_RUN, name)
   saveMeta(item)
   return result.verdict
 }
