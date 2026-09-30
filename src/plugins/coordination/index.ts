@@ -27,6 +27,7 @@ import {
   type Plugin,
   positiveInt,
   readAcrossBranches,
+  rendered,
   str,
   type SummarySection,
   today,
@@ -332,22 +333,22 @@ const whereWeWere: SummarySection = {
   name: "where we were",
   render(ctx) {
     const [newest, ...rest] = readPasses(ctx)
-    if (!newest) return []
-    const sameDay = rest.filter((p) => p.date === newest.date).length
-    return [
-      `  ${newest.date}  ${newest.branch}`,
-      ...newest.body.split("\n").slice(0, 8).map((l) => `  ${l}`),
-      ...(sameDay ? [`  (+${sameDay} more that day — naima pass --list)`] : []),
-    ]
+    const data = newest
+      ? { date: newest.date, branch: newest.branch, lines: newest.body.split("\n").slice(0, 8), sameDay: rest.filter((p) => p.date === newest.date).length }
+      : null
+    return rendered(
+      data,
+      (d) =>
+        d ? [`  ${d.date}  ${d.branch}`, ...d.lines.map((l) => `  ${l}`), ...(d.sameDay ? [`  (+${d.sameDay} more that day — naima pass --list)`] : [])] : [],
+    )
   },
 }
 
 const inHand: SummarySection = {
   name: "in hand",
   render(ctx) {
-    return readClaims(ctx)
-      .filter((c) => c.items.length)
-      .map((c) => `  ${c.branch}: ${c.items.map((e) => e.ref).join(", ")}`)
+    const data = readClaims(ctx).filter((c) => c.items.length).map((c) => ({ branch: c.branch, items: c.items.map((e) => e.ref) }))
+    return rendered(data, (claims) => claims.map((c) => `  ${c.branch}: ${c.items.join(", ")}`))
   },
 }
 

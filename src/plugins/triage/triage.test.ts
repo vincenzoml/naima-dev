@@ -35,7 +35,7 @@ test("set stamps a human decision; derive never touches effort or a decided item
     meta = ctx.repo.resolve(b.slug).meta
     assert.deepEqual([meta["confidence"], meta["triagedBy"], meta["effort"]], ["reported", "derived", undefined])
     assert.equal(ctx.repo.resolve(a.slug).meta["confidence"], undefined, "a decided item is left alone")
-    assert.deepEqual(runChecks(ctx).problems, [])
+    assert.deepEqual((await runChecks(ctx)).problems, [])
   } finally {
     p.cleanup()
   }

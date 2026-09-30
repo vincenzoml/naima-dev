@@ -119,7 +119,8 @@ export interface Finding {
 export interface Check {
   name: string
   says: string
-  run(ctx: Context): Finding[]
+  /** May be async: a check that runs an external tool awaits it. */
+  run(ctx: Context): Finding[] | Promise<Finding[]>
 }
 
 /** One documented option: a command's `--flag`, or a plugin's configuration key. */
@@ -142,17 +143,29 @@ export interface Command {
   run(args: string[], ctx: Context): number | Promise<number>
 }
 
-/** A named rendering of derived state, printed by `naima view <name>`. */
+/**
+ * What a view or a summary section renders: its data, once, and how that data
+ * reads — as lines of text, and optionally as markdown. `naima view --json`
+ * and `naima summary --json` print the data itself, so no renderer derives it
+ * again. `rendered(data, text, markdown?)` makes one.
+ */
+export interface Rendered<D = unknown> {
+  readonly data: D
+  text(): string[]
+  markdown?(): string[]
+}
+
+/** A named rendering of derived state, printed by `naima view <name>`. May be async. */
 export interface View {
   name: string
   says: string
-  render(args: string[], ctx: Context): string[]
+  render(args: string[], ctx: Context): Rendered | Promise<Rendered>
 }
 
-/** A block of `naima summary`. */
+/** A block of `naima summary`. May be async; one with nothing to say renders no lines. */
 export interface SummarySection {
   name: string
-  render(ctx: Context): string[]
+  render(ctx: Context): Rendered | Promise<Rendered>
 }
 
 /** One additive term of an item's urgency. Lower is more urgent. */

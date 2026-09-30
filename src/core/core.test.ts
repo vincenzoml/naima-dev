@@ -18,6 +18,7 @@ import {
   parseConfig,
   parseFieldValue,
   type Plugin,
+  rendered,
   runChecks,
   setFields,
   slugify,
@@ -118,7 +119,7 @@ test("the data directory: --data or NAIMA_DATA, else the first naima-tracker/nai
   }
 })
 
-test("an item is a directory with a uuid, and links are resolved in both directions", () => {
+test("an item is a directory with a uuid, and links are resolved in both directions", async () => {
   const p = tempProject([notes])
   try {
     const type = p.ctx.registry.types.get("notes")!
@@ -130,14 +131,14 @@ test("an item is a directory with a uuid, and links are resolved in both directi
     const back = p.ctx.repo.linksOf(p.ctx.repo.resolve("first-note-2"))
     assert.deepEqual(back, [{ rel: "blocked-by", id: a.meta.id, implied: true }])
     assert.throws(() => p.ctx.repo.resolve("first"), /ambiguous/)
-    assert.equal(runChecks(p.ctx).problems.length, 0, messages(runChecks(p.ctx)))
-    assert.match(runChecks(p.ctx).notes.map((n) => n.message).join(), /possible duplicates/)
+    assert.equal((await runChecks(p.ctx)).problems.length, 0, messages(await runChecks(p.ctx)))
+    assert.match((await runChecks(p.ctx)).notes.map((n) => n.message).join(), /possible duplicates/)
   } finally {
     p.cleanup()
   }
 })
 
-test("check reports every broken invariant instead of crashing", () => {
+test("check reports every broken invariant instead of crashing", async () => {
   const p = tempProject([notes])
   try {
     const type = p.ctx.registry.types.get("notes")!
@@ -150,7 +151,7 @@ test("check reports every broken invariant instead of crashing", () => {
     writeFileSync(join(p.ctx.trackerRoot, "NOTES", "broken", "meta.json"), "{ not json")
     mkdirSync(join(p.ctx.trackerRoot, "STRAY"))
     p.ctx.reload()
-    const report = runChecks(p.ctx)
+    const report = await runChecks(p.ctx)
     const text = messages(report)
     for (
       const expected of [
@@ -204,7 +205,7 @@ test("board and summary are derived from the items", async () => {
   }
 })
 
-test("a status is only one the type declares itself, never an Object.prototype key", () => {
+test("a status is only one the type declares itself, never an Object.prototype key", async () => {
   const p = tempProject([notes])
   try {
     const item = createItem(p.ctx, p.ctx.registry.types.get("notes")!, "One")
@@ -214,14 +215,14 @@ test("a status is only one the type declares itself, never an Object.prototype k
     const meta = JSON.parse(readFileSync(join(item.dir, "meta.json"), "utf8"))
     writeFileSync(join(item.dir, "meta.json"), JSON.stringify({ ...meta, status: "constructor" }))
     p.ctx.reload()
-    assert.match(messages(runChecks(p.ctx)), /status "constructor" is not one of/)
+    assert.match(messages(await runChecks(p.ctx)), /status "constructor" is not one of/)
     assert.throws(() => buildRegistry([corePlugin, { ...notes, types: [{ ...notes.types![0]!, initialStatus: "toString" }] }]), /initial status "toString"/)
   } finally {
     p.cleanup()
   }
 })
 
-test("a date field holds only a real calendar date", () => {
+test("a date field holds only a real calendar date", async () => {
   const date = { name: "due", kind: "date" as const, says: "" }
   for (const ok of ["2024", "2024-02", "2024-02-29", "2000-02-29", "2023-12-31"]) assert.equal(fieldError(date, ok), null, ok)
   for (const bad of ["2024-13-99", "2024-00", "2024-13", "2023-02-29", "2024-04-31", "2024-01-00", "1900-02-29"]) {
@@ -234,13 +235,13 @@ test("a date field holds only a real calendar date", () => {
     const meta = JSON.parse(readFileSync(join(item.dir, "meta.json"), "utf8"))
     writeFileSync(join(item.dir, "meta.json"), JSON.stringify({ ...meta, created: "2024-13-99" }))
     p.ctx.reload()
-    assert.match(messages(runChecks(p.ctx)), /created "2024-13-99" is not a date/)
+    assert.match(messages(await runChecks(p.ctx)), /created "2024-13-99" is not a date/)
   } finally {
     p.cleanup()
   }
 })
 
-test("non-Latin titles keep their letters: distinct slugs, and no false duplicates", () => {
+test("non-Latin titles keep their letters: distinct slugs, and no false duplicates", async () => {
   assert.equal(slugify("Café au lait"), "cafe-au-lait")
   assert.equal(slugify("Экспорт теряет альфа-канал"), "экспорт-теряет-альфа-канал")
   assert.equal(slugify("导出丢失透明通道"), "导出丢失透明通道")
@@ -252,9 +253,9 @@ test("non-Latin titles keep their letters: distinct slugs, and no false duplicat
     const b = createItem(p.ctx, type, "Импорт падает")
     const c = createItem(p.ctx, type, "导出丢失透明通道")
     assert.equal(new Set([a.slug, b.slug, c.slug]).size, 3)
-    assert.doesNotMatch(runChecks(p.ctx).notes.map((n) => n.message).join(), /possible duplicates/)
+    assert.doesNotMatch((await runChecks(p.ctx)).notes.map((n) => n.message).join(), /possible duplicates/)
     createItem(p.ctx, type, "ЭКСПОРТ теряет альфа канал")
-    assert.match(runChecks(p.ctx).notes.map((n) => n.message).join(), /possible duplicates/)
+    assert.match((await runChecks(p.ctx)).notes.map((n) => n.message).join(), /possible duplicates/)
   } finally {
     p.cleanup()
   }
@@ -346,7 +347,7 @@ test("a link is stored in one direction only: its inverse is already the link", 
     const meta = JSON.parse(readFileSync(path, "utf8"))
     writeFileSync(path, JSON.stringify({ ...meta, links: [{ rel: "blocked-by", id: a.meta.id }] }))
     p.ctx.reload()
-    assert.match(messages(runChecks(p.ctx)), /both directions of one link are stored/)
+    assert.match(messages(await runChecks(p.ctx)), /both directions of one link are stored/)
   } finally {
     p.cleanup()
   }
@@ -366,7 +367,7 @@ test("a meta.json whose id, title or status is not a string is unreadable, not a
     assert.equal(await p.run("list"), 0)
     assert.match(p.output.join("\n"), /1 item$/)
     assert.deepEqual(p.ctx.repo.items.map((i) => i.meta.id), [good.meta.id])
-    const text = messages(runChecks(p.ctx))
+    const text = messages(await runChecks(p.ctx))
     assert.match(text, /bad-status: meta\.json: status is not a string/)
     assert.match(text, /bad-title: meta\.json: title is not a string/)
     assert.match(text, /bad-id: meta\.json: id is not a string/)
@@ -375,7 +376,7 @@ test("a meta.json whose id, title or status is not a string is unreadable, not a
   }
 })
 
-test("a directory check cannot read is a problem: a misspelled type, an _underscored or a symlinked item", () => {
+test("a directory check cannot read is a problem: a misspelled type, an _underscored or a symlinked item", async () => {
   const p = tempProject([notes])
   try {
     const item = createItem(p.ctx, p.ctx.registry.types.get("notes")!, "Real")
@@ -384,7 +385,7 @@ test("a directory check cannot read is a problem: a misspelled type, an _undersc
     writeFileSync(join(p.ctx.trackerRoot, "NOTES", "_draft", "meta.json"), "{}")
     symlinkSync(item.dir, join(p.ctx.trackerRoot, "NOTES", "linked"), "dir")
     p.ctx.reload()
-    const text = messages(runChecks(p.ctx))
+    const text = messages(await runChecks(p.ctx))
     assert.match(text, /NOETS\/ belongs to no loaded type or plugin/)
     assert.match(text, /NOTES\/_draft: not read as an item/)
     assert.match(text, /NOTES\/linked: a symbolic link, not read as an item/)
@@ -423,7 +424,13 @@ test("a plugin cannot take a name the entry point answers; a check, summary or r
   }
   const check = { name: "links", says: "x", run: () => [] }
   const term = { name: "t", score: () => 0 }
-  const r = buildRegistry([corePlugin, { name: "p", says: "", checks: [check], summary: [{ name: "items", render: () => [] }], rank: [term] }, {
+  const r = buildRegistry([corePlugin, {
+    name: "p",
+    says: "",
+    checks: [check],
+    summary: [{ name: "items", render: () => rendered([], () => []) }],
+    rank: [term],
+  }, {
     name: "q",
     says: "",
     rank: [term],

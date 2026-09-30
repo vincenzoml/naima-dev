@@ -12,6 +12,7 @@ import { ATTACHMENTS, createItem, readReadme, saveMeta, type WriteOptions } from
 import { byUrgency, isOpen, label } from "./lifecycle.ts"
 import { CONTRACT } from "./contract.ts"
 import { shortOrId } from "./names.ts"
+import { asRendered, type Format, linesAs, rendered } from "./rendered.ts"
 import { flagsOf } from "./vocabulary.ts"
 import type { Command, Context, Contribution, Item, Plugin, SummarySection, TypeDef, View, WriteHook } from "./types.ts"
 
@@ -199,8 +200,8 @@ const check: Command = {
   says: "run every invariant; exit 1 on any problem",
   usage: "check",
   examples: ["check"],
-  run(_args, ctx) {
-    const { problems, notes } = runChecks(ctx)
+  async run(_args, ctx) {
+    const { problems, notes } = await runChecks(ctx)
     ctx.out(`${ctx.repo.items.length} items, ${ctx.registry.checks.length} checks`)
     if (notes.length) {
       ctx.out("\nnotes (not failures):")
@@ -245,13 +246,30 @@ const board: Command = {
   },
 }
 
+/** The format the leading --json or --markdown of `args` asks for, and the arguments after them. */
+function formatOf(args: string[]): { format: Format; rest: string[] } {
+  let format: Format = "text"
+  let at = 0
+  for (; at < args.length; at++) {
+    const flag = args[at]
+    if (flag === "--json") format = "json"
+    else if (flag === "--markdown") format = "markdown"
+    else break
+  }
+  return { format, rest: args.slice(at) }
+}
+
 const view: Command = {
   name: "view",
-  says: "print a plugin view; without a name, list them",
-  usage: "view [name] [args...]",
-  examples: ["view", "view next 10"],
-  run(args, ctx) {
-    const [name, ...rest] = args
+  says: "print a plugin view — as text, its data as JSON, or markdown; without a name, list them",
+  usage: "view [--json | --markdown] [name] [args...]",
+  options: [
+    { name: "--json", says: "print the view's data as JSON, as the view derived it" },
+    { name: "--markdown", says: "print the view as markdown, or as its text when it has no markdown of its own" },
+  ],
+  examples: ["view", "view next 10", "view --json next 10"],
+  async run(args, ctx) {
+    const { format, rest: [name, ...rest] } = formatOf(args)
     const views = ctx.registry.contributions("views")
     if (!name) {
       for (const c of views) ctx.out(`  ${shortOrId(ctx, "views", c).padEnd(16)} ${(c.value as View).says}`)
@@ -259,7 +277,7 @@ const view: Command = {
     }
     const v = ctx.registry.find<View>("views", name)?.value
     if (!v) throw new Error(`no view "${name}" — views: ${views.map((c) => shortOrId(ctx, "views", c)).join(", ")}`)
-    for (const l of v.render(rest, ctx)) ctx.out(l)
+    for (const l of linesAs(asRendered(await v.render(rest, ctx), `view "${name}"`), format)) ctx.out(l)
     return 0
   },
 }
@@ -267,20 +285,31 @@ const view: Command = {
 const summary: Command = {
   name: "summary",
   says: "where the project stands, in one screen: every plugin's section",
-  usage: "summary [--json]",
-  options: [{ name: "--json", says: "print the sections as one JSON object, section name to lines" }],
-  examples: ["summary", "summary --json"],
-  run(args, ctx) {
-    const p = parse(args, { json: { type: "boolean" } })
-    const sections = ctx.registry.contributions("summary").map((c) => ({ name: shortOrId(ctx, "summary", c), lines: (c.value as SummarySection).render(ctx) }))
+  usage: "summary [--json | --markdown]",
+  options: [
+    { name: "--json", says: "print the sections as one JSON object, section name to the data it rendered" },
+    { name: "--markdown", says: "print each section under its own heading, as markdown" },
+  ],
+  examples: ["summary", "summary --json", "summary --markdown"],
+  async run(args, ctx) {
+    const p = parse(args, { json: { type: "boolean" }, markdown: { type: "boolean" } })
+    if (bool(p, "json") && bool(p, "markdown")) throw usageError(this)
+    const sections = await Promise.all(
+      ctx.registry.contributions("summary").map(async (c) => ({
+        name: shortOrId(ctx, "summary", c),
+        rendering: asRendered(await (c.value as SummarySection).render(ctx), `summary section "${c.name}"`),
+      })),
+    )
     if (bool(p, "json")) {
-      ctx.out(JSON.stringify(Object.fromEntries(sections.map((s) => [s.name, s.lines])), null, 2))
+      ctx.out(JSON.stringify(Object.fromEntries(sections.map((s) => [s.name, s.rendering.data])), null, 2))
       return 0
     }
+    const markdown = bool(p, "markdown")
     for (const s of sections) {
-      if (!s.lines.length) continue
-      ctx.out(`── ${s.name}`)
-      for (const l of s.lines) ctx.out(l)
+      const lines = linesAs(s.rendering, markdown ? "markdown" : "text")
+      if (!lines.length) continue
+      ctx.out(markdown ? `## ${s.name}\n` : `── ${s.name}`)
+      for (const l of lines) ctx.out(l)
       ctx.out()
     }
     return 0
@@ -290,7 +319,7 @@ const summary: Command = {
 const plugins: Command = {
   name: "plugins",
   says:
-    "list loaded plugins, the extension points each declares, and what each contributes to every point; a contribution's qualified id is <plugin>/<name>, shown when its short name is shared or renamed",
+    "list loaded plugins, the extension points each declares, what each uses of the others, and what each contributes to every point; a contribution's qualified id is <plugin>/<name>, shown when its short name is shared or renamed",
   usage: "plugins",
   examples: ["plugins"],
   run(_args, ctx) {
@@ -357,14 +386,19 @@ const types: Command = {
   },
 }
 
-const counts = {
+const counts: SummarySection = {
   name: "items",
-  render(ctx: Context): string[] {
-    return [...ctx.registry.types.values()].flatMap((t) => {
+  render(ctx) {
+    const rows = [...ctx.registry.types.values()].flatMap((t) => {
       const mine = ctx.repo.items.filter((i) => i.type === t.id)
       const open = mine.filter((i) => isOpen(ctx, i)).length
-      return mine.length ? [`  ${t.id.padEnd(12)} ${String(open).padStart(4)} open  ${String(mine.length - open).padStart(4)} done`] : []
+      return mine.length ? [{ type: t.id, open, done: mine.length - open }] : []
     })
+    return rendered(
+      rows,
+      (rs) => rs.map((r) => `  ${r.type.padEnd(12)} ${String(r.open).padStart(4)} open  ${String(r.done).padStart(4)} done`),
+      (rs) => (rs.length ? ["| Type | Open | Done |", "|---|---|---|", ...rs.map((r) => `| ${r.type} | ${r.open} | ${r.done} |`)] : []),
+    )
   },
 }
 

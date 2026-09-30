@@ -62,3 +62,4 @@ export { commandGaps, commandSection, FIELD_KINDS, optionsTable } from "./points
 export { contributionsOf } from "./manifest.ts"
 export { shortOrId } from "./names.ts"
 export { cliCommands } from "./entry.ts"
+export { asRendered, type Format, FORMATS, linesAs, rendered } from "./rendered.ts"

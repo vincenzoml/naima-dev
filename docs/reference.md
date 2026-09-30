@@ -33,9 +33,9 @@ Every contribution below has a qualified id, `<plugin>/<name>`, and goes by its 
 | [`unlink`](#naima-unlink) | core | remove a stored link |
 | [`check`](#naima-check) | core | run every invariant; exit 1 on any problem |
 | [`board`](#naima-board) | core | print a type's board, grouped by section, most urgent first |
-| [`view`](#naima-view) | core | print a plugin view; without a name, list them |
+| [`view`](#naima-view) | core | print a plugin view — as text, its data as JSON, or markdown; without a name, list them |
 | [`summary`](#naima-summary) | core | where the project stands, in one screen: every plugin's section |
-| [`plugins`](#naima-plugins) | core | list loaded plugins, the extension points each declares, and what each contributes to every point; a contribution's qualified id is <plugin>/<name>, shown when its short name is shared or renamed |
+| [`plugins`](#naima-plugins) | core | list loaded plugins, the extension points each declares, what each uses of the others, and what each contributes to every point; a contribution's qualified id is <plugin>/<name>, shown when its short name is shared or renamed |
 | [`types`](#naima-types) | core | list item types, their statuses and fields |
 | [`runs`](#naima-runs) | core | list the external programs the loaded contributions declare they start (a verifier's model checker, say), which the launcher allows besides git |
 | [`close`](#naima-close) | trackers | archive a resolved item: fixed, and proven by an item that has passed |
@@ -299,17 +299,24 @@ naima board todos --all
 
 ### naima view
 
-Print a plugin view; without a name, list them.
+Print a plugin view — as text, its data as JSON, or markdown; without a name, list them.
 
 ```sh
-naima view [name] [args...]
+naima view [--json
+naima --markdown] [name] [args...]
 ```
+
+| Option | Default | What it does |
+|---|---|---|
+| `--json` |  | print the view's data as JSON, as the view derived it |
+| `--markdown` |  | print the view as markdown, or as its text when it has no markdown of its own |
 
 Examples:
 
 ```sh
 naima view
 naima view next 10
+naima view --json next 10
 ```
 
 ### naima summary
@@ -317,23 +324,26 @@ naima view next 10
 Where the project stands, in one screen: every plugin's section.
 
 ```sh
-naima summary [--json]
+naima summary [--json
+naima --markdown]
 ```
 
 | Option | Default | What it does |
 |---|---|---|
-| `--json` |  | print the sections as one JSON object, section name to lines |
+| `--json` |  | print the sections as one JSON object, section name to the data it rendered |
+| `--markdown` |  | print each section under its own heading, as markdown |
 
 Examples:
 
 ```sh
 naima summary
 naima summary --json
+naima summary --markdown
 ```
 
 ### naima plugins
 
-List loaded plugins, the extension points each declares, and what each contributes to every point; a contribution's qualified id is <plugin>/<name>, shown when its short name is shared or renamed.
+List loaded plugins, the extension points each declares, what each uses of the others, and what each contributes to every point; a contribution's qualified id is <plugin>/<name>, shown when its short name is shared or renamed.
 
 ```sh
 naima plugins

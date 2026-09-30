@@ -40,6 +40,7 @@ import {
   parse,
   type Plugin,
   refutes,
+  rendered,
   type SummarySection,
   table,
 } from "../../core/api.ts"
@@ -61,7 +62,8 @@ export interface GateDef {
   decides?: string
   /** Declared by the project's configuration, not the program: the program's reference leaves it out. */
   configured?: boolean
-  evaluate(ctx: Context): GateResult
+  /** May be async: a gate backed by an external tool awaits it. */
+  evaluate(ctx: Context): GateResult | Promise<GateResult>
 }
 
 const blank = (s: unknown): boolean => typeof s !== "string" || !s.trim()
@@ -164,7 +166,7 @@ const gatesCommand: Command = {
   usage: "gates [name...] [--check]",
   options: [{ name: "--check", says: "exit 1 when a listed gate does not hold" }],
   examples: ["gates", "gates first-public --check"],
-  run(args, ctx) {
+  async run(args, ctx) {
     const p = parse(args, { check: { type: "boolean" } })
     const names = gatesOf(ctx).map((g) => g.name)
     const wanted = p.positionals.length ? p.positionals : names
@@ -172,7 +174,7 @@ const gatesCommand: Command = {
     for (const name of wanted) {
       const gate = ctx.registry.find<GateDef>("gates", name)?.value
       if (!gate) throw new Error(`no gate "${name}" — gates: ${names.join(", ") || "none configured"}`)
-      const r = gate.evaluate(ctx)
+      const r = await gate.evaluate(ctx)
       if (!r.holds) failed++
       ctx.out(`${gate.name} — ${gate.title}: ${r.holds ? "HOLDS" : `BLOCKED by ${r.blocking.length}`}${r.owed.length ? `, ${r.owed.length} owed` : ""}`)
       for (const i of r.blocking) ctx.out(`  ✗ ${label(i)}  ${i.meta.title}`)
@@ -242,11 +244,19 @@ export default function gates(options: Record<string, unknown> = {}): Plugin {
   }))
   const status: SummarySection = {
     name: "gates",
-    render: (ctx) =>
-      gatesOf(ctx).map(({ value: g }) => {
-        const r = g.evaluate(ctx)
-        return `  ${g.name.padEnd(16)} ${r.holds ? "holds" : `blocked by ${r.blocking.length}`}${r.owed.length ? `, ${r.owed.length} owed` : ""}`
-      }),
+    async render(ctx) {
+      const data = await Promise.all(
+        gatesOf(ctx).map(async ({ value: g }) => {
+          const r = await g.evaluate(ctx)
+          return { gate: g.name, holds: r.holds, blocking: r.blocking.map(label), owed: r.owed.map(label) }
+        }),
+      )
+      return rendered(
+        data,
+        (gs) =>
+          gs.map((g) => `  ${g.gate.padEnd(16)} ${g.holds ? "holds" : `blocked by ${g.blocking.length}`}${g.owed.length ? `, ${g.owed.length} owed` : ""}`),
+      )
+    },
   }
   return {
     name: "gates",

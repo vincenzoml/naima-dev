@@ -23,6 +23,7 @@ import {
   proves,
   readReadme,
   refutes,
+  rendered,
   runChecks,
   setFieldValue,
   type SummarySection,
@@ -74,12 +75,12 @@ export function lifecycle(ctx: Context, item: Item): Lifecycle {
  * property that holds on a model changed since its run, say. `close` refuses
  * on either: a proof that was once good is not a proof.
  */
-export function proofProblem(ctx: Context, item: Item): string | null {
+export async function proofProblem(ctx: Context, item: Item): Promise<string | null> {
   const proofs = linked(ctx, item, "verified-by")
   const refuting = proofs.filter((p) => refutes(ctx, p))
   if (refuting.length) return `it is refuted by ${refuting.map((p) => `${label(p)} [${p.meta.status}]`).join(", ")}`
   const ids = new Set(proofs.map((p) => p.meta.id))
-  const stale = runChecks(ctx).problems.filter((f) => f.item && ids.has(f.item.meta.id))
+  const stale = (await runChecks(ctx)).problems.filter((f) => f.item && ids.has(f.item.meta.id))
   if (stale.length) return `its proof does not hold now: ${stale.map((f) => f.message).join("; ")}`
   return null
 }
@@ -142,14 +143,14 @@ const close: Command = {
     says: "close it although a write hook refuses — for the one who owns the evidence, say an item this branch claims whose proof someone else performed",
   }],
   examples: ["close export-drops", "close export-drops --force"],
-  run(args, ctx) {
+  async run(args, ctx) {
     const p = parse(args, { force: { type: "boolean" } })
     const ref = p.positionals[0]
     if (!ref?.trim()) throw usageError(this)
     const item = ctx.repo.resolve(ref)
     const state = lifecycle(ctx, item)
     if (state === "closed") throw new Error(`${label(item)} is already closed`)
-    const problem = proofProblem(ctx, item)
+    const problem = await proofProblem(ctx, item)
     if (problem) throw new Error(`${label(item)} cannot be closed: ${problem}`)
     if (state !== "resolved") {
       throw new Error(`${label(item)} is ${state}: closing takes fixedOn and a verified-by item that has passed`)
@@ -186,9 +187,9 @@ const bugCounts: SummarySection = {
   name: "bugs",
   render(ctx) {
     const open = ctx.repo.items.filter((i) => i.type === "bugs" && isOpen(ctx, i))
-    if (!open.length) return []
     const n = (s: Lifecycle) => open.filter((i) => lifecycle(ctx, i) === s).length
-    return [`  ${n("unfixed")} unfixed · ${n("fixed")} fixed, unproven · ${n("resolved")} resolved, not closed`]
+    const data = { open: open.length, unfixed: n("unfixed"), fixed: n("fixed"), resolved: n("resolved") }
+    return rendered(data, (d) => (d.open ? [`  ${d.unfixed} unfixed · ${d.fixed} fixed, unproven · ${d.resolved} resolved, not closed`] : []))
   },
 }
 

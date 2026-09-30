@@ -63,7 +63,9 @@ written for a newer contract is refused when the project loads, naming both
 versions, instead of running against an API it does not know. One that says
 none is read as contract 1, the shape before `contract` existed, and keeps
 working: its top-level `gates` or `verifiers` are contributions to those
-points as any top-level key named after a point is.
+points as any top-level key named after a point is, and a view or summary
+section that returns plain lines is read as text whose data is those lines
+([views and summaries](#views-and-summaries)).
 
 ### What a plugin can and cannot do
 
@@ -103,10 +105,10 @@ The core's points, each also a typed key of the manifest:
 | `fields` | fields with a kind (`string`, `strings`, `date`, `enum`, `boolean`, `number`, `object`), enum values in rank order — or `valuesFrom` a point, and `multiple` for several — and the types they apply to, by name (`appliesTo`) or by trait (`traits`); `configured: true` when the values come from the project's configuration, so the program's reference does not list them |
 | `extends` | additive changes to another plugin's types and fields ([extending](#extending-another-plugins-types-and-fields)) |
 | `relations` | link relations; each names its inverse, which must also be declared |
-| `checks` | `run(ctx) → Finding[]`; `problem` fails `naima check`, `note` does not; the project may weigh each one `off`, `note` or `problem` ([check severity](config.md#check-severity)) |
-| `views` | `naima view <name>`: a named rendering of derived state |
+| `checks` | `run(ctx) → Finding[]`, or a promise of them; `problem` fails `naima check`, `note` does not; the project may weigh each one `off`, `note` or `problem` ([check severity](config.md#check-severity)) |
+| `views` | `naima view <name>`: a named rendering of derived state, `render(args, ctx) → { data, text() }` ([below](#views-and-summaries)) |
 | `dirs` | directories under the tracker root the plugin owns that are not item types |
-| `summary` | a block of `naima summary` |
+| `summary` | a block of `naima summary`, `render(ctx) → { data, text() }` |
 | `rank` | an additive urgency term; lower is more urgent |
 | `hooks` | [write hooks](#write-hooks): `beforeWrite(write, ctx)`, which may change what is written or refuse it, and `afterWrite(write, ctx)`, on every item write |
 | `migrations` | its own data migrations, in order from its format 1: `from`, `says`, and pure `config(raw)`, `item(meta)`, `stale(meta)`; its format is 1 + their number ([migrations](format.md#migrations)) |
@@ -188,6 +190,29 @@ A field whose enum values are the names of a point's contributions says
 `valuesFrom`: the `gate` field takes its values from every gate contributed
 to the `gates` point, and with `multiple: true` an item may hold one value as
 a string or several as a list (`naima set <item> gate=v1,v2`).
+
+## Views and summaries
+
+A view and a summary section render their data once, and say how it reads:
+
+```ts
+const next: View = {
+  name: "next",
+  says: "open items, most urgent first",
+  render: (args, ctx) => rendered(rowsOf(ctx), (rows) => rows.map(line), (rows) => table(rows)),
+}
+```
+
+`rendered(data, text, markdown?)` makes the `{ data, text(), markdown?() }`
+a renderer prints: `naima view <name>` and `naima summary` print the text,
+`--json` the data itself, `--markdown` the markdown — the text, when the
+rendering has none of its own. No format derives the data again.
+
+**What may be async.** A check's `run`, a view's and a summary section's
+`render`, a gate's `evaluate` and a command's `run` may return a promise; the
+core awaits each, so a check that shells out to an external tool needs no
+special case. A check that rejects is reported as a problem, as one that
+throws is. A rank term is not async: it is summed while items are sorted.
 
 ## Names
 

@@ -29,12 +29,12 @@ test("a run is attached as evidence, with the counterexample and the model's has
     let item = ctx.repo.resolve(prop.slug)
     assert.equal(item.meta.status, "holds")
     assert.equal(readRun(item)?.verdict, "holds")
-    assert.deepEqual(runChecks(ctx).problems, [])
+    assert.deepEqual((await runChecks(ctx)).problems, [])
     assert.ok(ctx.registry.find<{ evaluate(c: typeof ctx): { holds: boolean } }>("gates", "properties")!.value.evaluate(ctx).holds)
 
     // the model changes: the old verdict is no longer evidence
     writeFileSync(join(p.root, "model.txt"), "init x = 0\nnext x' = x - 1\nassume x = -1\n")
-    assert.match(runChecks(ctx).problems.map((f) => f.message).join(), /model that has changed/)
+    assert.match((await runChecks(ctx)).problems.map((f) => f.message).join(), /model that has changed/)
 
     assert.equal(await p.run("verify", "--all"), 1)
     item = ctx.repo.resolve(prop.slug)
@@ -43,7 +43,7 @@ test("a run is attached as evidence, with the counterexample and the model's has
     const cex = files.find((f) => f.startsWith("counterexample-"))
     assert.ok(cex)
     assert.equal(readFileSync(join(item.dir, "attachments", cex), "utf8"), "3: assume x = -1\n")
-    assert.deepEqual(runChecks(ctx).problems, [])
+    assert.deepEqual((await runChecks(ctx)).problems, [])
     assert.equal(ctx.registry.find<{ evaluate(c: typeof ctx): { holds: boolean } }>("gates", "properties")!.value.evaluate(ctx).holds, false)
   } finally {
     p.cleanup()
@@ -61,7 +61,7 @@ test("adapters come from any plugin; a missing verifier or model is a problem", 
     const ok = createItem(ctx, type, "fine", { verifier: "always", model: "m", property: "anything" })
     createItem(ctx, type, "broken", { verifier: "nope", model: "gone", property: "p" })
     assert.equal(await p.run("verify", ok.slug), 0)
-    const problems = runChecks(ctx).problems.map((f) => f.message).join("\n")
+    const problems = (await runChecks(ctx)).problems.map((f) => f.message).join("\n")
     assert.match(problems, /verifier "nope" is not loaded/)
     assert.match(problems, /model gone does not exist/)
     await assert.rejects(() => p.run("verify", "broken"), /no verifier "nope"/)
@@ -116,7 +116,7 @@ test("an adapter outside the contract gives a property in error with a readable 
       assert.equal(after.meta.status, "error", id)
       assert.match(readRun(after)?.output ?? "", output, id)
     }
-    assert.deepEqual(runChecks(ctx).problems, [])
+    assert.deepEqual((await runChecks(ctx)).problems, [])
   } finally {
     p.cleanup()
   }
@@ -136,8 +136,8 @@ test("a property holds only for what was run: a changed property, verifier, mode
       verifierOptions: { depth: 1 },
     })
     assert.equal(await p.run("verify", prop.slug), 0)
-    const problems = () => runChecks(ctx).problems.map((f) => f.message).join("\n")
-    assert.equal(problems(), "")
+    const problems = async () => (await runChecks(ctx)).problems.map((f) => f.message).join("\n")
+    assert.equal(await problems(), "")
     const path = join(prop.dir, "meta.json")
     const held = JSON.parse(readFileSync(path, "utf8"))
     for (
@@ -150,8 +150,8 @@ test("a property holds only for what was run: a changed property, verifier, mode
     ) {
       writeFileSync(path, JSON.stringify({ ...held, ...change }))
       p.ctx.reload()
-      assert.match(problems(), why)
-      assert.match(problems(), /run naima verify again/)
+      assert.match(await problems(), why)
+      assert.match(await problems(), /run naima verify again/)
     }
   } finally {
     p.cleanup()
@@ -194,12 +194,12 @@ test("a property's inputs are checked: its options are a declared field, its pat
     const path = join(ok.dir, "meta.json")
     const meta = JSON.parse(readFileSync(path, "utf8"))
     writeFileSync(join(ok.dir, "attachments", meta.lastRun), JSON.stringify({ verdict: "holds" }))
-    const problems = () => runChecks(ctx).problems.map((f) => f.message).join("\n")
-    assert.match(problems(), /fine: holds, but its run record .* is malformed/)
+    const problems = async () => (await runChecks(ctx)).problems.map((f) => f.message).join("\n")
+    assert.match(await problems(), /fine: holds, but its run record .* is malformed/)
     writeFileSync(path, JSON.stringify({ ...meta, lastRun: "../../escapes/meta.json" }))
     p.ctx.reload()
-    assert.match(problems(), /fine: lastRun "\.\.\/\.\.\/escapes\/meta\.json" is not a file name in attachments\//)
-    assert.match(problems(), /escapes: model \.\.\/\.\.\/\.\.\/\.\.\/etc\/passwd is outside the project/)
+    assert.match(await problems(), /fine: lastRun "\.\.\/\.\.\/escapes\/meta\.json" is not a file name in attachments\//)
+    assert.match(await problems(), /escapes: model \.\.\/\.\.\/\.\.\/\.\.\/etc\/passwd is outside the project/)
   } finally {
     p.cleanup()
   }
@@ -217,7 +217,7 @@ test("changing what a property was verified on sets it back to open, by any comm
       assert.equal(ctx.repo.resolve(prop.slug).meta.status, "holds")
       assert.equal(await p.run("set", prop.slug, change), 0)
       assert.equal(ctx.repo.resolve(prop.slug).meta.status, "open", change)
-      assert.deepEqual(runChecks(ctx).problems, [], "open claims nothing, so nothing is stale")
+      assert.deepEqual((await runChecks(ctx)).problems, [], "open claims nothing, so nothing is stale")
     }
     assert.equal(await p.run("verify", prop.slug), 0)
     assert.equal(await p.run("set", prop.slug, "title=Has a beta"), 0)

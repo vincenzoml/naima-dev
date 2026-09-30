@@ -36,7 +36,7 @@ export interface RegistryOptions {
 /** A check as the project weighs it: every finding at `level`. */
 const weighed = (check: Check, level: Exclude<Severity, "off">): Check => ({
   ...check,
-  run: (ctx) => check.run(ctx).map((f) => ({ ...f, level })),
+  run: async (ctx) => (await check.run(ctx)).map((f) => ({ ...f, level })),
 })
 
 const quote = (c: Contribution): string => `"${c.plugin}" (${c.id})`

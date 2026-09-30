@@ -32,6 +32,7 @@ import {
   type Plugin,
   projectFiles,
   proves,
+  rendered,
   type SummarySection,
   walkFiles,
 } from "../../core/api.ts"
@@ -153,8 +154,8 @@ export default function betaMarkers(options: Record<string, unknown> = {}): Plug
     name: "shipped without proof",
     render(ctx) {
       const states = audit(ctx, opts)
-      if (!states.length) return []
-      return [`  ${states.length} beta markers, ${states.filter((s) => s.state !== "unproven").length} stale or dangling`]
+      const data = { markers: states.length, staleOrDangling: states.filter((s) => s.state !== "unproven").length }
+      return rendered(data, (d) => (d.markers ? [`  ${d.markers} beta markers, ${d.staleOrDangling} stale or dangling`] : []))
     },
   }
 

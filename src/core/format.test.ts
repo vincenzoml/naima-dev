@@ -111,7 +111,7 @@ test("newer data is refused and left as it was; a migration that throws writes n
   }
 })
 
-test("check fails on a tracker that mixes formats", () => {
+test("check fails on a tracker that mixes formats", async () => {
   const p = tempProject([{ name: "mixed", says: "the fixture's format check", checks: [{ ...formatCheck(fixture), name: "one-format-fixture" }] }, {
     name: "bugs",
     says: "a type",
@@ -120,10 +120,10 @@ test("check fails on a tracker that mixes formats", () => {
   try {
     const type = p.ctx.registry.types.get("bugs")!
     createItem(p.ctx, type, "Migrated", { where: "export" })
-    assert.equal(runChecks(p.ctx).problems.length, 0)
+    assert.equal((await runChecks(p.ctx)).problems.length, 0)
     createItem(p.ctx, type, "Merged from an old branch", { area: "export" })
     assert.deepEqual(
-      runChecks(p.ctx).problems.map((f) => f.message),
+      (await runChecks(p.ctx)).problems.map((f) => f.message),
       ["bugs/merged-from-old-branch is still in format 1 (area became where) — naima update migrates it"],
     )
   } finally {
@@ -180,7 +180,7 @@ test("a plugin's migrations go 1, 2, 3 with no gap: the registry refuses a plugi
   assert.throws(() => buildRegistry([{ name: "gappy", says: "skips", migrations: [{ from: 2, says: "gap" }] }]), /plugin "gappy": migration 1 reads format 2/)
 })
 
-test("check fails on an item still in the shape a plugin's migration replaced", () => {
+test("check fails on an item still in the shape a plugin's migration replaced", async () => {
   const p = tempProject([moving(), {
     name: "bugs",
     says: "a type",
@@ -188,7 +188,7 @@ test("check fails on an item still in the shape a plugin's migration replaced", 
   }])
   try {
     createItem(p.ctx, p.ctx.registry.types.get("bugs")!, "Merged from an old branch", { size: 3 })
-    assert.deepEqual(runChecks(p.ctx).problems.map((f) => f.message), [
+    assert.deepEqual((await runChecks(p.ctx)).problems.map((f) => f.message), [
       "bugs/merged-from-old-branch is still in mover format 2 (size became bytes) — naima update migrates it",
     ])
   } finally {

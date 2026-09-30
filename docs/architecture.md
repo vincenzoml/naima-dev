@@ -12,6 +12,7 @@ src/
     points.ts      the core's own extension points: types, fields, relations, dirs, checks, commands, views, summary, rank, migrations
     manifest.ts    what a manifest contributes to a point, whichever way it says so
     markdown.ts    the markdown a point's documentation is written with
+    rendered.ts    what a view or summary section renders: data, read as text, JSON or markdown
     item.ts        an item on disk: create, move, save
     repo.ts        reading the tracker; ids, reference resolution, inverse links
     fields.ts      field validation and parsing

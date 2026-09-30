@@ -13,6 +13,7 @@
 import {
   bool,
   byUrgency,
+  cell,
   type Command,
   type Context,
   CONTRACT,
@@ -28,6 +29,7 @@ import {
   positiveInt,
   type RankTerm,
   readReadme,
+  rendered,
   saveMeta,
   setFields,
   type SummarySection,
@@ -242,14 +244,39 @@ const triage: Command = {
   },
 }
 
+/** One row of the urgency queue: what `view next` derives, once, for every format. */
+interface NextRow {
+  ref: string
+  title: string
+  impact: string | null
+  priority: string | null
+  effort: string | null
+}
+
+const nextRows = (ctx: Context, n: number): NextRow[] =>
+  byUrgency(ctx, openItems(ctx)).slice(0, n).map((i) => ({
+    ref: label(i),
+    title: i.meta.title,
+    impact: fieldValue(i, IMPACT) ?? null,
+    priority: fieldValue(i, PRIORITY) ?? null,
+    effort: fieldValue(i, EFFORT) ?? null,
+  }))
+
+const rowLine = (r: NextRow): string => `  ${[r.impact, r.priority, r.effort].map((v) => (v ?? "·").padEnd(8)).join("")}${r.ref}  ${r.title}`
+const rowsTable = (rows: NextRow[]): string[] =>
+  rows.length
+    ? [
+      "| Impact | Priority | Effort | Item | Title |",
+      "|---|---|---|---|---|",
+      ...rows.map((r) => `| ${r.impact ?? ""} | ${r.priority ?? ""} | ${r.effort ?? ""} | ${r.ref} | ${cell(r.title)} |`),
+    ]
+    : []
+
 const next: View = {
   name: "next",
   says: "open items, most urgent first",
   render(args, ctx) {
-    const n = positiveInt(args[0], 15, "next")
-    return byUrgency(ctx, openItems(ctx))
-      .slice(0, n)
-      .map((i) => `  ${[IMPACT, PRIORITY, EFFORT].map((f) => (fieldValue(i, f) ?? "·").padEnd(8)).join("")}${label(i)}  ${i.meta.title}`)
+    return rendered(nextRows(ctx, positiveInt(args[0], 15, "next")), (rows) => rows.map(rowLine), rowsTable)
   },
 }
 
@@ -257,10 +284,17 @@ const top: SummarySection = {
   name: "next up",
   render(ctx) {
     const open = openItems(ctx)
-    if (!open.length) return []
-    const untriaged = open.filter((i) => TRIAGE.every((f) => i.meta[f] === undefined)).length
-    const unsized = open.filter((i) => !fieldValue(i, EFFORT)).length
-    return [...next.render(["5"], ctx), `  (${untriaged} untriaged, ${unsized} without effort — naima triage missing)`]
+    const data = {
+      next: open.length ? nextRows(ctx, 5) : [],
+      untriaged: open.filter((i) => TRIAGE.every((f) => i.meta[f] === undefined)).length,
+      unsized: open.filter((i) => !fieldValue(i, EFFORT)).length,
+    }
+    const tail = (d: typeof data) => `(${d.untriaged} untriaged, ${d.unsized} without effort — naima triage missing)`
+    return rendered(
+      data,
+      (d) => (d.next.length ? [...d.next.map(rowLine), `  ${tail(d)}`] : []),
+      (d) => (d.next.length ? [...rowsTable(d.next), "", tail(d)] : []),
+    )
   },
 }
 

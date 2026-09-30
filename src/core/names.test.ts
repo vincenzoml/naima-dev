@@ -44,7 +44,7 @@ test("a name two plugins would both store is refused at load, naming both qualif
   )
 })
 
-test("a rename resolves a stored collision: the contribution goes by its new name, its own plugin reads it so, and its data is stored so", () => {
+test("a rename resolves a stored collision: the contribution goes by its new name, its own plugin reads it so, and its data is stored so", async () => {
   const rename = { fields: { "ops/priority": "severity" }, relations: { "ops/caused": "led-to" } }
   const scope: PluginScope = { plugin: "ops", name: (kind, n) => (rename as Record<string, Record<string, string>>)[kind]?.[`ops/${n}`] ?? n }
   const p = tempProject([triage, incidents(scope)], { rename, fixedNames: ["core", "triage"] })
@@ -58,7 +58,7 @@ test("a rename resolves a stored collision: the contribution goes by its new nam
     const item = createItem(p.ctx, r.types.get("incidents")!, "Database down")
     setFields(p.ctx, item, [["severity", "p1"], ["priority", "now"]])
     assert.deepEqual([item.meta["severity"], item.meta["priority"]], ["p1", "now"])
-    assert.equal(runChecks(p.ctx).problems.length, 0)
+    assert.equal((await runChecks(p.ctx)).problems.length, 0)
   } finally {
     p.cleanup()
   }

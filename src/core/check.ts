@@ -136,12 +136,12 @@ export interface CheckReport {
   notes: Finding[]
 }
 
-/** Run every check. A check that throws is itself a problem, never a crash. */
-export function runChecks(ctx: Context): CheckReport {
+/** Run every check, in load order, awaiting the ones that are async. A check that throws or rejects is itself a problem, never a crash. */
+export async function runChecks(ctx: Context): Promise<CheckReport> {
   const findings: Finding[] = []
   for (const check of ctx.registry.checks) {
     try {
-      findings.push(...check.run(ctx))
+      findings.push(...await check.run(ctx))
     } catch (e) {
       findings.push(problem(`check "${check.name}" failed to run: ${message(e)}`))
     }

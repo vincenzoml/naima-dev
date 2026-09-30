@@ -33,14 +33,14 @@ test("a marker must name an open item and dies with its proof", async () => {
     mkdirSync(join(p.root, "app", "node_modules"), { recursive: true })
     writeFileSync(join(p.root, "app", "export.ts"), `const x = 1\n  ${marker(`tests/${t.slug}`, "layered export is unproven")}\n`)
     writeFileSync(join(p.root, "app", "node_modules", "dep.ts"), marker("tests/nothing", "skipped") + "\n")
-    assert.deepEqual(runChecks(p.ctx).problems, [])
+    assert.deepEqual((await runChecks(p.ctx)).problems, [])
     await p.run("beta")
     assert.match(p.output.join("\n"), /unproven\s+app\/export.ts:2\s+tests\/export-keeps-alpha\s+layered export is unproven/)
 
     writeFileSync(join(p.root, "app", "other.ts"), marker("tests/ghost", "names nothing") + "\n")
     setFields(p.ctx, t, [["status", "passed"]])
     p.ctx.reload()
-    const problems = runChecks(p.ctx).problems.map((f) => f.message).join("\n")
+    const problems = (await runChecks(p.ctx)).problems.map((f) => f.message).join("\n")
     assert.match(problems, /outlived its proof/)
     assert.match(problems, /names "tests\/ghost", which is no item/)
     assert.equal(await p.run("beta", "--check"), 1)
@@ -49,7 +49,7 @@ test("a marker must name an open item and dies with its proof", async () => {
   }
 })
 
-test("with nothing configured, every source file of the project is scanned, and nothing git ignores", () => {
+test("with nothing configured, every source file of the project is scanned, and nothing git ignores", async () => {
   const p = tempProject([proofs, betaMarkers()], { git: true })
   try {
     writeFileSync(join(p.root, ".gitignore"), "generated/\n")
@@ -59,14 +59,14 @@ test("with nothing configured, every source file of the project is scanned, and 
     writeFileSync(join(p.root, "lib", "deep", "a.py"), marker("tests/ghost", "anywhere in the project") + "\n")
     writeFileSync(join(p.root, "generated", "b.ts"), marker("tests/ghost", "ignored by git") + "\n")
     writeFileSync(join(p.root, "node_modules", "c.ts"), marker("tests/ghost", "a dependency") + "\n")
-    const problems = runChecks(p.ctx).problems.map((f) => f.message)
+    const problems = (await runChecks(p.ctx)).problems.map((f) => f.message)
     assert.deepEqual(problems, ['lib/deep/a.py:1: beta marker names "tests/ghost", which is no item'])
   } finally {
     p.cleanup()
   }
 })
 
-test("a marker naming an item since archived is found through the archive, and a bad reference says why", () => {
+test("a marker naming an item since archived is found through the archive, and a bad reference says why", async () => {
   const archive: Plugin = {
     name: "archive",
     says: "",
@@ -85,7 +85,7 @@ test("a marker naming an item since archived is found through the archive, and a
     setFields(p.ctx, bug, [["closedFrom", "bugs"]])
     const moved = moveItem(p.ctx, p.ctx.repo.resolve(bug.meta.id), p.ctx.registry.types.get("closed")!)
     setFields(p.ctx, p.ctx.repo.resolve(moved.meta.id), [["status", "closed"]])
-    const problems = runChecks(p.ctx).problems.map((f) => f.message).join("\n")
+    const problems = (await runChecks(p.ctx)).problems.map((f) => f.message).join("\n")
     assert.match(problems, /a\.ts:1: beta marker outlived its proof — closed\/export-drops-alpha is closed/)
     assert.match(problems, /a\.ts:2: beta marker names "export-drops", which does not resolve: "export-drops" is ambiguous/)
   } finally {

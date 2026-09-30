@@ -37,7 +37,7 @@ const undocumented: Plugin = {
   contributes: { widgets: [{ name: "g" }] },
 }
 
-test("a contribution without its documentation fails check, named", () => {
+test("a contribution without its documentation fails check, named", async () => {
   const p = tempProject([docs({}), features, undocumented])
   try {
     const gaps = documentationGaps(p.ctx)
@@ -46,7 +46,7 @@ test("a contribution without its documentation fails check, named", () => {
     assert.ok(gaps.includes('command "go" (sloppy): option --fast is in the usage but not documented'))
     assert.ok(gaps.includes('widget "g" does not say how it decides'))
     assert.ok(gaps.includes('extension point "widgets" does not say what it is'))
-    assert.ok(runChecks(p.ctx).problems.some((f) => f.message.startsWith("undocumented:")))
+    assert.ok((await runChecks(p.ctx)).problems.some((f) => f.message.startsWith("undocumented:")))
   } finally {
     p.cleanup()
   }
@@ -68,12 +68,12 @@ test("the reference is generated, written, and checked for drift", async () => {
     assert.match(text, /### naima docs/)
     assert.match(text, /### naima init/)
     assert.match(text, /### type: features/)
-    assert.ok(runChecks(p.ctx).problems.some((f) => /REFERENCE.md does not exist/.test(f.message)))
+    assert.ok((await runChecks(p.ctx)).problems.some((f) => /REFERENCE.md does not exist/.test(f.message)))
     assert.equal(await p.run("docs", "--write"), 0)
     assert.equal(readFileSync(join(p.root, "REFERENCE.md"), "utf8"), text)
-    assert.equal(runChecks(p.ctx).problems.length, 0)
+    assert.equal((await runChecks(p.ctx)).problems.length, 0)
     writeFileSync(join(p.root, "REFERENCE.md"), text + "hand edit\n")
-    assert.ok(runChecks(p.ctx).problems.some((f) => /out of date/.test(f.message)))
+    assert.ok((await runChecks(p.ctx)).problems.some((f) => /out of date/.test(f.message)))
     assert.equal(await p.run("docs", "--check"), 1)
   } finally {
     p.cleanup()
@@ -123,20 +123,20 @@ test("a shipped feature names documentation that exists", async () => {
     await p.run("new", "features", "Export keeps alpha")
     await p.run("set", "export-keeps-alpha", "status=shipped")
     p.ctx.reload()
-    assert.ok(runChecks(p.ctx).problems.some((f) => /shipped with no documentation/.test(f.message)))
+    assert.ok((await runChecks(p.ctx)).problems.some((f) => /shipped with no documentation/.test(f.message)))
     writeFileSync(join(p.root, "GUIDE.md"), "# Guide\n\n## Export keeps alpha\n")
     await p.run("set", "export-keeps-alpha", "docs=GUIDE.md#missing")
     p.ctx.reload()
-    assert.ok(runChecks(p.ctx).problems.some((f) => /GUIDE.md has no heading #missing/.test(f.message)))
+    assert.ok((await runChecks(p.ctx)).problems.some((f) => /GUIDE.md has no heading #missing/.test(f.message)))
     await p.run("set", "export-keeps-alpha", "docs=GUIDE.md#export-keeps-alpha")
     p.ctx.reload()
-    assert.equal(runChecks(p.ctx).problems.length, 0)
+    assert.equal((await runChecks(p.ctx)).problems.length, 0)
   } finally {
     p.cleanup()
   }
 })
 
-test("relative links in the configured markdown resolve", () => {
+test("relative links in the configured markdown resolve", async () => {
   const p = tempProject([docs({ links: ["docs"] }), features])
   try {
     mkdirSync(join(p.root, "docs"))
@@ -145,7 +145,7 @@ test("relative links in the configured markdown resolve", () => {
       "# A\n\n## Two words\n\n[ok](b.md) [ok](#two-words) [web](https://x.invalid) `[code](nope.md)`\n\n```\n[fenced](nope.md)\n```\n",
     )
     writeFileSync(join(p.root, "docs", "b.md"), "# B\n\n[bad](missing.md) [bad anchor](a.md#nope)\n")
-    const problems = runChecks(p.ctx).problems.map((f) => f.message)
+    const problems = (await runChecks(p.ctx)).problems.map((f) => f.message)
     assert.equal(problems.length, 2, problems.join("\n"))
     assert.ok(problems.some((m) => m.includes("missing.md")))
     assert.ok(problems.some((m) => m.includes("has no heading #nope")))
@@ -161,14 +161,14 @@ test("anchors follow GitHub's rule, duplicates numbered", () => {
   assert.deepEqual([...anchorsOf("# A\n## A\n```\n# not\n```\n")], ["a", "a-1"])
 })
 
-test("with nothing configured, every markdown file of the project is link-checked, and nothing git ignores", () => {
+test("with nothing configured, every markdown file of the project is link-checked, and nothing git ignores", async () => {
   const p = tempProject([docs(), features], { git: true })
   try {
     writeFileSync(join(p.root, ".gitignore"), "scratch/\n")
     mkdirSync(join(p.root, "scratch"))
     writeFileSync(join(p.root, "scratch", "notes.md"), "[ignored](nowhere.md)\n")
     writeFileSync(join(p.root, "README.md"), "# Read me\n\n[bad](missing.md)\n")
-    const problems = runChecks(p.ctx).problems.map((f) => f.message)
+    const problems = (await runChecks(p.ctx)).problems.map((f) => f.message)
     assert.deepEqual(problems, ["README.md:3: link missing.md — missing.md does not exist"], "every tracked markdown file, none that git ignores")
   } finally {
     p.cleanup()
@@ -188,23 +188,23 @@ test("a feature's docs name a markdown file: a bare #heading, an empty entry or 
       ], ["notes.txt", /docs notes\.txt — is not a markdown file/]] as const
     ) {
       await p.run("set", "export-keeps-alpha", `docs=${value}`)
-      assert.match(runChecks(p.ctx).problems.map((f) => f.message).join("\n"), why, value)
+      assert.match((await runChecks(p.ctx)).problems.map((f) => f.message).join("\n"), why, value)
     }
     await p.run("set", "export-keeps-alpha", "docs=,")
-    assert.match(runChecks(p.ctx).problems.map((f) => f.message).join("\n"), /shipped with no documentation/)
+    assert.match((await runChecks(p.ctx)).problems.map((f) => f.message).join("\n"), /shipped with no documentation/)
   } finally {
     p.cleanup()
   }
 })
 
-test("a setext heading, underlined with === or ---, is an anchor links resolve to", () => {
+test("a setext heading, underlined with === or ---, is an anchor links resolve to", async () => {
   assert.deepEqual([...anchorsOf("Title\n=====\n\nSome section\n---\n\ntext\n\n---\n\n- item\n---\n")], ["title", "some-section"])
   const p = tempProject([docs({ links: ["docs"] }), features])
   try {
     mkdirSync(join(p.root, "docs"))
     writeFileSync(join(p.root, "docs", "a.md"), "Guide\n=====\n\nExport keeps alpha\n------------------\n")
     writeFileSync(join(p.root, "docs", "b.md"), "# B\n\n[one](a.md#guide) [two](a.md#export-keeps-alpha)\n")
-    assert.deepEqual(runChecks(p.ctx).problems.map((f) => f.message), [])
+    assert.deepEqual((await runChecks(p.ctx)).problems.map((f) => f.message), [])
   } finally {
     p.cleanup()
   }

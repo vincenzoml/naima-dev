@@ -37,16 +37,16 @@ test("a code gate waits for code, a proof gate for everything", async () => {
     createItem(ctx, typeOrThrow(ctx, "tests"), "No crash", { gate: "v1", links: [{ rel: "verifies", id: bug.meta.id }], runBy: "human" })
     createItem(ctx, typeOrThrow(ctx, "todos"), "Docs", { gate: "strict", fixedOn: "2026-01-01" })
 
-    let v1 = gate(ctx, "v1").evaluate(ctx)
+    let v1 = await gate(ctx, "v1").evaluate(ctx)
     assert.deepEqual([v1.holds, v1.blocking.length, v1.owed.length], [false, 1, 1])
     assert.equal(await p.run("gates", "--check"), 1)
 
     const { setFields } = await import("../../core/api.ts")
     setFields(ctx, ctx.repo.resolve(bug.slug), [["fixedOn", "2026-01-14"]])
     ctx.reload()
-    v1 = gate(ctx, "v1").evaluate(ctx)
+    v1 = await gate(ctx, "v1").evaluate(ctx)
     assert.deepEqual([v1.holds, v1.owed.length], [true, 2])
-    assert.equal(gate(ctx, "strict").evaluate(ctx).holds, false)
+    assert.equal((await gate(ctx, "strict").evaluate(ctx)).holds, false)
     assert.equal(await p.run("gates", "v1", "--check"), 0)
 
     p.output.length = 0
@@ -57,14 +57,14 @@ test("a code gate waits for code, a proof gate for everything", async () => {
   }
 })
 
-test("an unknown gate is refused, and a proof of a gated item must be gated", () => {
+test("an unknown gate is refused, and a proof of a gated item must be gated", async () => {
   const p = tempProject([fixture(), gates(config)])
   try {
     const { ctx } = p
     const bug = createItem(ctx, typeOrThrow(ctx, "bugs"), "Crash", { gate: "v1" })
     createItem(ctx, typeOrThrow(ctx, "tests"), "No crash", { links: [{ rel: "verifies", id: bug.meta.id }] })
     createItem(ctx, typeOrThrow(ctx, "todos"), "Typo", { gate: "v9" })
-    const problems = runChecks(ctx).problems.map((f) => f.message).join("\n")
+    const problems = (await runChecks(ctx)).problems.map((f) => f.message).join("\n")
     assert.match(problems, /verifies bugs\/crash \(gate v1\) but has no gate/)
     assert.match(problems, /gate "v9" is not one of: v1, strict/)
   } finally {
@@ -78,7 +78,7 @@ test("gates are configured, never hard-coded", () => {
   assert.equal(gates().contributes?.["gates"]?.length, 0)
 })
 
-test("gated-proof-is-gated says what it decides: an ungated proof of a gated item is a problem, whatever it ranks", () => {
+test("gated-proof-is-gated says what it decides: an ungated proof of a gated item is a problem, whatever it ranks", async () => {
   const check = gates(config).checks?.find((c) => c.name === "gated-proof-is-gated")
   assert.equal(check?.says, "an open item that verifies an open gated item carries a gate itself")
   const p = tempProject([fixture(), gates(config)])
@@ -86,7 +86,7 @@ test("gated-proof-is-gated says what it decides: an ungated proof of a gated ite
     const { ctx } = p
     const bug = createItem(ctx, typeOrThrow(ctx, "bugs"), "Crash", { gate: "v1" })
     createItem(ctx, typeOrThrow(ctx, "tests"), "No crash", { links: [{ rel: "verifies", id: bug.meta.id }] })
-    assert.match(runChecks(ctx).problems.map((f) => f.message).join("\n"), /verifies bugs\/crash \(gate v1\) but has no gate/)
+    assert.match((await runChecks(ctx)).problems.map((f) => f.message).join("\n"), /verifies bugs\/crash \(gate v1\) but has no gate/)
   } finally {
     p.cleanup()
   }
