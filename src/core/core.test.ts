@@ -1,7 +1,9 @@
 import assert from "node:assert/strict"
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { spawn } from "node:child_process"
+import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { test } from "node:test"
+import { fileURLToPath } from "node:url"
 import { FORMAT, addLink, buildRegistry, createItem, fieldError, findData, parseConfig, runChecks, setFields, slugify, uniqueSlug, type Plugin } from "./index.ts"
 import { corePlugin } from "./base.ts"
 import { tempProject } from "./testing.ts"
@@ -189,6 +191,35 @@ test("non-Latin titles keep their letters: distinct slugs, and no false duplicat
     assert.doesNotMatch(runChecks(p.ctx).notes.map((n) => n.message).join(), /possible duplicates/)
     createItem(p.ctx, type, "ЭКСПОРТ теряет альфа канал")
     assert.match(runChecks(p.ctx).notes.map((n) => n.message).join(), /possible duplicates/)
+  } finally {
+    p.cleanup()
+  }
+})
+
+test("new never reuses a directory: a slug taken in another case, or by a concurrent run, is suffixed", async () => {
+  const p = tempProject([notes])
+  try {
+    const type = p.ctx.registry.types.get("notes")!
+    const first = createItem(p.ctx, type, "Crash save")
+    const upper = join(p.ctx.trackerRoot, "NOTES", "Crash-Save-2")
+    mkdirSync(upper)
+    writeFileSync(join(upper, "meta.json"), JSON.stringify({ id: "11111111-1111-4111-8111-111111111111", title: "Crash-Save", status: "open" }))
+    assert.equal(uniqueSlug("crash-save-2", new Set(["Crash-Save-2"])), "crash-save-2-2")
+    const second = createItem(p.ctx, type, "Crash save")
+    assert.equal(second.slug, "crash-save-3")
+    assert.equal(JSON.parse(readFileSync(join(upper, "meta.json"), "utf8")).id, "11111111-1111-4111-8111-111111111111")
+    assert.equal(p.ctx.repo.resolve(first.meta.id).slug, "crash-save")
+
+    // Eight processes open the same title at once: eight items, eight directories.
+    const cli = join(dirname(dirname(fileURLToPath(import.meta.url))), "cli.ts")
+    const runs = Array.from({ length: 8 }, () =>
+      new Promise<number>((done) => spawn("deno", ["run", "-A", cli, "--data", p.ctx.trackerRoot, "new", "bugs", "Same title"], { stdio: "ignore" }).on("close", (c) => done(c ?? -1))),
+    )
+    assert.deepEqual(await Promise.all(runs), Array(8).fill(0))
+    const dirs = readdirSync(join(p.ctx.trackerRoot, "bugs"))
+    assert.equal(dirs.length, 8)
+    const ids = new Set(dirs.map((d) => JSON.parse(readFileSync(join(p.ctx.trackerRoot, "bugs", d, "meta.json"), "utf8")).id))
+    assert.equal(ids.size, 8)
   } finally {
     p.cleanup()
   }

@@ -32,9 +32,34 @@ export function slugify(text: string, maxWords = 7): string {
   return [...words.slice(0, maxWords).join("-")].slice(0, 60).join("").replace(/-+$/, "") || "item"
 }
 
+/** `slug`, or the first `slug-<n>` free in `taken`. Compared without case: a case-insensitive file system holds one of `a` and `A`. */
 export function uniqueSlug(slug: string, taken: Set<string>): string {
-  if (!taken.has(slug)) return slug
-  for (let n = 2; ; n++) if (!taken.has(`${slug}-${n}`)) return `${slug}-${n}`
+  const lower = new Set([...taken].map((s) => s.toLowerCase()))
+  const free = (s: string): boolean => !lower.has(s.toLowerCase())
+  if (free(slug)) return slug
+  for (let n = 2; ; n++) if (free(`${slug}-${n}`)) return `${slug}-${n}`
+}
+
+/**
+ * Make a new, empty directory under `base` named `slug` or the first free
+ * suffix of it, and return the name used. The directory is created without
+ * `recursive`, so it fails on one that exists — made in another case, or by a
+ * concurrent run between the listing and the write — and the next suffix is
+ * tried instead of writing into someone else's item.
+ */
+function claimDir(base: string, slug: string): string {
+  mkdirSync(base, { recursive: true })
+  const taken = new Set(listDirs(base))
+  for (;;) {
+    const name = uniqueSlug(slug, taken)
+    try {
+      mkdirSync(join(base, name))
+      return name
+    } catch (e) {
+      if ((e as { code?: unknown }).code !== "EEXIST") throw e
+      taken.add(name)
+    }
+  }
 }
 
 export const isUuid = (s: unknown): s is string =>
@@ -70,9 +95,9 @@ const defaultTemplate = (title: string): string =>
 /** Open a new item. Writes only inside its own new directory. */
 export function createItem(ctx: Context, type: TypeDef, title: string, fields: Record<string, unknown> = {}): Item {
   const base = join(ctx.trackerRoot, type.dir)
-  const slug = uniqueSlug(slugify(title), new Set(listDirs(base)))
+  const slug = claimDir(base, slugify(title))
   const dir = join(base, slug)
-  mkdirSync(join(dir, ATTACHMENTS), { recursive: true })
+  mkdirSync(join(dir, ATTACHMENTS))
   writeFileSync(join(dir, ATTACHMENTS, ".gitkeep"), "")
   writeFileSync(join(dir, README), (type.template ?? defaultTemplate)(title))
   const meta: Meta = { id: randomUUID(), title, status: type.initialStatus, created: today(ctx), ...fields }
