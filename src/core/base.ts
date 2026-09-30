@@ -354,7 +354,7 @@ export const declaredRuns = (ctx: Context): string[] => [...new Set(starting(ctx
 
 const runs: Command = {
   name: "runs",
-  says: "list the external programs the loaded contributions declare they start (a verifier's model checker, say), which the launcher allows besides git",
+  says: "list the external programs the loaded contributions declare they start (a model checker, say), which the launcher allows besides git",
   usage: "runs [--json]",
   options: [{ name: "--json", says: "print them as one JSON list: what the launcher reads" }],
   examples: ["runs", "runs --json"],

@@ -37,7 +37,7 @@ Every contribution below has a qualified id, `<plugin>/<name>`, and goes by its 
 | [`summary`](#naima-summary) | core | where the project stands, in one screen: every plugin's section |
 | [`plugins`](#naima-plugins) | core | list loaded plugins, the extension points each declares, what each uses of the others, and what each contributes to every point; a contribution's qualified id is <plugin>/<name>, shown when its short name is shared or renamed |
 | [`types`](#naima-types) | core | list item types, their statuses and fields |
-| [`runs`](#naima-runs) | core | list the external programs the loaded contributions declare they start (a verifier's model checker, say), which the launcher allows besides git |
+| [`runs`](#naima-runs) | core | list the external programs the loaded contributions declare they start (a model checker, say), which the launcher allows besides git |
 | [`close`](#naima-close) | trackers | archive a resolved item: fixed, and proven by an item that has passed |
 | [`bugs`](#naima-bugs) | trackers | how many bugs have no code written, and how many are fixed but unproven |
 | [`claim`](#naima-claim) | coordination | record that this branch is working on items (writes one file on this branch) |
@@ -371,7 +371,7 @@ naima types
 
 ### naima runs
 
-List the external programs the loaded contributions declare they start (a verifier's model checker, say), which the launcher allows besides git.
+List the external programs the loaded contributions declare they start (a model checker, say), which the launcher allows besides git.
 
 ```sh
 naima runs [--json]
