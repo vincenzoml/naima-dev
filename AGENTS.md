@@ -18,13 +18,13 @@ each rule links the page that holds its reasoning.
    `docs/reference.md` is regenerated with `npm run docs`; for anything else,
    the page under `docs/` that explains it. `npm run verify` fails otherwise:
    [the documentation rule](docs/documentation.md).
-3. **Don't start working until the feature is totally defined, or the issue
-   triaged.** A request from the owner is not a work order until its item says
-   what "done" is: for a feature, its behaviour, its boundaries and how it is
-   documented; for a defect, its triage fields and the gesture that proves the
-   fix. Until then the only work allowed is writing that definition. A
-   requirement that arrives while work is running goes into the definition,
-   not into the running work.
+3. **Don't start implementing until the owner says so.** A request is not a
+   work order. First its item must say what "done" is: for a feature, its
+   behaviour, its boundaries and how it is documented; for a defect, its
+   triage fields and the gesture that proves the fix. Then implementation
+   waits for the owner's explicit go. Until then the only work allowed is
+   writing and refining that definition. A requirement that arrives while work
+   is running goes into the definition, never into the running work.
 
 ## Working rules
 

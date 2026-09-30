@@ -72,6 +72,13 @@ agent skill stay.
 9. **`deno compile` is optional.** A single executable is produced per
    release for those without Deno. It is not part of the normal path.
 
+10. **`naima-tracker/README.md`.** Owner, 2026-09-30: "naima-tracker must
+    have a README.md with one line explaining what naima is and a link to the
+    repo." `naima init` writes it: one line saying what Naima is (from one
+    shared source, the same sentence as Naima's own README), and a link to
+    https://github.com/vincenzoml/naima. The migration creates it for existing
+    trackers; `check` reports it when missing; `docs/format.md` documents it.
+
 ## Reversals (owner rule: record, never overwrite)
 
 - The per-project tool pin (a semver range in the config), and the refusal
