@@ -24,9 +24,16 @@ export const cliCommands: Omit<Command, "run">[] = [
     name: "update",
     says:
       `move the lock to the head of the source's ${DIST_BRANCH} branch — its main, when the source publishes no ${DIST_BRANCH}: fetch it, migrate the data forward if its format moved, and record the new commit, as one change to commit; the only command that asks the source anything`,
-    usage: "update [--check]",
-    options: [{ name: "--check", says: `only say whether the source's ${DIST_BRANCH} (or main) has moved past the locked commit; exit 1 when it has` }],
-    examples: ["update --check", "update"],
+    usage: "update [--check | --accept-source]",
+    options: [
+      { name: "--check", says: `only say whether the source's ${DIST_BRANCH} (or main) has moved past the locked commit; exit 1 when it has` },
+      {
+        name: "--accept-source",
+        says:
+          "trust the source naima.json now names, after reviewing why it changed: every other command refuses to run a program from a source it was not aligned from; aligns the program to the locked commit of the new source, and moves nothing else",
+      },
+    ],
+    examples: ["update --check", "update", "update --accept-source"],
   },
   {
     name: "carry",

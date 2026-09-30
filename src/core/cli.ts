@@ -27,8 +27,21 @@ import {
   TRACKER_README,
   trackerOf,
 } from "./layout.ts"
-import { align, carry, ignoreProgram, localWork, refuseLocalWork, remoteHead, short, stage, type Target, vendor } from "./program.ts"
-import { EXIT, isInternal, message } from "./errors.ts"
+import {
+  align,
+  carry,
+  ignoreProgram,
+  localWork,
+  refuseLocalWork,
+  remoteHead,
+  short,
+  SOURCE_CHANGED,
+  stage,
+  type Target,
+  vendor,
+  withoutCredentials,
+} from "./program.ts"
+import { EXIT, isInternal, message, NaimaError } from "./errors.ts"
 import type { Carry, Command, Context } from "./types.ts"
 import { shortOrId } from "./names.ts"
 import { scopeOf } from "./plugins.ts"
@@ -71,15 +84,10 @@ const targetOf = (place: Place, lock: Lock): Target => ({
   source: lock.source,
   commit: lock.commit,
   carry: lock.carry,
+  ...(lock.verify ? { verify: lock.verify } : {}),
 })
 
-/** A URL with its credentials removed: a token in a clone's origin must never reach a committed naima.json. */
-export function withoutCredentials(source: string): string {
-  return source.replace(/^([a-z][a-z0-9+.-]*:\/\/)([^@/]*)@/i, (all, scheme: string, userinfo: string) => {
-    if (/^https?:\/\/$/i.test(scheme)) return scheme
-    return userinfo.includes(":") ? `${scheme}${userinfo.slice(0, userinfo.indexOf(":"))}@` : all
-  })
-}
+export { withoutCredentials }
 
 /** The command init names as the next step: a type the loaded plugins really let one create. */
 async function nextStep(place: Place, opts: CliOptions, io: IO): Promise<string> {
@@ -154,7 +162,14 @@ function migrated(steps: readonly Step[], from: unknown, plugins: readonly { plu
 }
 
 async function update(args: string[], opts: CliOptions, place: Place, lock: Lock, raw: Record<string, unknown>, io: IO): Promise<number> {
-  const check = bool(parse(args, { check: { type: "boolean" } }), "check")
+  const p = parse(args, { check: { type: "boolean" }, "accept-source": { type: "boolean" } })
+  const check = bool(p, "check")
+  if (check && bool(p, "accept-source")) throw new Error(usage("update"))
+  if (bool(p, "accept-source")) {
+    // The entry point has aligned the program to the new source already: accepting it is all this asks.
+    io.out(`trusted ${lock.source} at the locked commit ${short(lock.commit)}; nothing else moved`)
+    return 0
+  }
   const t = targetOf(place, lock)
   const head = remoteHead(t)
   const main = head.commit
@@ -248,7 +263,16 @@ export async function runCli(argv: string[], opts: CliOptions): Promise<number> 
       throw new Error(`no ${DEFAULT_DATA}/${DATA_FILE} found here or above — run naima init`)
     }
     if (opts.launched) {
-      const moved = align(targetOf(place, place.lock))
+      const acceptSource = command === "update" && args.includes("--accept-source")
+      let moved = null
+      try {
+        moved = align({ ...targetOf(place, place.lock), acceptSource })
+      } catch (e) {
+        // update --check only reads the source: it answers whatever program runs it.
+        const readOnly = command === "update" && args.includes("--check")
+        if (!(readOnly && e instanceof NaimaError && e.code === SOURCE_CHANGED)) throw e
+      }
+      if (moved?.from && moved.from !== place.lock.commit) io.err(`naima: locked commit moved ${short(moved.from)} → ${short(place.lock.commit)}`)
       if (moved || real(opts.programRoot) !== real(place.program)) return RELAUNCH
     }
     if (command === "update" || command === "carry") {

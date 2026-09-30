@@ -29,11 +29,11 @@ import {
   readReadme,
   saveMeta,
   setFields,
-  setFieldValue,
   type SummarySection,
   today,
   usageError,
   type View,
+  type WriteHook,
 } from "../../core/index.ts"
 
 export const FIELDS: FieldDef[] = [
@@ -123,10 +123,18 @@ export function confidenceFrom(body: string): string {
   return "reported"
 }
 
+/** The rank an unset value takes: the middle of the field's scale, or its worst (last) value. */
+export function fallbackRank(name: string, as: "middle" | "worst"): number {
+  const last = Object.keys(field(name)?.values ?? {}).length - 1
+  return as === "worst" ? last : last / 2
+}
+
+// An unset impact or priority is not known to be either end, so it counts as the middle; an unset effort
+// counts as the largest size, so an item nobody has sized sinks instead of passing every sized L and XL.
 const rank: RankTerm[] = [
-  { name: "impact", score: (i) => enumRank(field("impact"), fieldValue(i, IMPACT), 2.5) * 1.5 },
-  { name: "priority", score: (i) => enumRank(field("priority"), fieldValue(i, PRIORITY), 2.5) * 1.2 },
-  { name: "effort", score: (i) => enumRank(field("effort"), fieldValue(i, EFFORT), 1.5) * 0.3 },
+  { name: "impact", score: (i) => enumRank(field("impact"), fieldValue(i, IMPACT), fallbackRank("impact", "middle")) * 1.5 },
+  { name: "priority", score: (i) => enumRank(field("priority"), fieldValue(i, PRIORITY), fallbackRank("priority", "middle")) * 1.2 },
+  { name: "effort", score: (i) => enumRank(field("effort"), fieldValue(i, EFFORT), fallbackRank("effort", "worst")) * 0.3 },
 ]
 
 const openItems = (ctx: Context): Item[] => ctx.repo.items.filter((i) => isOpen(ctx, i))
@@ -159,11 +167,12 @@ const SUBCOMMANDS: Record<string, Subcommand> = {
       const [ref, ...assignments] = args
       if (!ref?.trim() || !assignments.length) throw usageError(this)
       const item = ctx.repo.resolve(ref)
-      setFields(ctx, item, pairs(assignments))
-      // A value set by hand is judgement; it stops being inference.
-      if (fieldValue(item, TRIAGED_BY) === "derived") setFieldValue(item, TRIAGED_BY, undefined)
-      setFieldValue(item, TRIAGED_ON, today(ctx))
-      saveMeta(item)
+      // Triaging is a person's judgement even when it confirms a value: stamped today, and no longer inference.
+      const judged: [string, string][] = [
+        [TRIAGED_ON.name, today(ctx)],
+        ...(fieldValue(item, TRIAGED_BY) === "derived" ? [[TRIAGED_BY.name, ""] as [string, string]] : []),
+      ]
+      setFields(ctx, item, [...pairs(assignments), ...judged])
       ctx.out(`${label(item)}: ${assignments.join(" ")}`)
       return 0
     },
@@ -189,11 +198,31 @@ const SUBCOMMANDS: Record<string, Subcommand> = {
         const decided = fieldValue(item, TRIAGED_BY) !== "derived" && TRIAGE.some((f) => item.meta[f] !== undefined)
         if (decided || fieldValue(item, CONFIDENCE)) continue
         touched++
-        if (write) saveMeta({ ...item, meta: { ...item.meta, [CONFIDENCE.name]: confidenceFrom(readReadme(item)), [TRIAGED_BY.name]: "derived" } })
+        if (write) saveMeta(ctx, { ...item, meta: { ...item.meta, [CONFIDENCE.name]: confidenceFrom(readReadme(item)), [TRIAGED_BY.name]: "derived" } })
       }
       ctx.out(`${touched} items ${write ? "updated" : "would change (dry run — pass --write)"}; effort is never derived`)
       return 0
     },
+  },
+}
+
+/**
+ * A person's change to a triage field, by any command, is triage: it stamps
+ * `triagedOn` and stops being inference. A write that marks itself derived
+ * (triage derive) stamps nothing: triagedOn is when a person last looked.
+ */
+const stampTriage: WriteHook = {
+  name: "triage-stamps-its-date",
+  says:
+    "a change to priority, impact, effort or confidence — by naima set, triage set, or any command — stamps triagedOn with today and drops triagedBy: derived; a write triage derive marks derived stamps nothing",
+  beforeWrite(write, ctx) {
+    if (write.kind === "move") return
+    const meta = write.item.meta
+    const was: Record<string, unknown> = write.before ?? {}
+    if (!TRIAGE.some((f) => JSON.stringify(meta[f]) !== JSON.stringify(was[f]))) return
+    if (meta[TRIAGED_BY.name] === "derived" && was[TRIAGED_BY.name] !== "derived") return
+    delete meta[TRIAGED_BY.name]
+    meta[TRIAGED_ON.name] = today(ctx)
   },
 }
 
@@ -241,11 +270,12 @@ export default function triagePlugin(): Plugin {
     about:
       "Four fields rank an item, and no more. `effort` is never derived: nothing in a report says what a fix costs, and a size guessed from the wording is how an XL hides inside an S. " +
       '`triage derive` infers only `confidence`, from the page\'s own words — an evidence verb negated up to three words before it ("could not be reproduced") reads as `unclear`, never `measured` — and stamps `triagedBy: derived` so a value a person set is never overwritten. ' +
-      "Urgency is the sum of every plugin's rank terms, lower first; this plugin adds impact (×1.5), priority (×1.2) and effort (×0.3), each by its value's rank, unset counting as the middle.",
+      "Urgency is the sum of every plugin's rank terms, lower first; this plugin adds impact (×1.5), priority (×1.2) and effort (×0.3), each by its value's rank; an unset impact or priority counts as the middle of its scale, an unset effort as its largest size (XL), so an item nobody has sized sinks.",
     fields: FIELDS,
     rank,
     commands: [triage],
     views: [next],
     summary: [top],
+    hooks: [stampTriage],
   }
 }

@@ -203,3 +203,67 @@ test("prune lists a stale claim another ref carries, naming the ref it must be d
     p.cleanup()
   }
 })
+
+test("two workers' uncommitted claims, in their own worktrees, are seen by each other and by the trunk", async () => {
+  const p = tempProject([things, coordination()], { git: true })
+  const at = (root: string) => {
+    const out: string[] = []
+    const ctx = createContext({ root, data: join(root, DEFAULT_DATA), program: join(root, DEFAULT_DATA, DEFAULT_PROGRAM) }, p.ctx.config, p.ctx.registry, {
+      out: (l = "") => void out.push(l),
+      err: () => {},
+      now: () => new Date("2026-01-15T10:00:00Z"),
+    })
+    return { ctx, out, run: (cmd: string, ...args: string[]) => p.ctx.registry.commands.get(cmd)!.run(args, ctx) }
+  }
+  const w1 = `${p.root}-w1`
+  const w2 = `${p.root}-w2`
+  try {
+    createItem(p.ctx, p.ctx.registry.types.get("things")!, "Alpha")
+    p.git("add", "-A")
+    p.git("commit", "-q", "-m", "items")
+    p.git("worktree", "add", "-q", "-b", "w1", w1)
+    p.git("worktree", "add", "-q", "-b", "w2", w2)
+    const a = at(w1)
+    const b = at(w2)
+    await a.run("claim", "alpha")
+    await b.run("claim", "alpha")
+    assert.match(b.out.join("\n"), /also claimed by w1/, "the second worker is told")
+    const trunk = at(p.root)
+    await trunk.run("claims")
+    assert.match(trunk.out.join("\n"), /claimed by more than one branch[\s\S]*things\/alpha → w1, w2|things\/alpha → w2, w1/)
+    // w1 releases, not yet committed: gone from every view.
+    await a.run("release", "alpha")
+    assert.deepEqual(readClaims(trunk.ctx).filter((c) => c.items.length).map((c) => c.branch), ["w2"])
+  } finally {
+    p.cleanup()
+    rmSync(w1, { recursive: true, force: true })
+    rmSync(w2, { recursive: true, force: true })
+  }
+})
+
+test("a claim merged into the trunk and released on its branch, not yet committed, is gone from the trunk too", async () => {
+  const p = tempProject([things, coordination()], { git: true })
+  const w = `${p.root}-w`
+  try {
+    createItem(p.ctx, p.ctx.registry.types.get("things")!, "Alpha")
+    p.git("add", "-A")
+    p.git("commit", "-q", "-m", "items")
+    p.git("worktree", "add", "-q", "-b", "w", w)
+    const ctx = createContext({ root: w, data: join(w, DEFAULT_DATA), program: join(w, DEFAULT_DATA, DEFAULT_PROGRAM) }, p.ctx.config, p.ctx.registry, {
+      out: () => {},
+      err: () => {},
+      now: () => new Date("2026-01-15T10:00:00Z"),
+    })
+    const run = (cmd: string, ...args: string[]) => p.ctx.registry.commands.get(cmd)!.run(args, ctx)
+    await run("claim", "alpha")
+    gitIn(w, "add", "-A")
+    gitIn(w, "commit", "-q", "-m", "claim")
+    p.git("merge", "-q", "--ff-only", "w")
+    assert.deepEqual(readClaims(p.ctx).map((c) => c.branch), ["w"])
+    await run("release", "alpha")
+    assert.deepEqual(readClaims(p.ctx).filter((c) => c.items.length), [], "the trunk's copy is w's, and w deleted it")
+  } finally {
+    p.cleanup()
+    rmSync(w, { recursive: true, force: true })
+  }
+})

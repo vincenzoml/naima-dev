@@ -8,10 +8,10 @@ import { bool, pairs, parse, str, strs, usageError } from "./args.ts"
 import { coreChecks, runChecks } from "./check.ts"
 import { groupBy } from "./collections.ts"
 import { appliesTo, fieldValue, parseFieldValue } from "./fields.ts"
-import { ATTACHMENTS, createItem, readReadme, saveMeta } from "./item.ts"
+import { ATTACHMENTS, createItem, readReadme, saveMeta, type WriteOptions } from "./item.ts"
 import { byUrgency, isOpen, label } from "./lifecycle.ts"
 import { shortOrId } from "./names.ts"
-import type { Command, Context, Item, Plugin, SummarySection, TypeDef, View } from "./types.ts"
+import type { Command, Context, Contribution, Item, Plugin, SummarySection, TypeDef, View } from "./types.ts"
 
 export function typeOrThrow(ctx: Context, id: string | undefined): TypeDef {
   const type = id ? ctx.registry.types.get(id) : undefined
@@ -49,10 +49,15 @@ export function withFields<M extends Record<string, unknown>>(ctx: Context, type
   return next as M
 }
 
-/** Set `field=value` pairs on an item, validated against the registry; nothing is written unless every pair is valid. */
-export function setFields(ctx: Context, item: Item, assignments: [string, string][]): void {
-  item.meta = withFields(ctx, item.type, item.meta, assignments)
-  saveMeta(item)
+/**
+ * Set `field=value` pairs on an item, validated against the registry, through
+ * every plugin's write hooks; nothing is written, and `item` is left as it
+ * was, unless every pair is valid and no hook refuses.
+ */
+export function setFields(ctx: Context, item: Item, assignments: [string, string][], opts: WriteOptions = {}): void {
+  const next: Item = { ...item, meta: withFields(ctx, item.type, item.meta, assignments) }
+  saveMeta(ctx, next, opts)
+  item.meta = next.meta
 }
 
 export function addLink(ctx: Context, from: Item, rel: string, to: Item): boolean {
@@ -60,9 +65,9 @@ export function addLink(ctx: Context, from: Item, rel: string, to: Item): boolea
   if (from.meta.id === to.meta.id) throw new Error("an item cannot link to itself")
   // Stored here, or stored on `to` as the inverse: either way the link already exists.
   if (ctx.repo.linksOf(from).some((l) => l.rel === rel && l.id === to.meta.id)) return false
-  const links = from.meta.links ?? []
-  from.meta.links = [...links, { rel, id: to.meta.id }]
-  saveMeta(from)
+  const next: Item = { ...from, meta: { ...from.meta, links: [...(from.meta.links ?? []), { rel, id: to.meta.id }] } }
+  saveMeta(ctx, next)
+  from.meta = next.meta
   return true
 }
 
@@ -177,11 +182,11 @@ const unlink: Command = {
     if (!from || !rel || !to) throw usageError(this)
     const a = ctx.repo.resolve(from)
     const b = ctx.repo.resolve(to)
-    const before = a.meta.links?.length ?? 0
-    a.meta.links = (a.meta.links ?? []).filter((l) => !(l.rel === rel && l.id === b.meta.id))
-    if (a.meta.links.length === before) throw new Error(`${label(a)} stores no "${rel}" link to ${label(b)}`)
-    if (a.meta.links.length === 0) delete a.meta.links
-    saveMeta(a)
+    const stored = a.meta.links ?? []
+    const kept = stored.filter((l) => !(l.rel === rel && l.id === b.meta.id))
+    if (kept.length === stored.length) throw new Error(`${label(a)} stores no "${rel}" link to ${label(b)}`)
+    const { links: _links, ...rest } = a.meta
+    saveMeta(ctx, { ...a, meta: kept.length ? { ...rest, links: kept } : rest })
     ctx.out(`removed ${label(a)} ${rel} ${label(b)}`)
     return 0
   },
@@ -301,6 +306,35 @@ const plugins: Command = {
   },
 }
 
+/** What `c` declares it starts: its `runs`, the external programs any contribution may name. */
+const runsOf = (c: Contribution): string[] => {
+  const runs = (c.value as { runs?: unknown } | null)?.runs
+  return Array.isArray(runs) ? runs.filter((r): r is string => typeof r === "string") : []
+}
+
+/** Every contribution, to any point, that declares programs it starts. */
+const starting = (ctx: Context): { point: string; c: Contribution }[] =>
+  [...ctx.registry.points.keys()].flatMap((point) => ctx.registry.contributions(point).filter((c) => runsOf(c).length).map((c) => ({ point, c })))
+
+/** The programs the loaded contributions declare they start: what the launcher grants besides git. */
+export const declaredRuns = (ctx: Context): string[] => [...new Set(starting(ctx).flatMap(({ c }) => runsOf(c)))].sort()
+
+const runs: Command = {
+  name: "runs",
+  says: "list the external programs the loaded contributions declare they start (a verifier's model checker, say), which the launcher allows besides git",
+  usage: "runs [--json]",
+  options: [{ name: "--json", says: "print them as one JSON list: what the launcher reads" }],
+  examples: ["runs", "runs --json"],
+  run(args, ctx) {
+    const p = parse(args, { json: { type: "boolean" } })
+    const tools = declaredRuns(ctx)
+    if (bool(p, "json")) ctx.out(JSON.stringify(tools))
+    else if (!tools.length) ctx.out("no contribution starts a program: the launcher allows git alone")
+    else for (const { point, c } of starting(ctx)) ctx.out(`  ${point.padEnd(10)} ${c.id.padEnd(24)} ${runsOf(c).join(", ")}`)
+    return 0
+  },
+}
+
 const types: Command = {
   name: "types",
   says: "list item types, their statuses and fields",
@@ -309,7 +343,9 @@ const types: Command = {
   run(_args, ctx) {
     for (const t of ctx.registry.types.values()) {
       ctx.out(`${t.id} (${ctx.trackerDir}/${t.dir}/) — ${t.says}`)
-      for (const [name, s] of Object.entries(t.statuses)) ctx.out(`  ${name.padEnd(10)} ${s.category}${s.proves ? ", proves" : ""} — ${s.says}`)
+      for (const [name, s] of Object.entries(t.statuses)) {
+        ctx.out(`  ${name.padEnd(10)} ${s.category}${s.proves ? ", proves" : ""}${s.refutes ? ", refutes" : ""} — ${s.says}`)
+      }
       const fields = [...ctx.registry.fields.values()].filter((f) => appliesTo(f, t.id)).map((f) => f.name)
       ctx.out(`  fields: ${fields.join(", ")}`)
     }
@@ -349,6 +385,6 @@ export const corePlugin: Plugin = {
     { name: "blocked-by", inverse: "blocks", says: "waits on" },
   ],
   checks: coreChecks,
-  commands: [newCommand, show, list, set, link, unlink, check, board, view, summary, plugins, types],
+  commands: [newCommand, show, list, set, link, unlink, check, board, view, summary, plugins, types, runs],
   summary: [counts],
 }

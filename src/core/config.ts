@@ -18,12 +18,12 @@ import type { Carry, Config, PluginConfig, PluginOptions, Severity } from "./typ
 
 export const CARRY_MODES: readonly Carry[] = ["clone", "vendored", "submodule"]
 
-const KEYS = new Set(["format", "formats", "source", "commit", "carry", "program", "plugins", "rename"])
+const KEYS = new Set(["format", "formats", "source", "commit", "carry", "verify", "program", "plugins", "rename"])
 const COMMIT = /^[0-9a-f]{40}$/
 
 const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v)
 
-export type Lock = Pick<Config, "source" | "commit" | "carry" | "program">
+export type Lock = Pick<Config, "source" | "commit" | "carry" | "verify" | "program">
 
 /** A source on this disk rather than behind a URL. */
 export const isLocalSource = (source: string): boolean => source.startsWith("file:") || !/^([a-z][a-z0-9+.-]*:\/\/|[^/\\\s]+@[^:/\\\s]+:)/i.test(source)
@@ -59,7 +59,9 @@ export function parseLock(raw: Record<string, unknown>): Lock {
   if (!CARRY_MODES.includes(carry as Carry)) throw new Error(`${DATA_FILE}: carry must be one of: ${CARRY_MODES.join(", ")}`)
   const program = raw["program"] ?? DEFAULT_PROGRAM
   if (typeof program !== "string" || !program.trim()) throw new Error(`${DATA_FILE}: program must be a path, relative to the data directory`)
-  return { source, commit, carry: carry as Carry, program }
+  const verify = raw["verify"]
+  if (verify !== undefined && verify !== "signed") throw new Error(`${DATA_FILE}: verify is "signed", or absent`)
+  return { source, commit, carry: carry as Carry, ...(verify ? { verify } : {}), program }
 }
 
 /**

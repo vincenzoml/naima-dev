@@ -84,9 +84,10 @@ No board, queue, gate status or claim table is ever written. Each is computed
 from the items when asked, so no stored copy can go stale. The same holds for
 state that belongs to no branch: claims and session notes are written as one
 file per session on that session's own branch, and `readAcrossBranches`
-recombines them from every unmerged branch, every worktree's head, and the
-trunk. The branch a worktree stands on is read from disk, so uncommitted
-records count.
+recombines them from every local branch: every unmerged one, every worktree's
+head, and the trunk. A branch a worktree stands on is read from that
+worktree's disk, so uncommitted records count, in every worktree; any other
+from its ref. Remote-tracking refs are not read.
 
 ## The dependency rule
 

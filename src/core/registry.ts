@@ -33,6 +33,7 @@ import type {
   SummarySection,
   TypeDef,
   View,
+  WriteHook,
 } from "./types.ts"
 
 export interface RegistryOptions {
@@ -60,6 +61,18 @@ function lookup<T>(list: readonly Contribution<T>[], noun: string, ref: string):
   const found = list.filter((c) => c.name === ref)
   if (found.length > 1) throw new Error(`${noun} "${ref}" is ambiguous: ${found.map((c) => c.id).join(", ")} — name one by its qualified id`)
   return found[0]
+}
+
+/**
+ * Why a contribution's `runs` — the external programs it declares it starts,
+ * which the launcher grants — is not a list of program names, or null.
+ */
+function runsRefusal(c: unknown): string | null {
+  const runs = (c as { runs?: unknown } | null)?.runs
+  if (runs === undefined) return null
+  if (!Array.isArray(runs)) return "declares runs that is not a list of programs"
+  const bad = runs.find((tool) => typeof tool !== "string" || !/^[^\s,]+$/.test(tool))
+  return bad === undefined ? null : `runs ${JSON.stringify(bad)}: a program is named by one word or an absolute path, with no comma or space`
 }
 
 /** Every point: the core's, then each plugin's in load order. A point declared twice, or by a manifest key's name, is an error. */
@@ -106,7 +119,7 @@ export function buildRegistry(plugins: Plugin[], opts: RegistryOptions = {}): Re
     const out: Contribution[] = []
     for (const p of plugins) {
       for (const c of contributionsOf(p, point.id)) {
-        const why = point.validate?.(c) ?? null
+        const why = point.validate?.(c) || runsRefusal(c)
         if (why) throw new Error(`plugin "${p.name}": a ${point.noun} it contributes ${why}`)
         const declared = point.key(c)
         const id = `${p.name}/${declared}`
@@ -227,6 +240,7 @@ export function buildRegistry(plugins: Plugin[], opts: RegistryOptions = {}): Re
     views: invoked(of<View>("views")),
     summary: Object.freeze(of<SummarySection>("summary").map((c) => c.value)),
     rank: Object.freeze(of<RankTerm>("rank").map((c) => c.value)),
+    hooks: Object.freeze(of<WriteHook>("hooks").map((c) => c.value)),
     contributions: (k: string) => byPoint.get(k) ?? [],
     find<T>(k: string, ref: string): Contribution<T> | undefined {
       return lookup(byPoint.get(k) ?? [], points.get(k)?.point.noun ?? k, ref) as Contribution<T> | undefined

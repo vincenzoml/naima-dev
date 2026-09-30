@@ -9,7 +9,8 @@
 //
 // holdsOn "code"  (default) the gate waits for code, not for proof: an item
 //                 that is fixed and owes only its proving gesture, and the
-//                 gestures themselves, are owed but do not block.
+//                 gestures themselves, are owed but do not block — unless
+//                 refuted: a failed test, a violated property, blocks.
 // holdsOn "proof" every open item on the gate blocks it.
 //
 // Any plugin may contribute gates through the contract; `naima gates` lists
@@ -36,6 +37,7 @@ import {
   type Migration,
   parse,
   type Plugin,
+  refutes,
   type SummarySection,
   table,
 } from "../../core/index.ts"
@@ -127,8 +129,11 @@ export const moveGates: Migration = {
   },
 }
 
-/** Fixed but unproven, or itself a proving gesture: owed, not blocking, under holdsOn "code". */
-const owesOnlyProof = (ctx: Context, item: Item): boolean => fieldValue(item, FIXED_ON) !== undefined || isEvidenceType(ctx, item.type)
+/** Refuted, by its own status or by an item verifying it: evidence against it, which blocks under either rule. */
+const refuted = (ctx: Context, item: Item): boolean => refutes(ctx, item) || linked(ctx, item, "verified-by").some((v) => refutes(ctx, v))
+
+/** Fixed but unproven, or itself a proving gesture — and not refuted: owed, not blocking, under holdsOn "code". */
+const owesOnlyProof = (ctx: Context, item: Item): boolean => !refuted(ctx, item) && (fieldValue(item, FIXED_ON) !== undefined || isEvidenceType(ctx, item.type))
 
 export function evaluateGate(ctx: Context, name: string, holdsOn: "code" | "proof"): GateResult {
   const open = ctx.repo.items.filter((i) => fieldValue(i, GATE) === name && isOpen(ctx, i))
@@ -226,7 +231,7 @@ export default function gates(options: Record<string, unknown> = {}): Plugin {
     title: c.title,
     says: c.says ?? "",
     decides: (c.holdsOn ?? "code") === "code"
-      ? `blocked by every open item with gate=${name} that still owes code: no fixedOn, and not itself a proving gesture. Fixed items and open proving gestures are owed, not blocking.`
+      ? `blocked by every open item with gate=${name} that still owes code: no fixedOn, and not itself a proving gesture. Fixed items and open proving gestures are owed, not blocking — unless refuted: one whose status refutes (a failed test, a violated property), or one verified by such an item, blocks.`
       : `blocked by every open item with gate=${name}, proof included.`,
     evaluate: (ctx) => evaluateGate(ctx, name, c.holdsOn ?? "code"),
   }))

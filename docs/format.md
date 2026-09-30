@@ -59,11 +59,12 @@ the one whose `naima.json` carries `format`.
 | `source` | yes | the git URL, or absolute path, of the Naima the project runs: Naima's own repository, or a fork; never starting with `-`, and a path on this disk is absolute |
 | `commit` | yes | the full hash of the `source` commit the project runs: **the lock**; a commit of its [`dist` branch](install.md#the-dist-branch), or of `main` for a source without one |
 | `carry` | no, `clone` | how the program is carried: `clone`, `vendored` or `submodule` (below) |
+| `verify` | no | `"signed"`: run a locked commit only when git verifies its signature ([install](install.md#every-run-aligns-the-program)) |
 | `program` | no, `../naima` | the program directory, relative to the data directory |
 | `plugins` | no, `{}` | plugin name → `{ "options", "enabled", "replacedBy", "source", "checks" }`, first-party plugins included: their options (the project's gates are the `gates` plugin's), switched off, replaced, added, their checks weighed ([configuration](config.md#the-plugins-table)) |
 | `rename` | no, `{}` | kind → `{ "<plugin>/<name>": "<short name>" }`: the name a third-party plugin's contribution goes by, when two plugins would store the same one ([names](plugin-contract.md#names)) |
 
-Any other key is an error. `source`, `commit`, `carry` and `program` are the
+Any other key is an error. `source`, `commit`, `carry`, `verify` and `program` are the
 lock: they keep these names and meanings in every format, so that any Naima
 can align itself and update whatever the format of the data.
 

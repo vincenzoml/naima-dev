@@ -50,7 +50,7 @@ The core's points, each also a typed key of the manifest:
 | Point | What a contribution is |
 |---|---|
 | `commands` | `naima <name>`: `says`, `usage`, `options` (one per `--flag` in the usage), `examples` (invocations without the leading `naima`); `run(args, ctx)` returns an exit code (may be async) |
-| `types` | item types: `id`, `dir`, `statuses` (each `open` or `done`, optionally `proves`), `initialStatus`, a README `template`, `creatable: false` for archives |
+| `types` | item types: `id`, `dir`, `statuses` (each `open` or `done`, optionally `proves` — evidence for what the item verifies — or `refutes` — evidence against it, which blocks a gate and a close), `initialStatus`, a README `template`, `creatable: false` for archives |
 | `fields` | fields with a kind (`string`, `strings`, `date`, `enum`, `boolean`, `number`, `object`), enum values in rank order, and the types they apply to; `configured: true` when the values come from the project's configuration, so the program's reference does not list them |
 | `relations` | link relations; each names its inverse, which must also be declared |
 | `checks` | `run(ctx) → Finding[]`; `problem` fails `naima check`, `note` does not; the project may weigh each one `off`, `note` or `problem` ([check severity](config.md#check-severity)) |
@@ -58,6 +58,7 @@ The core's points, each also a typed key of the manifest:
 | `dirs` | directories under the tracker root the plugin owns that are not item types |
 | `summary` | a block of `naima summary` |
 | `rank` | an additive urgency term; lower is more urgent |
+| `hooks` | [write hooks](#write-hooks): `beforeWrite(write, ctx)`, which may change what is written or refuse it, and `afterWrite(write, ctx)`, on every item write |
 | `migrations` | its own data migrations, in order from its format 1: `from`, `says`, and pure `config(raw)`, `item(meta)`, `stale(meta)`; its format is 1 + their number ([migrations](format.md#migrations)) |
 
 First-party plugins declare two more: the `gates` plugin declares `gates` (a
@@ -111,7 +112,7 @@ Every contribution has a **qualified id**, `<plugin>/<name>` — `trackers/fixed
 `fixedOn`, never `trackers/fixedOn`.
 
 - **A name that only runs** — a command, a view, a check, a summary section,
-  a rank term — may be declared by several plugins. Each still runs, and
+  a rank term, a write hook — may be declared by several plugins. Each still runs, and
   `naima plugins` shows its qualified id; its short name stops resolving the
   moment a second plugin declares it, with an error naming both qualified ids
   (`naima ops/list`, `naima view ops/next`).
@@ -124,8 +125,9 @@ Every contribution has a **qualified id**, `<plugin>/<name>` — `trackers/fixed
 { "rename": { "fields": { "ops/priority": "severity" } } }
 ```
 
-`rename` maps a kind (`types`, `fields`, `relations`, `dirs`, `gates`,
-`verifiers`, `commands`, `views`, `checks`, `summary`, `rank`) to qualified
+`rename` maps an extension point's id (`types`, `fields`, `relations`,
+`dirs`, `gates`, `verifiers`, `commands`, `views`, `checks`, `summary`,
+`rank`, `hooks`, or any point a plugin declares with `renamed`) to qualified
 ids and the short name each goes by instead. A renamed type's directory
 follows its new name, and a relation's inverse follows its relation. A plugin
 reads its own names through the `scope` its factory receives —
@@ -153,8 +155,8 @@ Every hook receives a `Context`: the project `root`, the data directory
 `linksOf` with inverses), `reload()` for a change made on disk without the
 helpers, `out`/`err`, and `now()`. Write through the public helpers
 (`createItem`, `saveMeta`, `setFields`, `addLink`, `moveItem`, `writeJson`,
-`writeFileAtomic`) so that ids and validation stay consistent, and no crash
-leaves a file half written. Read a field through
+`writeFileAtomic`) so that ids and validation stay consistent, every plugin's
+[write hooks](#write-hooks) run, and no crash leaves a file half written. Read a field through
 `fieldValue(item, { name: "fixedOn", kind: "date" } as const)`, typed by its
 kind (and `setFieldValue` to change one): the project compiles with
 `noPropertyAccessFromIndexSignature`, so `item.meta.fixdOn` is an error, not a
@@ -179,14 +181,59 @@ adds the rest:
 
 Render anything caught with `message(e)`, never `(e as Error).message`.
 
+## Write hooks
+
+Every item write the core's helpers make — `createItem`, `saveMeta`,
+`setFields`, `addLink`, `moveItem`, and so every command built on them (`new`,
+`set`, `link`, `unlink`, `close`, `verify`, `triage`) — runs every plugin's
+write hooks, in plugin load order:
+
+```ts
+hooks: [{
+  name: "no-large-notes",
+  says: "what it does, in one line: it is the reference",
+  beforeWrite(write, ctx) {          // before anything is on disk
+    if (write.item.meta["size"] === "L") return "large notes are not allowed — split it, or set size=S"
+    write.item.meta["checkedOn"] = today(ctx)   // or change what is written
+  },
+  afterWrite(write, ctx) {},         // after it, with the item as written
+}]
+```
+
+A `Write` is `{ kind, item, before, to?, force }`: `kind` is `create`,
+`update` or `move`; `item` is the item as it is about to be written (on a
+create its directory does not exist yet); `before` its fields as they are on
+disk, `null` for a create; `to` the type a move goes to; `force` the command's
+`--force`, which a hook may honour.
+
+- **Order.** `beforeWrite` runs in load order, each hook seeing the changes
+  of the hooks before it; then the write; then `afterWrite`, in the same
+  order.
+- **A refusal** is a returned string: a sentence saying what to do instead.
+  The first one stops the write, and every later hook; nothing is on disk,
+  and the helper throws a `NaimaError` (code `vetoed`, exit `2`) whose message
+  is the sentence and the hook's name. A command that refuses leaves the item
+  as it was in memory too.
+- **A refusal with no sentence** — an empty or blank string — is a bug in the
+  hook, reported as an internal error: a hook that vetoes says why.
+- **Not item writes:** `writeJson` and `writeFileAtomic` on a plugin's own
+  files (a claim, a run record, a session note), and the data migrations,
+  which rewrite every item to a new format.
+
+The first-party hooks — triage stamping `triagedOn`, a property reopening when
+what it was verified on changes, `holds` written only by `naima verify`, and
+no branch closing an item it claims — are listed in the
+[reference](reference.md).
+
 ## Cooperation without imports
 
 Plugins do not import each other. They cooperate through what they declare:
 the `trackers` plugin's `close` accepts any item whose status `proves`, so a
-`verifier` property that holds closes a bug exactly as a passed test does; the
-`gates` plugin lists every gate contributed to its `gates` point, including
-the verifier's `properties` gate (a contribution the verifier makes
-`optional`, so it is dropped when no gates plugin is loaded); `triage` and `gates` each add a `rank` term and the core
+`verifier` property that holds closes a bug exactly as a passed test does, and
+refuses on any whose status `refutes`, or that a check reports; the `gates`
+plugin lists every gate contributed to its `gates` point, including the
+verifier's `properties` gate (a contribution the verifier makes `optional`,
+so it is dropped when no gates plugin is loaded); `triage` and `gates` each add a `rank` term and the core
 sums them.
 
 ## The verifier contract
@@ -213,6 +260,16 @@ const myChecker: Verifier = {
 | `violated` | `violated` | the tool found a counterexample; return it as `counterexample` |
 | `error` | `error` | the tool could not run or reach a verdict |
 | `unknown` | `error` | the tool ran and could not decide (a bound was hit) |
+
+**Programs it starts.** A verifier that runs an external tool declares it:
+`runs: ["tlc"]` — a name looked up on `PATH`, or an absolute path; one word,
+no comma. `runs` is not the verifier's alone: a contribution to any point may
+declare the programs it starts, and the core collects them from every point.
+The launcher allows the program exactly the declared programs, besides
+`git`: it asks the program about to run (`naima runs --json`, under read
+permission only) when the project loads a third-party plugin or a
+replacement, since no first-party contribution starts a program. Anything
+undeclared fails with Deno's own `Requires run access`.
 
 An adapter that throws is recorded as `error` with the message as output. So
 is a result outside the contract — a verdict not in the table, or no string

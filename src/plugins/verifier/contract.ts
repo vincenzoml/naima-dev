@@ -23,6 +23,11 @@ export interface VerifyResult {
 export interface Verifier {
   id: string
   says: string
+  /**
+   * The external programs `verify` starts (a model checker, say), by name on PATH or by absolute path. The launcher
+   * grants the program exactly these besides git; a program not declared here cannot be started under it.
+   */
+  runs?: string[]
   verify(request: VerifyRequest, ctx: Context): Promise<VerifyResult>
 }
 

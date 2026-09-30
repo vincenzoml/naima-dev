@@ -51,9 +51,13 @@ function world() {
   }
 }
 
-/** Naima through a launcher: any Naima's, run from inside the project. */
+/** Naima through a launcher: any Naima's, run from inside the project; `extraEnv` added to the environment. */
 function launch(launcher: string, cwd: string, ...args: string[]) {
-  const env: Record<string, string | undefined> = { ...process.env, NO_COLOR: "1", NAIMA_DATA: undefined, NAIMA_LAUNCHED: undefined }
+  return launchWith({}, launcher, cwd, ...args)
+}
+
+function launchWith(extraEnv: Record<string, string>, launcher: string, cwd: string, ...args: string[]) {
+  const env: Record<string, string | undefined> = { ...process.env, NO_COLOR: "1", NAIMA_DATA: undefined, NAIMA_LAUNCHED: undefined, ...extraEnv }
   const r = spawnSync("deno", ["run", "-A", launcher, ...args], { cwd, encoding: "utf8", env })
   return { code: r.status, out: r.stdout.trim(), err: r.stderr.trim() }
 }
@@ -227,17 +231,48 @@ export default () => ({
 })
 `,
   )
+  writeFileSync(
+    join(dir, "plugins", "tool.ts"),
+    `export default () => ({
+  name: "tool",
+  says: "a verifier that starts an external program",
+  verifiers: [{
+    id: "echoes",
+    says: "holds when echo, an external program, prints the property back",
+    runs: ["echo"],
+    verify: async ({ property }: { property: string }) => {
+      const out = new TextDecoder().decode(new Deno.Command("echo", { args: [property] }).outputSync().stdout).trim()
+      return { verdict: out === property ? "holds" : "error", output: out }
+    },
+  }],
+})
+`,
+  )
   git(dir, "add", "-A")
   git(dir, "commit", "-q", "-m", "A fork with a plugin")
   return { dir, commit: git(dir, "rev-parse", "HEAD") }
 }
 
-test("a fork source is honoured: the whole project runs that fork at that commit", () => {
+/** Accept the source naima.json now names, as whoever changed it must: naima update --accept-source. */
+function accept(host: string) {
+  const r = naima(host, "update", "--accept-source")
+  assert.equal(r.code, 0, r.err)
+  return r
+}
+
+test("a fork source is honoured once accepted: the whole project runs that fork at that commit", () => {
   const w = world()
   try {
     bootstrap(w)
     const f = fork(w)
     setLock(w.host, { source: f.dir, commit: f.commit, plugins: { escape: { source: "plugins/escape.ts" } } })
+    const refused = naima(w.host, "fork-says")
+    assert.equal(refused.code, 2)
+    assert.match(refused.err, /^naima: the lock's source changed: .*\/naima → .*\/fork, locked commit moved \w{12} → \w{12} — .*naima update --accept-source$/)
+    assert.equal(git(programOf(w.host), "remote", "get-url", "origin"), w.source, "refused: the program still follows the source it was aligned from")
+    const check = naima(w.host, "update", "--check")
+    assert.equal(check.code, 0, `update --check only reads the source, so it still answers: ${check.err}`)
+    assert.match(accept(w.host).out, /^trusted .*\/fork at the locked commit \w{12}; nothing else moved$/m)
     const r = naima(w.host, "fork-says")
     assert.equal(r.code, 0, r.err)
     assert.equal(r.out, "this is the fork")
@@ -254,6 +289,7 @@ test("under the launcher's permissions Naima writes only under naima-tracker/ an
     bootstrap(w)
     const f = fork(w)
     setLock(w.host, { source: f.dir, commit: f.commit, plugins: { escape: { source: "plugins/escape.ts" } } })
+    accept(w.host)
     assert.equal(naima(w.host, "write-inside").code, 0)
     assert.ok(existsSync(join(w.host, "naima-tracker", "naima-data", "inside.txt")))
     const write = naima(w.host, "write-outside")
@@ -263,6 +299,92 @@ test("under the launcher's permissions Naima writes only under naima-tracker/ an
     const run = naima(w.host, "run-other")
     assert.equal(run.code, 2)
     assert.equal(run.err, 'naima: Requires run access to "ls", run again with the --allow-run flag')
+  } finally {
+    w.cleanup()
+  }
+})
+
+test("a pulled lock that moves the commit on the same source is followed, and says so", () => {
+  const w = world()
+  try {
+    bootstrap(w)
+    const before = lockOf(w.host).commit
+    const after = w.advance()
+    setLock(w.host, { commit: after }) // a teammate's naima update, merged
+    const r = naima(w.host, "check")
+    assert.equal(r.code, 0, r.err)
+    assert.equal(r.err, `naima: locked commit moved ${before.slice(0, 12)} → ${after.slice(0, 12)}`)
+    assert.equal(git(programOf(w.host), "rev-parse", "HEAD"), after)
+  } finally {
+    w.cleanup()
+  }
+})
+
+test('verify: "signed" runs a locked commit only when git verifies its signature', () => {
+  const w = world()
+  try {
+    bootstrap(w)
+    const key = join(w.base, "signer")
+    spawnSync("ssh-keygen", ["-q", "-t", "ed25519", "-N", "", "-C", "signer", "-f", key])
+    const signers = join(w.base, "allowed_signers")
+    writeFileSync(signers, `test@example.invalid ${readFileSync(`${key}.pub`, "utf8")}`)
+    const trust = { GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: "gpg.ssh.allowedSignersFile", GIT_CONFIG_VALUE_0: signers }
+    const run = (...args: string[]) => launchWith(trust, join(programOf(w.host), "naima.ts"), w.host, ...args)
+
+    const unsigned = w.advance()
+    setLock(w.host, { commit: unsigned, verify: "signed" })
+    const refused = run("check")
+    assert.equal(refused.code, 2)
+    assert.match(refused.err, /^naima: commit \w{12} of .* carries no signature git can verify .* verify: "signed"/)
+    assert.notEqual(git(programOf(w.host), "rev-parse", "HEAD"), unsigned, "refused: the program stays where it was")
+
+    writeFileSync(join(w.source, "src", "marker.txt"), "signed\n")
+    git(w.source, "add", "-A")
+    git(w.source, "-c", "gpg.format=ssh", "-c", `user.signingkey=${key}`, "commit", "-q", "-S", "-m", "signed")
+    const signed = w.head()
+    setLock(w.host, { commit: signed })
+    const ok = run("check")
+    assert.equal(ok.code, 0, ok.err)
+    assert.equal(git(programOf(w.host), "rev-parse", "HEAD"), signed)
+  } finally {
+    w.cleanup()
+  }
+})
+
+test("a verifier's declared programs, and only they, are allowed besides git", () => {
+  const w = world()
+  try {
+    bootstrap(w)
+    const f = fork(w)
+    setLock(w.host, { source: f.dir, commit: f.commit, plugins: { tool: { source: "plugins/tool.ts" }, escape: { source: "plugins/escape.ts" } } })
+    accept(w.host)
+    assert.equal(naima(w.host, "runs", "--json").out, '["echo"]')
+    writeFileSync(join(w.host, "model.txt"), "anything\n")
+    assert.equal(naima(w.host, "new", "properties", "Echo answers", "--set", "verifier=echoes", "--set", "model=model.txt", "--set", "property=hello").code, 0)
+    const v = naima(w.host, "verify", "echo-answers")
+    assert.equal(v.code, 0, v.out + v.err)
+    assert.match(v.out, /^holds/)
+    const other = naima(w.host, "run-other")
+    assert.equal(other.err, 'naima: Requires run access to "ls", run again with the --allow-run flag', "a program nobody declared is still refused")
+  } finally {
+    w.cleanup()
+  }
+})
+
+test("under the launcher, the trunk reads another worktree's uncommitted claim from its disk", () => {
+  const w = world()
+  try {
+    bootstrap(w)
+    assert.equal(naima(w.host, "new", "bugs", "Alpha").code, 0)
+    git(w.host, "add", "-A")
+    git(w.host, "commit", "-q", "-m", "Track with Naima")
+    const wt = join(w.base, "wt")
+    git(w.host, "worktree", "add", "-q", "-b", "fix/alpha", wt)
+    const claim = launch(join(programOf(w.host), "naima.ts"), wt, "claim", "alpha")
+    assert.equal(claim.code, 0, claim.err)
+    const claims = naima(w.host, "claims")
+    assert.equal(claims.code, 0, claims.err)
+    assert.match(claims.out, /^fix\/alpha\n {2}bugs\/alpha {2}Alpha$/m, "not committed on fix/alpha, and seen from the trunk")
   } finally {
     w.cleanup()
   }

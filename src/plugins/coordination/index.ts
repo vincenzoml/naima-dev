@@ -31,6 +31,7 @@ import {
   today,
   usageError,
   writeFileAtomic,
+  type WriteHook,
   writeJson,
 } from "../../core/index.ts"
 
@@ -304,6 +305,28 @@ const claimsResolve: Check = {
       ),
 }
 
+/**
+ * AGENTS.md: a branch does not close its own items on the strength of its own
+ * tests. Its own items are the ones it claims; closing one there is marking
+ * its own homework, so it waits for the trunk — or for `--force`, from the
+ * one who owns the evidence.
+ */
+const noClosingOwnWork: WriteHook = {
+  name: "no-closing-own-claims",
+  says:
+    "archiving an item (a move to a type that is not creatable, as naima close does) that the branch you stand on claims is refused unless --force: a branch does not close its own items on the strength of its own tests",
+  beforeWrite(write, ctx) {
+    if (write.kind !== "move" || write.to?.creatable !== false || write.force) return
+    const branch = currentBranch(ctx.root)
+    if (branch === "HEAD") return // detached: no branch, so no claim of its own
+    const id = write.item.meta.id
+    if (!readClaims(ctx).some((c) => c.branch === branch && c.items.some((e) => e.id === id))) return
+    return `${
+      label(write.item)
+    } is claimed by ${branch}, the branch you are on: a branch does not close its own items on the strength of its own tests — merge the work and close it from the trunk once someone else has checked the proof, or pass --force if you own the evidence`
+  },
+}
+
 const whereWeWere: SummarySection = {
   name: "where we were",
   render(ctx) {
@@ -334,12 +357,13 @@ export default function coordination(): Plugin {
     about:
       "No session writes a file another session writes. A claim is one file per branch, `claims/<uuid>.json`; a session note is one file per session, `passes/<date>-<uuid>.md`. " +
       "Both are written on the writer's own branch and never staged or committed by the tool: commit them with the work. " +
-      "`claims`, `pass --list` and `summary` recombine them at read time from the trunk, every branch not merged into it, and whatever each worktree stands on, uncommitted files included. " +
+      "`claims`, `pass --list` and `summary` recombine them at read time from every local branch — the trunk, every branch not merged into it, whatever each worktree stands on — each read from the disk of the worktree that stands on it, uncommitted files included, or from its ref when none does; remote-tracking refs are not read. " +
       "The trunk is the branch origin's HEAD names, else `main`, else `master`; without one, every local branch is read. A claim belongs to a branch, so on a detached HEAD `claim` is refused. " +
       "Several branches may claim one item: `claim` says who else holds it rather than refusing.",
     dirs: [CLAIMS, PASSES],
     checks: [claimsResolve],
     commands: [claim, release, claims, prune, pass],
     summary: [whereWeWere, inHand],
+    hooks: [noClosingOwnWork],
   }
 }

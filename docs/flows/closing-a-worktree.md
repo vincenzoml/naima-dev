@@ -27,6 +27,12 @@ gesture also says `humanBecause` ([asking the human](asking-the-human.md)).
 
 A test nobody can find is a test nobody runs: triage it like any item.
 
+The proof is the gesture as it stands, not as it once stood: `naima close`
+refuses an item that a verifying item refutes (a failed test, a violated
+property), and one whose verifying item `naima check` reports — a property
+that holds on a model changed since its run
+([closing](reporting-and-triage.md#7-closing)).
+
 ## 2. Triage what is left open
 
 You are the last person who looked at these items. Set what you know;
@@ -111,5 +117,8 @@ git worktree remove <path>
 - **Closing the branch's own items.** An item is closed once it is fixed
   *and* proven by a gesture, and a branch that closes its own items on the
   strength of its own green tests is marking its own homework. `naima close`
-  refuses anything that is not resolved.
+  refuses anything that is not resolved, and refuses an item the branch you
+  stand on claims: close it from the trunk, after the merge, once someone
+  else has checked the proof. `naima close --force` is for the one who owns
+  the evidence — a proof someone else performed, recorded here.
 - **Deleting the scratchpad.** It was never tracked.

@@ -1,16 +1,20 @@
 import assert from "node:assert/strict"
 import { spawn } from "node:child_process"
-import { existsSync, mkdirSync, readdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { test } from "node:test"
 import { fileURLToPath } from "node:url"
 import {
   addLink,
   buildRegistry,
+  createContext,
   createItem,
+  DEFAULT_DATA,
+  DEFAULT_PROGRAM,
   fieldError,
   findData,
   FORMAT,
+  moveItem,
   parseConfig,
   parseFieldValue,
   type Plugin,
@@ -20,7 +24,7 @@ import {
   uniqueSlug,
 } from "./index.ts"
 import { corePlugin } from "./base.ts"
-import { tempProject } from "./testing.ts"
+import { gitIn, tempProject } from "./testing.ts"
 
 const notes: Plugin = {
   name: "notes",
@@ -488,4 +492,164 @@ test("properties: every value a field's kind accepts comes back from the command
     const day = d.toISOString().slice(0, 10)
     assert.equal(parseFieldValue(defs.date, day), day)
   }
+})
+
+test("every write helper runs every plugin's beforeWrite and afterWrite, in load order, with the fields on disk before it", async () => {
+  const seen: string[] = []
+  const recorder = (name: string): Plugin => ({
+    name,
+    says: "records writes",
+    hooks: [{
+      name: `${name}-hook`,
+      says: "records every write",
+      beforeWrite: (w) => void seen.push(`${name} before ${w.kind} ${w.item.meta.title} was=${w.before?.["size"] ?? w.before?.status ?? "-"}`),
+      afterWrite: (w) => void seen.push(`${name} after ${w.kind} ${w.item.type}/${w.item.slug}`),
+    }],
+  })
+  const archive: Plugin = {
+    name: "archive",
+    says: "an archive to move to",
+    types: [{ id: "old", dir: "OLD", title: "Old", says: "", statuses: { gone: { category: "done", says: "" } }, initialStatus: "gone", creatable: false }],
+  }
+  const p = tempProject([notes, archive, recorder("first"), recorder("second")])
+  try {
+    const { ctx } = p
+    const a = createItem(ctx, ctx.registry.types.get("notes")!, "Alpha")
+    const b = createItem(ctx, ctx.registry.types.get("notes")!, "Beta")
+    setFields(ctx, a, [["size", "S"]])
+    addLink(ctx, a, "relates-to", b)
+    assert.equal(await p.run("unlink", "alpha", "relates-to", "beta"), 0)
+    assert.equal(await p.run("set", "alpha", "size=L"), 0)
+    moveItem(ctx, ctx.repo.resolve("beta"), ctx.registry.types.get("old")!)
+    assert.deepEqual(seen, [
+      "first before create Alpha was=-",
+      "second before create Alpha was=-",
+      "first after create notes/alpha",
+      "second after create notes/alpha",
+      "first before create Beta was=-",
+      "second before create Beta was=-",
+      "first after create notes/beta",
+      "second after create notes/beta",
+      ...["first", "second"].map((n) => `${n} before update Alpha was=open`),
+      ...["first", "second"].map((n) => `${n} after update notes/alpha`),
+      ...["first", "second"].map((n) => `${n} before update Alpha was=S`), // link
+      ...["first", "second"].map((n) => `${n} after update notes/alpha`),
+      ...["first", "second"].map((n) => `${n} before update Alpha was=S`), // unlink
+      ...["first", "second"].map((n) => `${n} after update notes/alpha`),
+      ...["first", "second"].map((n) => `${n} before update Alpha was=S`), // set size=L
+      ...["first", "second"].map((n) => `${n} after update notes/alpha`),
+      ...["first", "second"].map((n) => `${n} before move Beta was=open`),
+      ...["first", "second"].map((n) => `${n} after move old/beta`),
+    ])
+  } finally {
+    p.cleanup()
+  }
+})
+
+test("a beforeWrite hook may change what is written, or refuse: the refusal says why, and nothing is written", async () => {
+  const guard: Plugin = {
+    name: "guard",
+    says: "refuses large notes, and upper-cases titles",
+    hooks: [
+      { name: "shout", says: "upper-cases titles", beforeWrite: (w) => void (w.item.meta.title = w.item.meta.title.toUpperCase()) },
+      { name: "no-large", says: "refuses size L", beforeWrite: (w) => (w.item.meta["size"] === "L" ? "large notes are not allowed — use S" : undefined) },
+    ],
+  }
+  const p = tempProject([notes, guard])
+  try {
+    const { ctx } = p
+    const type = ctx.registry.types.get("notes")!
+    const a = createItem(ctx, type, "Alpha")
+    assert.equal(JSON.parse(readFileSync(join(a.dir, "meta.json"), "utf8")).title, "ALPHA")
+    assert.throws(() => createItem(ctx, type, "Big", { size: "L" }), /large notes are not allowed — use S \(refused by no-large\)/)
+    assert.equal(existsSync(join(ctx.trackerRoot, "NOTES", "big")), false, "a refused create leaves no directory")
+    assert.throws(() => setFields(ctx, a, [["size", "L"]]), /refused by no-large/)
+    assert.equal(a.meta["size"], undefined, "a refused set leaves the item as it was, in memory")
+    assert.equal(JSON.parse(readFileSync(join(a.dir, "meta.json"), "utf8")).size, undefined, "and on disk")
+    await assert.rejects(p.run("set", "alpha", "size=L"), (e: Error) => e.name === "NaimaError" && /use S/.test(e.message))
+  } finally {
+    p.cleanup()
+  }
+})
+
+test("a hook that refuses without saying why is a bug in the hook, not a refusal", () => {
+  const mute: Plugin = { name: "mute", says: "refuses silently", hooks: [{ name: "mute", says: "refuses everything", beforeWrite: () => "  " }] }
+  const p = tempProject([notes, mute])
+  try {
+    assert.throws(
+      () => createItem(p.ctx, p.ctx.registry.types.get("notes")!, "Alpha"),
+      (e: Error) => e instanceof TypeError && /without saying why/.test(e.message),
+    )
+  } finally {
+    p.cleanup()
+  }
+})
+
+test("a write hook's name is qualified: two plugins' hooks by one name both run, and are told apart by id", () => {
+  const hook = { name: "same", says: "x" }
+  const r = buildRegistry([{ name: "a", says: "a", hooks: [hook] }, { name: "b", says: "b", hooks: [hook] }])
+  assert.equal(r.hooks.length, 2)
+  assert.deepEqual(r.contributions("hooks").map((c) => c.id), ["a/same", "b/same"])
+  assert.throws(() => buildRegistry([{ name: "a", says: "a", hooks: [hook, hook] }]), /write hook "same" is declared twice by "a"/)
+})
+
+test("two branches that open an item with one title take two slugs, and merge without a conflict", () => {
+  const p = tempProject([notes], { git: true })
+  const wb = `${p.root}-b`
+  try {
+    const type = p.ctx.registry.types.get("notes")!
+    p.git("worktree", "add", "-q", "-b", "b", wb)
+    p.git("checkout", "-q", "-b", "a")
+    assert.equal(createItem(p.ctx, type, "Same title").slug, "same-title")
+    p.git("add", "-A")
+    p.git("commit", "-q", "-m", "a")
+    const onB = createContext({ root: wb, data: join(wb, DEFAULT_DATA), program: join(wb, DEFAULT_DATA, DEFAULT_PROGRAM) }, p.ctx.config, p.ctx.registry)
+    assert.equal(createItem(onB, type, "Same title").slug, "same-title-2", "a is not merged, and its slug is seen from b")
+    // Not yet committed on b: seen from a third branch through b's worktree.
+    p.git("checkout", "-q", "-b", "c", "main")
+    assert.equal(createItem(p.ctx, type, "Same title").slug, "same-title-3")
+    gitIn(wb, "add", "-A")
+    gitIn(wb, "commit", "-q", "-m", "b")
+    p.git("add", "-A")
+    p.git("commit", "-q", "-m", "c")
+    p.git("checkout", "-q", "main")
+    p.git("merge", "-q", "--no-edit", "a", "b", "c")
+    assert.deepEqual(readdirSync(join(p.ctx.trackerRoot, "NOTES")).sort(), ["same-title", "same-title-2", "same-title-3"])
+  } finally {
+    p.cleanup()
+    rmSync(wb, { recursive: true, force: true })
+  }
+})
+
+test("when the other branches cannot be read — a shallow clone — a new slug ends in its uuid's first eight characters", () => {
+  const p = tempProject([notes], { git: true })
+  const shallow = `${p.root}-shallow`
+  try {
+    p.git("commit", "-q", "--allow-empty", "-m", "two")
+    gitIn(p.root, "clone", "-q", "--depth", "1", `file://${p.root}`, shallow)
+    const ctx = createContext(
+      { root: shallow, data: join(shallow, DEFAULT_DATA), program: join(shallow, DEFAULT_DATA, DEFAULT_PROGRAM) },
+      p.ctx.config,
+      p.ctx.registry,
+    )
+    const item = createItem(ctx, p.ctx.registry.types.get("notes")!, "Same title")
+    assert.equal(item.slug, `same-title-${item.meta.id.slice(0, 8)}`)
+    assert.equal(createItem(p.ctx, p.ctx.registry.types.get("notes")!, "Same title").slug, "same-title", "a full clone reads its branches")
+  } finally {
+    p.cleanup()
+    rmSync(shallow, { recursive: true, force: true })
+  }
+})
+
+test("a contribution names each program it runs by one word or an absolute path, which the launcher can pass to Deno", () => {
+  const tools = (runs: unknown[]): Plugin => ({
+    name: "v",
+    says: "v",
+    points: [{ id: "tools", noun: "tool", says: "a tool", key: (t: { id: string }) => t.id }],
+    contributes: { tools: [{ id: "checker", runs }] },
+  })
+  for (const bad of ["tlc,java", "two words", ""]) {
+    assert.throws(() => buildRegistry([tools([bad])]), /runs .*one word or an absolute path/, bad)
+  }
+  assert.deepEqual((buildRegistry([tools(["tlc", "/usr/bin/java"])]).find("tools", "checker")?.value as { runs: string[] }).runs, ["tlc", "/usr/bin/java"])
 })

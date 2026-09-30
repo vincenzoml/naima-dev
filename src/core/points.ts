@@ -17,6 +17,7 @@ import type {
   SummarySection,
   TypeDef,
   View,
+  WriteHook,
 } from "./types.ts"
 
 const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v)
@@ -81,7 +82,17 @@ export const typesPoint: ExtensionPoint<TypeDef> = {
   key: (t) => t.id,
   renamed: (t, id) => ({ ...t, id, dir: id }),
   validate: (v) =>
-    shape(v, (t) => text(t, "id"), (t) => text(t, "dir"), (t) => text(t, "title"), (t) => (isObject((t as TypeDef).statuses) ? null : "has no statuses")),
+    shape(
+      v,
+      (t) => text(t, "id"),
+      (t) => text(t, "dir"),
+      (t) => text(t, "title"),
+      (t) => (isObject((t as TypeDef).statuses) ? null : "has no statuses"),
+      (t) => {
+        const both = Object.entries((t as TypeDef).statuses).find(([, s]) => s.proves && s.refutes)
+        return both ? `"${(t as TypeDef).id}" has status "${both[0]}", which both proves and refutes` : null
+      },
+    ),
   gaps: (
     t,
   ) => [...says(t, "is"), ...Object.entries(t.statuses).flatMap(([name, s]) => (blank(s.says) ? [`: status "${name}" does not say what it means`] : []))],
@@ -228,6 +239,22 @@ export const migrationsPoint: ExtensionPoint<Migration> = {
   ],
 }
 
+export const hooksPoint: ExtensionPoint<WriteHook> = {
+  id: "hooks",
+  says: "hooks on every item write: `beforeWrite(write, ctx)` may change or refuse it, `afterWrite(write, ctx)` sees it done",
+  noun: "write hook",
+  key: (h) => h.name,
+  renamed: (h, name) => ({ ...h, name }),
+  validate: (v) =>
+    shape(v, (h) => text(h, "name"), (h) => {
+      const { beforeWrite, afterWrite } = h as WriteHook
+      if (beforeWrite !== undefined && typeof beforeWrite !== "function") return "has a beforeWrite that is not a function"
+      return afterWrite !== undefined && typeof afterWrite !== "function" ? "has an afterWrite that is not a function" : null
+    }),
+  gaps: (h) => says(h, "does"),
+  document: (hooks) => ["", "**Write hooks**, run on every item write", ...table(["Hook", "What it does"], hooks.map((h) => [code(h.name), h.says]))],
+}
+
 /** The core's points, in the order the reference documents a plugin's contributions. */
 export const CORE_POINTS: readonly ExtensionPoint[] = [
   commandsPoint,
@@ -239,6 +266,7 @@ export const CORE_POINTS: readonly ExtensionPoint[] = [
   dirsPoint,
   summaryPoint,
   rankPoint,
+  hooksPoint,
   migrationsPoint,
 ]
 

@@ -125,6 +125,24 @@ way, the run ends aligned. Alignment:
   worktree's, or from the project itself when the project is Naima (whose
   dist commits are there once `origin/dist` is fetched), so it is not
   downloaded again.
+- **follows the lock, and says so.** A pulled `naima.json` whose `commit`
+  moved — a teammate's `naima update`, merged — is followed, and the run
+  prints `naima: locked commit moved <a> → <b>` once.
+- **refuses a changed source.** A pulled `naima.json` whose `source` is not
+  the one the program was aligned from is refused, naming both sources and
+  both commits: Naima runs whatever that source holds, so a new one is
+  trusted only on purpose. Review why it changed, then
+
+  ```sh
+  naima update --accept-source     # align to the locked commit of the new source; nothing else moves
+  ```
+
+  `naima update --check` still answers meanwhile: it only reads the source.
+- **checks signatures, when asked.** With `"verify": "signed"` in
+  `naima.json`, a commit is run, or updated to, only when `git verify-commit`
+  verifies it, with the keys git is configured to trust (gpg, or ssh with
+  `gpg.ssh.allowedSignersFile`). Otherwise it is refused, and the program
+  stays where it was.
 - **never pulls.** Running whatever lands on a branch would be a supply
   chain risk. Only `naima update` asks the source anything.
 
@@ -163,9 +181,9 @@ under Deno with only these:
 
 | Permission | Granted | Why |
 |---|---|---|
-| read | the repository, and the program wherever it is | items, the project's markdown and source (the docs and beta-marker checks read them), git's view of branches |
+| read | the repository, the program wherever it is, and the data directory of every other worktree of the project | items, the project's markdown and source (the docs and beta-marker checks read them), git's view of branches, and the uncommitted claims and notes of the other worktrees |
 | write | `naima-tracker/` only, and the data or program directory if moved out of it | items, claims, notes, the program's own alignment; nothing else in the project |
-| run | `git` only | alignment, update and carry, and reading claims and notes across branches |
+| run | `git`, and the programs the loaded contributions declare | alignment, update and carry, and reading claims and notes across branches; a verifier's model checker (its `runs`, [the contract](plugin-contract.md#the-verifier-contract)) |
 | env | an allow-list: `HOME`, `PATH`, the user, shell, terminal, locale and temporary-directory variables, the proxy variables, Windows' system ones, and every `NAIMA_*`, `GIT_*`, `SSH_*`, `LC_*` and `DENO_*` | what git needs to reach a source, and Naima's own; nothing else of the environment reaches the program, nor the git it runs |
 | net | none | the network is git's, in alignment and update |
 

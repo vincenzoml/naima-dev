@@ -37,6 +37,7 @@ Every contribution below has a qualified id, `<plugin>/<name>`, and goes by its 
 | [`summary`](#naima-summary) | core | where the project stands, in one screen: every plugin's section |
 | [`plugins`](#naima-plugins) | core | list loaded plugins, the extension points each declares, and what each contributes to every point; a contribution's qualified id is <plugin>/<name>, shown when its short name is shared or renamed |
 | [`types`](#naima-types) | core | list item types, their statuses and fields |
+| [`runs`](#naima-runs) | core | list the external programs the loaded contributions declare they start (a verifier's model checker, say), which the launcher allows besides git |
 | [`close`](#naima-close) | trackers | archive a resolved item: fixed, and proven by an item that has passed |
 | [`bugs`](#naima-bugs) | trackers | how many bugs have no code written, and how many are fixed but unproven |
 | [`claim`](#naima-claim) | coordination | record that this branch is working on items (writes one file on this branch) |
@@ -67,6 +68,7 @@ Every kind of contribution is an extension point: the core's own, and any a plug
 | `dirs` | core | directories under the tracker root a plugin owns that are not item types | coordination |
 | `summary` | core | a block of `naima summary` | core, trackers, coordination, triage, gates, beta-markers |
 | `rank` | core | an additive term of every item's urgency; lower is more urgent | triage, gates |
+| `hooks` | core | hooks on every item write: `beforeWrite(write, ctx)` may change or refuse it, `afterWrite(write, ctx)` sees it done | coordination, triage, verifier |
 | `migrations` | core | a plugin's own data migrations, in order from its format 1, run by `naima update` after the core's | gates |
 | `gates` | gates | a named release or merge condition, backed by items: `title`, `says`, `decides`, `evaluate(ctx) → { holds, blocking, owed }` | verifier |
 | `verifiers` | verifier | an adapter to a formal-methods tool: `verify({ model, property, options }, ctx) → { verdict, output, counterexample? }` | verifier |
@@ -103,18 +105,21 @@ naima init --write-excludes
 Move the lock to the head of the source's dist branch — its main, when the source publishes no dist: fetch it, migrate the data forward if its format moved, and record the new commit, as one change to commit; the only command that asks the source anything.
 
 ```sh
-naima update [--check]
+naima update [--check
+naima --accept-source]
 ```
 
 | Option | Default | What it does |
 |---|---|---|
 | `--check` |  | only say whether the source's dist (or main) has moved past the locked commit; exit 1 when it has |
+| `--accept-source` |  | trust the source naima.json now names, after reviewing why it changed: every other command refuses to run a program from a source it was not aligned from; aligns the program to the locked commit of the new source, and moves nothing else |
 
 Examples:
 
 ```sh
 naima update --check
 naima update
+naima update --accept-source
 ```
 
 ### naima carry
@@ -353,6 +358,25 @@ Examples:
 naima types
 ```
 
+### naima runs
+
+List the external programs the loaded contributions declare they start (a verifier's model checker, say), which the launcher allows besides git.
+
+```sh
+naima runs [--json]
+```
+
+| Option | Default | What it does |
+|---|---|---|
+| `--json` |  | print them as one JSON list: what the launcher reads |
+
+Examples:
+
+```sh
+naima runs
+naima runs --json
+```
+
 **Fields**
 
 | Field | Kind | Applies to | Meaning | Values |
@@ -405,13 +429,18 @@ An item whose proof needs a person says why in `humanBecause`. Only a judgement,
 Archive a resolved item: fixed, and proven by an item that has passed.
 
 ```sh
-naima close <item>
+naima close <item> [--force]
 ```
+
+| Option | Default | What it does |
+|---|---|---|
+| `--force` |  | close it although a write hook refuses — for the one who owns the evidence, say an item this branch claims whose proof someone else performed |
 
 Examples:
 
 ```sh
 naima close export-drops
+naima close export-drops --force
 ```
 
 ### naima bugs
@@ -517,7 +546,7 @@ Claims and session notes, one file per session, recombined from every branch.
 
 Its contributions' qualified ids are `coordination/<name>`.
 
-No session writes a file another session writes. A claim is one file per branch, `claims/<uuid>.json`; a session note is one file per session, `passes/<date>-<uuid>.md`. Both are written on the writer's own branch and never staged or committed by the tool: commit them with the work. `claims`, `pass --list` and `summary` recombine them at read time from the trunk, every branch not merged into it, and whatever each worktree stands on, uncommitted files included. The trunk is the branch origin's HEAD names, else `main`, else `master`; without one, every local branch is read. A claim belongs to a branch, so on a detached HEAD `claim` is refused. Several branches may claim one item: `claim` says who else holds it rather than refusing.
+No session writes a file another session writes. A claim is one file per branch, `claims/<uuid>.json`; a session note is one file per session, `passes/<date>-<uuid>.md`. Both are written on the writer's own branch and never staged or committed by the tool: commit them with the work. `claims`, `pass --list` and `summary` recombine them at read time from every local branch — the trunk, every branch not merged into it, whatever each worktree stands on — each read from the disk of the worktree that stands on it, uncommitted files included, or from its ref when none does; remote-tracking refs are not read. The trunk is the branch origin's HEAD names, else `main`, else `master`; without one, every local branch is read. A claim belongs to a branch, so on a detached HEAD `claim` is refused. Several branches may claim one item: `claim` says who else holds it rather than refusing.
 
 ### naima claim
 
@@ -622,13 +651,19 @@ naima pass --list 3
 
 **Summary sections**: `where we were`, `in hand`.
 
+**Write hooks**, run on every item write
+
+| Hook | What it does |
+|---|---|
+| `no-closing-own-claims` | archiving an item (a move to a type that is not creatable, as naima close does) that the branch you stand on claims is refused unless --force: a branch does not close its own items on the strength of its own tests |
+
 ## triage
 
 Priority, impact, effort, confidence; the urgency ranking built from them.
 
 Its contributions' qualified ids are `triage/<name>`.
 
-Four fields rank an item, and no more. `effort` is never derived: nothing in a report says what a fix costs, and a size guessed from the wording is how an XL hides inside an S. `triage derive` infers only `confidence`, from the page's own words — an evidence verb negated up to three words before it ("could not be reproduced") reads as `unclear`, never `measured` — and stamps `triagedBy: derived` so a value a person set is never overwritten. Urgency is the sum of every plugin's rank terms, lower first; this plugin adds impact (×1.5), priority (×1.2) and effort (×0.3), each by its value's rank, unset counting as the middle.
+Four fields rank an item, and no more. `effort` is never derived: nothing in a report says what a fix costs, and a size guessed from the wording is how an XL hides inside an S. `triage derive` infers only `confidence`, from the page's own words — an evidence verb negated up to three words before it ("could not be reproduced") reads as `unclear`, never `measured` — and stamps `triagedBy: derived` so a value a person set is never overwritten. Urgency is the sum of every plugin's rank terms, lower first; this plugin adds impact (×1.5), priority (×1.2) and effort (×0.3), each by its value's rank; an unset impact or priority counts as the middle of its scale, an unset effort as its largest size (XL), so an item nobody has sized sinks.
 
 ### naima triage
 
@@ -674,6 +709,12 @@ naima triage derive --write
 **Summary sections**: `next up`.
 
 **Rank terms**, added to every item's urgency: `impact`, `priority`, `effort`.
+
+**Write hooks**, run on every item write
+
+| Hook | What it does |
+|---|---|
+| `triage-stamps-its-date` | a change to priority, impact, effort or confidence — by naima set, triage set, or any command — stamps triagedOn with today and drops triagedBy: derived; a write triage derive marks derived stamps nothing |
 
 ## gates
 
@@ -862,6 +903,13 @@ Properties: a property of the software, proven or refuted by a verifier. Items l
 | Check | What it holds |
 |---|---|
 | `property-evidence` | a property names a known verifier and an existing model; one that holds carries a run of its current property, verifier, model and options, on the model as it is now |
+
+**Write hooks**, run on every item write
+
+| Hook | What it does |
+|---|---|
+| `property-reopens-when-changed` | changing a property's property, model, verifier or verifierOptions sets its status back to open: the last run was reached on something else, and says nothing about it |
+| `holds-only-by-verify` | a property becomes holds only with a run that holds for exactly what it has now, as naima verify writes it; holds set by hand without one — naima set, naima new --set — is refused |
 
 **Gates**, listed by `naima gates`
 

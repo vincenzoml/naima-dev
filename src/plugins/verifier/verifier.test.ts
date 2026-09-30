@@ -204,3 +204,42 @@ test("a property's inputs are checked: its options are a declared field, its pat
     p.cleanup()
   }
 })
+
+test("changing what a property was verified on sets it back to open, by any command", async () => {
+  const p = tempProject([verifier()])
+  try {
+    const { ctx } = p
+    writeFileSync(join(p.root, "model.txt"), "alpha\nbeta\n")
+    writeFileSync(join(p.root, "copy.txt"), "alpha\nbeta\n")
+    const prop = createItem(ctx, ctx.registry.types.get("properties")!, "has beta", { verifier: "example-regex", model: "model.txt", property: "some beta" })
+    for (const change of ["property=some alpha", "model=copy.txt", 'verifierOptions={"depth":2}']) {
+      assert.equal(await p.run("verify", prop.slug), 0)
+      assert.equal(ctx.repo.resolve(prop.slug).meta.status, "holds")
+      assert.equal(await p.run("set", prop.slug, change), 0)
+      assert.equal(ctx.repo.resolve(prop.slug).meta.status, "open", change)
+      assert.deepEqual(runChecks(ctx).problems, [], "open claims nothing, so nothing is stale")
+    }
+    assert.equal(await p.run("verify", prop.slug), 0)
+    assert.equal(await p.run("set", prop.slug, "title=Has a beta"), 0)
+    assert.equal(ctx.repo.resolve(prop.slug).meta.status, "holds", "a change to anything else keeps the verdict")
+  } finally {
+    p.cleanup()
+  }
+})
+
+test("holds set by hand is refused; naima verify still writes it", async () => {
+  const p = tempProject([verifier()])
+  try {
+    const { ctx } = p
+    writeFileSync(join(p.root, "model.txt"), "alpha\n")
+    const type = ctx.registry.types.get("properties")!
+    const prop = createItem(ctx, type, "has alpha", { verifier: "example-regex", model: "model.txt", property: "some alpha" })
+    await assert.rejects(p.run("set", prop.slug, "status=holds"), /holds is written by naima verify.*naima verify has-alpha/)
+    assert.equal(ctx.repo.resolve(prop.slug).meta.status, "open")
+    assert.throws(() => createItem(ctx, type, "born holding", { status: "holds" }), /holds is written by naima verify/)
+    assert.equal(await p.run("verify", prop.slug), 0)
+    assert.equal(ctx.repo.resolve(prop.slug).meta.status, "holds")
+  } finally {
+    p.cleanup()
+  }
+})

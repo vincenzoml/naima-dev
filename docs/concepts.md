@@ -15,7 +15,9 @@ naima-tracker/naima-data/<type>/<slug>/attachments/    the evidence
 rest are fields declared by plugins. The slug is a readable name made from
 the title's words in whatever script they are written (Latin letters lose their
 accents; Cyrillic, CJK and every other letter are kept), and may
-change; the id never does, and links hold ids. On the command line an item is
+change; the id never does, and links hold ids. A slug another local branch
+already holds under the same type is not taken again
+([across branches](flows/worktree-isolation.md#item-slugs-across-branches)). On the command line an item is
 named by its id, `type/slug`, its slug, or any fragment of a slug that matches
 exactly one item.
 
@@ -39,6 +41,11 @@ Three states that are not synonyms:
   status proves: a test that passed, a property that holds.
 - **closed** — resolved, and moved to the archive by `naima close`, carrying
   its proof.
+
+A status may instead **refute** — a failed test, a violated property: then
+the item it verifies is not resolved whatever else proves it, and it blocks
+every gate the two are on. `naima close` also refuses a proof `naima check`
+reports as no longer current.
 
 "How many bugs are left" is the unfixed count (`naima bugs`); fixed-but-
 unproven is a different number, and the two are never added.
@@ -67,6 +74,8 @@ joins a gate by carrying `gate: <name>`. How each gate decides is in the
 
 State that belongs to no single branch — who is working on what, where each
 session left off — is written as one file per session on that session's own
-branch, and recombined when read from the trunk, every unmerged branch and
-every worktree's working copy. Two sessions never edit one file. The flows
+branch, and recombined when read from every local branch: the trunk and every
+unmerged branch, each read from the disk of the worktree that stands on it,
+uncommitted files included, or from its ref when none does. Remote-tracking
+refs are not read. Two sessions never edit one file. The flows
 that go with it: [flows](flows/README.md).

@@ -100,3 +100,11 @@ proves it as an item linked `verifies`, and the gesture performed and passed —
 then `naima close` moves the item to the archive, carrying its proof, so a
 regression is recognised when it comes back. Fixed but unproven stays open:
 the shape of a result is not its behaviour.
+
+The proof must also be **current**. `naima close` refuses when:
+
+- an item verifying it **refutes** it — a test that `failed`, a property
+  that is `violated`: evidence against outweighs any evidence for;
+- `naima check` finds a problem on an item verifying it — a property that
+  holds on a model, property, verifier or options changed since its run. Run
+  the gesture again (`naima verify`), then close.

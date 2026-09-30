@@ -9,7 +9,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { dirname, join, relative, resolve } from "node:path"
 import { test } from "node:test"
 import { fileURLToPath } from "node:url"
-import { firstParty } from "./builtins.ts"
+import { firstPartyPlugins } from "./builtins.ts"
 import { corePlugin } from "./core/base.ts"
 
 const SRC = dirname(fileURLToPath(import.meta.url))
@@ -108,7 +108,7 @@ const CONTRACT = ["types", "fields", "relations", "dirs", "checks", "commands", 
 function pluginVocabulary(): Set<string> {
   const core = new Set<string>([...CONTRACT, ...(corePlugin.fields ?? []).map((f) => f.name), ...(corePlugin.relations ?? []).map((r) => r.name)])
   const names = new Set<string>()
-  for (const p of firstParty.map((f) => f.factory({}, { plugin: f.name, name: (_kind, n) => n }))) {
+  for (const p of firstPartyPlugins()) {
     for (
       const n of [
         p.name,

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { writeFileSync } from "node:fs"
+import { readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { test } from "node:test"
 import { byUrgency, createItem, type Plugin, runChecks } from "../../core/index.ts"
@@ -51,6 +51,28 @@ test("urgency: impact before priority, effort breaks ties, done sinks", () => {
     createItem(ctx, type, "blocker small", { impact: "blocker", effort: "S" })
     createItem(ctx, type, "finished", { impact: "blocker", effort: "S", status: "done" })
     assert.deepEqual(byUrgency(ctx, ctx.repo.items).map((i) => i.meta.title), ["blocker small", "blocker big", "low", "finished"])
+  } finally {
+    p.cleanup()
+  }
+})
+
+test("an unset impact or priority counts as the middle of its scale, an unset effort as the largest size", () => {
+  const p = tempProject([things, triage()])
+  try {
+    const { ctx } = p
+    const type = ctx.registry.types.get("things")!
+    createItem(ctx, type, "sized XL", { impact: "high", priority: "now", effort: "XL" })
+    createItem(ctx, type, "sized L", { impact: "high", priority: "now", effort: "L" })
+    createItem(ctx, type, "unsized", { impact: "high", priority: "now" })
+    createItem(ctx, type, "impact high", { impact: "high", priority: "next", effort: "M" })
+    createItem(ctx, type, "impact medium", { impact: "medium", priority: "next", effort: "M" })
+    createItem(ctx, type, "impact unset", { priority: "next", effort: "M" })
+    const order = byUrgency(ctx, ctx.repo.items).map((i) => i.meta.title)
+    // Unsized ties with XL, and the slug breaks the tie: it never passes a sized L.
+    assert.ok(order.indexOf("sized L") < order.indexOf("unsized"), order.join(", "))
+    assert.ok(order.indexOf("sized XL") < order.indexOf("unsized"), order.join(", "))
+    // Unset impact sits between high and medium: the middle of blocker, high, medium, low.
+    assert.ok(order.indexOf("impact high") < order.indexOf("impact unset") && order.indexOf("impact unset") < order.indexOf("impact medium"), order.join(", "))
   } finally {
     p.cleanup()
   }
@@ -110,6 +132,34 @@ test("each triage subcommand answers a misuse with its own usage", async () => {
       p.run("triage", "nope"),
       /^NaimaError: usage: naima triage \| triage set <item> field=value\.\.\. \| triage missing \| triage derive \[--write\]$/,
     )
+  } finally {
+    p.cleanup()
+  }
+})
+
+test("a triage field changed by any command stamps triagedOn and stops being derived; derive stamps nothing", async () => {
+  const p = tempProject([things, triage()])
+  try {
+    const { ctx } = p
+    const item = createItem(ctx, ctx.registry.types.get("things")!, "Crash")
+    const meta = () => JSON.parse(readFileSync(join(item.dir, "meta.json"), "utf8"))
+    assert.equal(await p.run("triage", "derive", "--write"), 0)
+    assert.deepEqual([meta()["triagedBy"], meta()["triagedOn"]], ["derived", undefined], "derive is inference, not a person's triage")
+    assert.equal(await p.run("set", "crash", "impact=high"), 0)
+    assert.deepEqual([meta()["triagedBy"], meta()["triagedOn"]], [undefined, "2026-01-15"], "naima set of a triage field is triage")
+    assert.equal(await p.run("set", "crash", "title=Crash on save"), 0)
+    assert.equal(meta()["triagedOn"], "2026-01-15")
+  } finally {
+    p.cleanup()
+  }
+})
+
+test("a change that touches no triage field stamps nothing", async () => {
+  const p = tempProject([things, triage()])
+  try {
+    const item = createItem(p.ctx, p.ctx.registry.types.get("things")!, "Crash")
+    assert.equal(await p.run("set", "crash", "title=Crash on save"), 0)
+    assert.equal(JSON.parse(readFileSync(join(item.dir, "meta.json"), "utf8"))["triagedOn"], undefined)
   } finally {
     p.cleanup()
   }

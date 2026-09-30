@@ -35,6 +35,8 @@ export interface StatusDef {
   category: StatusCategory
   /** A status that counts as evidence for whatever this item `verifies`. */
   proves?: boolean
+  /** A status that counts as evidence against it — a failed test, a violated property: it blocks a gate and a close. */
+  refutes?: boolean
   says: string
 }
 
@@ -152,6 +154,38 @@ export interface ExtensionPoint<T = any> {
   document?(cs: readonly T[], plugin: string): string[]
 }
 
+/**
+ * One write of one item, as the write hooks see it (docs/plugin-contract.md#write-hooks).
+ * `create` opens an item, `update` rewrites its fields, `move` archives or moves it to another type's directory.
+ */
+export interface Write {
+  kind: "create" | "update" | "move"
+  /**
+   * The item as it is about to be written. A `beforeWrite` hook may change its `meta`; what it leaves is what is written.
+   * On a create its directory does not exist yet, and its slug is the one asked for.
+   */
+  item: Item
+  /** Its fields as they are on disk; null for a create, or for an item whose meta.json is unreadable. */
+  before: Meta | null
+  /** For a move: the type it moves to. */
+  to?: TypeDef
+  /** The command's `--force`: whoever gave it takes on what a hook would otherwise refuse. A hook decides whether it lets it through. */
+  force: boolean
+}
+
+/** A hook on every item write the core's helpers make, run in plugin load order. */
+export interface WriteHook {
+  name: string
+  says: string
+  /**
+   * Before anything is on disk. Return a refusal — a sentence saying what to do instead — to stop the write, or
+   * nothing to let it through; it may change `write.item.meta`. The first refusal stops the write and every later hook.
+   */
+  beforeWrite?(write: Write, ctx: Context): string | undefined | void
+  /** After the write, with the item as written (for a move, where it now is). */
+  afterWrite?(write: Write, ctx: Context): void
+}
+
 /** What a plugin declares. Every contribution is optional. */
 export interface Plugin {
   name: string
@@ -170,6 +204,8 @@ export interface Plugin {
   views?: View[]
   summary?: SummarySection[]
   rank?: RankTerm[]
+  /** Hooks on every item write, in load order. */
+  hooks?: WriteHook[]
   /** Its own data migrations, in order from its format 1: its format is 1 + their number (docs/format.md#migrations). */
   migrations?: Migration[]
   /** Extension points it declares: new kinds of contribution any plugin can make. */
@@ -247,6 +283,8 @@ export interface Config {
   /** The commit of `source` this project runs: the lock. */
   commit: string
   carry: Carry
+  /** `"signed"`: run a locked commit only when git verifies its signature. Absent: no signature is asked for. */
+  verify?: "signed"
   /** The program directory, relative to the data directory. */
   program: string
   /** Every plugin the project configures, first-party or third-party, by name. A first-party plugin it does not name is loaded as it is. */
@@ -284,6 +322,8 @@ export interface Registry {
   readonly views: ReadonlyMap<string, View>
   readonly summary: readonly SummarySection[]
   readonly rank: readonly RankTerm[]
+  /** Every plugin's write hooks, in load order. */
+  readonly hooks: readonly WriteHook[]
   /** Every extension point, the core's and the plugins', by id, in the order the reference documents them. */
   readonly points: ReadonlyMap<string, ExtensionPoint>
   /** Every contribution of a kind (`types`, `fields`, `commands`, …), in load order, with its qualified id. */
