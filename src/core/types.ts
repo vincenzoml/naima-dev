@@ -52,7 +52,7 @@ export interface TypeDef {
   template?: (title: string) => string
 }
 
-export type FieldKind = "string" | "strings" | "date" | "enum" | "boolean" | "number"
+export type FieldKind = "string" | "strings" | "date" | "enum" | "boolean" | "number" | "object"
 
 export interface FieldDef {
   name: string

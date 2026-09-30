@@ -35,6 +35,8 @@ export function fieldError(def: FieldDef, value: unknown): string | null {
       return typeof value === "boolean" ? null : "is not true or false"
     case "number":
       return typeof value === "number" && Number.isFinite(value) ? null : "is not a number"
+    case "object":
+      return typeof value === "object" && !Array.isArray(value) ? null : "is not a JSON object"
     case "enum": {
       const values = Object.keys(def.values ?? {})
       return typeof value === "string" && values.includes(value) ? null : `is not one of: ${values.join(", ")}`
@@ -48,6 +50,13 @@ export function parseFieldValue(def: FieldDef, raw: string): unknown {
   if (def.kind === "strings") value = raw.split(",").map((s) => s.trim()).filter(Boolean)
   if (def.kind === "boolean") value = raw === "true" ? true : raw === "false" ? false : raw
   if (def.kind === "number") value = raw.trim() === "" ? raw : Number(raw)
+  if (def.kind === "object") {
+    try {
+      value = JSON.parse(raw)
+    } catch {
+      value = raw // not JSON: reported as not an object below
+    }
+  }
   const error = fieldError(def, value)
   if (error) throw new Error(`${def.name}: "${raw}" ${error}`)
   return value

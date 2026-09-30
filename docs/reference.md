@@ -56,7 +56,7 @@ Names are global: no two plugins may declare the same command, type, field, rela
 
 Items, fields, links and the invariants every project has.
 
-An item is a directory under `<tracker>/<TYPE>/<slug>/`: `README.md` for the prose, `meta.json` for the fields, `attachments/` for the evidence. `meta.json` always holds `id` (a permanent uuid), `title` and `status` (one the item's type declares), and optionally `links`, a list of `{ rel, id }`. The slug may change; the id may not, and links hold ids. An item reference on the command line is an id, `type/slug`, a slug, or a fragment of a slug that matches one item. Fields are typed by the plugin that declares them — `string`, `strings` (comma-separated on the command line), `date` (YYYY, YYYY-MM or YYYY-MM-DD), `enum` (values in rank order), `boolean`, `number` — and unknown fields are kept and not checked. Only one direction of a link is stored; the inverse is derived when read. Boards, queues, gate states and summaries are derived when asked and never stored. An item is open or done by its status's category; urgency is the sum of every plugin's rank terms, and done items sink.
+An item is a directory under `<tracker>/<TYPE>/<slug>/`: `README.md` for the prose, `meta.json` for the fields, `attachments/` for the evidence. `meta.json` always holds `id` (a permanent uuid), `title` and `status` (one the item's type declares), and optionally `links`, a list of `{ rel, id }`. The slug may change; the id may not, and links hold ids. An item reference on the command line is an id, `type/slug`, a slug, or a fragment of a slug that matches one item. Fields are typed by the plugin that declares them — `string`, `strings` (comma-separated on the command line), `date` (YYYY, YYYY-MM or YYYY-MM-DD), `enum` (values in rank order), `boolean`, `number`, `object` (a JSON object, written as JSON on the command line) — and unknown fields are kept and not checked. Only one direction of a link is stored; the inverse is derived when read. Boards, queues, gate states and summaries are derived when asked and never stored. An item is open or done by its status's category; urgency is the sum of every plugin's rank terms, and done items sink.
 
 ### naima init
 
@@ -806,9 +806,10 @@ Properties: a property of the software, proven or refuted by a verifier. Items l
 | Field | Kind | Applies to | Meaning | Values |
 |---|---|---|---|---|
 | `verifier` | string | properties | the adapter that checks it |  |
-| `model` | string | properties | the model or specification file, from the project root |  |
+| `model` | string | properties | the model or specification file, from the project root, and inside it |  |
 | `property` | string | properties | the property, in the verifier's own language |  |
-| `lastRun` | string | properties | the attachment holding the last run |  |
+| `lastRun` | string | properties | the attachment holding the last run: a file name in the item's attachments/ |  |
+| `verifierOptions` | object | properties | options handed to the verifier with the model and the property, as a JSON object |  |
 
 **Checks**, run by `naima check`
 

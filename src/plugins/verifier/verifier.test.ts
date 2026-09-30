@@ -138,3 +138,35 @@ test("a property holds only for what was run: a changed property, verifier, mode
     p.cleanup()
   }
 })
+
+test("a property's inputs are checked: its options are a declared field, its paths stay inside, its run record is read with care", async () => {
+  const p = tempProject([verifier()])
+  try {
+    const { ctx } = p
+    writeFileSync(join(p.root, "m"), "x\n")
+    const type = ctx.registry.types.get("properties")!
+    assert.equal(ctx.registry.fields.get("verifierOptions")?.kind, "object")
+    assert.equal(await p.run("new", "properties", "has options", "--set", 'verifierOptions={"depth":2}', "--set", "verifier=example-regex", "--set", "model=m", "--set", "property=some x"), 0)
+    assert.deepEqual(ctx.repo.resolve("has-options").meta.verifierOptions, { depth: 2 })
+    await assert.rejects(p.run("set", "has-options", "verifierOptions=[1]"), /verifierOptions: "\[1\]" is not a JSON object/)
+
+    const escape = createItem(ctx, type, "escapes", { verifier: "example-regex", model: "../../../../etc/passwd", property: "some root" })
+    await assert.rejects(p.run("verify", escape.slug), /model \.\.\/\.\.\/\.\.\/\.\.\/etc\/passwd is outside the project/)
+    const absolute = createItem(ctx, type, "absolute", { verifier: "example-regex", model: "/etc/passwd", property: "some root" })
+    await assert.rejects(p.run("verify", absolute.slug), /model \/etc\/passwd is outside the project/)
+
+    const ok = createItem(ctx, type, "fine", { verifier: "example-regex", model: "m", property: "some x" })
+    assert.equal(await p.run("verify", ok.slug), 0)
+    const path = join(ok.dir, "meta.json")
+    const meta = JSON.parse(readFileSync(path, "utf8"))
+    writeFileSync(join(ok.dir, "attachments", meta.lastRun), JSON.stringify({ verdict: "holds" }))
+    const problems = () => runChecks(ctx).problems.map((f) => f.message).join("\n")
+    assert.match(problems(), /fine: holds, but its run record .* is malformed/)
+    writeFileSync(path, JSON.stringify({ ...meta, lastRun: "../../escapes/meta.json" }))
+    p.ctx.reload()
+    assert.match(problems(), /fine: lastRun "\.\.\/\.\.\/escapes\/meta\.json" is not a file name in attachments\//)
+    assert.match(problems(), /escapes: model \.\.\/\.\.\/\.\.\/\.\.\/etc\/passwd is outside the project/)
+  } finally {
+    p.cleanup()
+  }
+})

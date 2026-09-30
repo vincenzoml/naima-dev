@@ -29,7 +29,7 @@ Naima that carries it — with optional `options` ([configuration](config.md)):
 | `about` | longer markdown: the concepts a reader needs before the reference |
 | `options` | the keys the plugin reads from its `options`: `name`, `says`, `default` (a first-party plugin infers each default from the repository) |
 | `types` | item types: `id`, `dir`, `statuses` (each `open` or `done`, optionally `proves`), `initialStatus`, a README `template`, `creatable: false` for archives |
-| `fields` | fields with a kind (`string`, `strings`, `date`, `enum`, `boolean`, `number`), enum values in rank order, and the types they apply to; `configured: true` when the values come from the project's configuration, so the program's reference does not list them |
+| `fields` | fields with a kind (`string`, `strings`, `date`, `enum`, `boolean`, `number`, `object`), enum values in rank order, and the types they apply to; `configured: true` when the values come from the project's configuration, so the program's reference does not list them |
 | `relations` | link relations; each names its inverse, which must also be declared |
 | `dirs` | directories under the tracker root the plugin owns that are not item types |
 | `checks` | `run(ctx) → Finding[]`; `problem` fails `naima check`, `note` does not |

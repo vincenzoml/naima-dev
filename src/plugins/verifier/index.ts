@@ -11,7 +11,7 @@
 
 import { createHash } from "node:crypto"
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
-import { join } from "node:path"
+import { isAbsolute, join, relative, resolve } from "node:path"
 import {
   ATTACHMENTS,
   type Check,
@@ -77,16 +77,49 @@ const optionsHash = (options: Record<string, unknown>): string => createHash("sh
 const template = (title: string): string =>
   `# ${title}\n\nThe property in words, and why it matters.\n\nSet \`verifier\`, \`model\` (a path from the project root) and \`property\` in meta.json, then \`naima verify\`.\n`
 
-export function readRun(item: Item): RunRecord | null {
+/** A run record read back from disk, checked field by field; the reason when it is not one. */
+function asRun(value: unknown): RunRecord | string {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return "not a JSON object"
+  const r = value as Record<string, unknown>
+  const missing = ["verifier", "model", "modelSha256", "property", "output", "at"].filter((k) => typeof r[k] !== "string")
+  if (missing.length) return `${missing.join(", ")} missing or not text`
+  if (!VERDICTS.includes(r.verdict as Verdict)) return `verdict ${JSON.stringify(r.verdict)} is not one of ${VERDICTS.join(", ")}`
+  for (const k of ["optionsSha256", "counterexample"]) if (r[k] !== undefined && typeof r[k] !== "string") return `${k} is not text`
+  return r as unknown as RunRecord
+}
+
+/** `lastRun` names a file directly in the item's attachments/, never a path out of it. */
+const isAttachmentName = (name: string): boolean => /^[^/\\]+$/.test(name) && name !== "." && name !== ".."
+
+/** The item's last run: the record, why it cannot be trusted, or null when there is none. */
+export function loadRun(item: Item): { run: RunRecord } | { problem: string } | null {
   const name = item.meta.lastRun
   if (typeof name !== "string") return null
+  if (!isAttachmentName(name)) return { problem: `lastRun ${JSON.stringify(name)} is not a file name in ${ATTACHMENTS}/` }
   const path = join(item.dir, ATTACHMENTS, name)
   if (!existsSync(path)) return null
+  let parsed: unknown
   try {
-    return JSON.parse(readFileSync(path, "utf8")) as RunRecord
-  } catch {
-    return null
+    parsed = JSON.parse(readFileSync(path, "utf8"))
+  } catch (e) {
+    return { problem: `its run record ${ATTACHMENTS}/${name} is malformed: ${e instanceof Error ? e.message : String(e)}` }
   }
+  const run = asRun(parsed)
+  return typeof run === "string" ? { problem: `its run record ${ATTACHMENTS}/${name} is malformed: ${run}` } : { run }
+}
+
+/** The item's last run, when there is a trustworthy one. */
+export function readRun(item: Item): RunRecord | null {
+  const r = loadRun(item)
+  return r && "run" in r ? r.run : null
+}
+
+/** The model's absolute path, when `model` names a file inside the project; null for one that escapes it. */
+export function modelPath(root: string, model: string): string | null {
+  if (isAbsolute(model)) return null
+  const abs = resolve(root, model)
+  const rel = relative(root, abs)
+  return rel === "" || rel.startsWith("..") || isAbsolute(rel) ? null : abs
 }
 
 /** Run one property's verifier and attach the result. Returns the verdict. */
@@ -97,13 +130,14 @@ export async function verifyItem(ctx: Context, item: Item): Promise<Verdict> {
   }
   const verifier = ctx.registry.verifiers.get(id)
   if (!verifier) throw new Error(`${label(item)}: no verifier "${id}" — verifiers: ${[...ctx.registry.verifiers.keys()].join(", ")}`)
-  const modelPath = join(ctx.root, model)
-  if (!existsSync(modelPath)) throw new Error(`${label(item)}: model ${model} does not exist`)
+  const path = modelPath(ctx.root, model)
+  if (!path) throw new Error(`${label(item)}: model ${model} is outside the project — model is a path from the project root`)
+  if (!existsSync(path)) throw new Error(`${label(item)}: model ${model} does not exist`)
   const options = optionsOf(item)
-  const hash = sha256(modelPath)
+  const hash = sha256(path)
   let result: VerifyResult
   try {
-    result = inContract(id, await verifier.verify({ model: modelPath, property, options }, ctx))
+    result = inContract(id, await verifier.verify({ model: path, property, options }, ctx))
   } catch (e) {
     result = { verdict: "error", output: e instanceof Error ? e.message : String(e) }
   }
@@ -162,9 +196,17 @@ const evidence: Check = {
     for (const item of properties(ctx)) {
       const { verifier, model } = item.meta
       if (typeof verifier === "string" && !ctx.registry.verifiers.has(verifier)) problem(item, `verifier "${verifier}" is not loaded`)
-      if (typeof model === "string" && !existsSync(join(ctx.root, model))) problem(item, `model ${model} does not exist`)
+      const path = typeof model === "string" ? modelPath(ctx.root, model) : null
+      if (typeof model === "string" && !path) problem(item, `model ${model} is outside the project — model is a path from the project root`)
+      else if (path && !existsSync(path)) problem(item, `model ${String(model)} does not exist`)
+      const loaded = loadRun(item)
+      if (loaded && "problem" in loaded && !loaded.problem.startsWith("its run record")) problem(item, loaded.problem)
       if (item.meta.status !== "holds") continue
-      const run = readRun(item)
+      if (loaded && "problem" in loaded && loaded.problem.startsWith("its run record")) {
+        problem(item, `holds, but ${loaded.problem}`)
+        continue
+      }
+      const run = loaded && "run" in loaded ? loaded.run : null
       if (!run) problem(item, "holds, but carries no run")
       else if (run.verdict !== "holds") problem(item, `holds, but its last run says ${run.verdict}`)
       else {
@@ -174,7 +216,7 @@ const evidence: Check = {
         if (run.property !== property) problem(item, `holds for property ${JSON.stringify(run.property)}, not ${JSON.stringify(property)}${again}`)
         if (run.verifier !== verifier) problem(item, `holds by verifier ${JSON.stringify(run.verifier)}, not ${JSON.stringify(verifier)}${again}`)
         if (run.model !== model) problem(item, `holds on model ${run.model}, not ${String(model)}${again}`)
-        else if (typeof model === "string" && existsSync(join(ctx.root, model)) && run.modelSha256 !== sha256(join(ctx.root, model))) {
+        else if (path && existsSync(path) && run.modelSha256 !== sha256(path)) {
           problem(item, `holds on a model that has changed since${again}`)
         }
         if ((run.optionsSha256 ?? optionsHash({})) !== optionsHash(optionsOf(item))) problem(item, `holds with other verifierOptions than it has now${again}`)
@@ -222,9 +264,10 @@ export default function verifier(): Plugin {
     ],
     fields: [
       { name: "verifier", kind: "string", says: "the adapter that checks it", appliesTo: [TYPE] },
-      { name: "model", kind: "string", says: "the model or specification file, from the project root", appliesTo: [TYPE] },
+      { name: "model", kind: "string", says: "the model or specification file, from the project root, and inside it", appliesTo: [TYPE] },
       { name: "property", kind: "string", says: "the property, in the verifier's own language", appliesTo: [TYPE] },
-      { name: "lastRun", kind: "string", says: "the attachment holding the last run", appliesTo: [TYPE] },
+      { name: "lastRun", kind: "string", says: "the attachment holding the last run: a file name in the item's attachments/", appliesTo: [TYPE] },
+      { name: "verifierOptions", kind: "object", says: "options handed to the verifier with the model and the property, as a JSON object", appliesTo: [TYPE] },
     ],
     verifiers: [exampleRegex],
     gates: [allHold],
