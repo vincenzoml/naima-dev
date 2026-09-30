@@ -98,7 +98,9 @@ const myChecker: Verifier = {
 | `error` | `error` | the tool could not run or reach a verdict |
 | `unknown` | `error` | the tool ran and could not decide (a bound was hit) |
 
-An adapter that throws is recorded as `error` with the message as output.
+An adapter that throws is recorded as `error` with the message as output. So
+is a result outside the contract — a verdict not in the table, or no string
+`output` — with an output that says what was wrong.
 Map the tool's exit status and output to a verdict; never report `holds` on
 a run that did not complete.
 

@@ -78,3 +78,34 @@ test("the example adapter reads lines as written: no phantom last line, no trail
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test("an adapter outside the contract gives a property in error with a readable output, never a status-less one", async () => {
+  const bad = (id: string, verify: () => Promise<unknown>): Verifier => ({ id, says: "", verify: verify as Verifier["verify"] })
+  const extra: Plugin = {
+    name: "extra",
+    says: "",
+    verifiers: [
+      bad("pass", async () => ({ verdict: "pass", output: "fine" })),
+      bad("silent", async () => ({ verdict: "holds" })),
+      bad("nothing", async () => undefined),
+      bad("throws", async () => {
+        throw "a string, not an Error"
+      }),
+    ],
+  }
+  const p = tempProject([verifier(), extra])
+  try {
+    const { ctx } = p
+    writeFileSync(join(p.root, "m"), "")
+    for (const [id, output] of [["pass", /verdict "pass", outside the contract/], ["silent", /no string output/], ["nothing", /not a result/], ["throws", /a string, not an Error/]] as const) {
+      const item = createItem(ctx, ctx.registry.types.get("properties")!, `by ${id}`, { verifier: id, model: "m", property: "p" })
+      assert.equal(await p.run("verify", item.slug), 1, id)
+      const after = ctx.repo.resolve(item.slug)
+      assert.equal(after.meta.status, "error", id)
+      assert.match(readRun(after)?.output ?? "", output, id)
+    }
+    assert.deepEqual(runChecks(ctx).problems, [])
+  } finally {
+    p.cleanup()
+  }
+})

@@ -22,6 +22,7 @@ import {
   type Item,
   type Plugin,
   type Verdict,
+  type VerifyResult,
   bool,
   label,
   parse,
@@ -44,6 +45,19 @@ export interface RunRecord {
 }
 
 const STATUS: Record<Verdict, string> = { holds: "holds", violated: "violated", error: "error", unknown: "error" }
+
+const VERDICTS: readonly Verdict[] = ["holds", "violated", "error", "unknown"]
+
+/** An adapter's answer held to the contract: anything outside it is an `error`, with an output that says why. */
+export function inContract(id: string, result: unknown): VerifyResult {
+  if (!result || typeof result !== "object") return { verdict: "error", output: `adapter "${id}" returned ${String(result)}, not a result` }
+  const { verdict, output, counterexample } = result as Record<string, unknown>
+  if (!VERDICTS.includes(verdict as Verdict)) {
+    return { verdict: "error", output: `adapter "${id}" returned verdict ${JSON.stringify(verdict)}, outside the contract (${VERDICTS.join(", ")})${typeof output === "string" ? `: ${output}` : ""}` }
+  }
+  if (typeof output !== "string") return { verdict: "error", output: `adapter "${id}" returned verdict ${String(verdict)} with no string output` }
+  return { verdict: verdict as Verdict, output, ...(typeof counterexample === "string" ? { counterexample } : {}) }
+}
 
 const sha256 = (path: string): string => createHash("sha256").update(readFileSync(path)).digest("hex")
 
@@ -75,11 +89,11 @@ export async function verifyItem(ctx: Context, item: Item): Promise<Verdict> {
   const raw = item.meta.verifierOptions
   const options = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {}
   const hash = sha256(modelPath)
-  let result
+  let result: VerifyResult
   try {
-    result = await verifier.verify({ model: modelPath, property, options }, ctx)
+    result = inContract(id, await verifier.verify({ model: modelPath, property, options }, ctx))
   } catch (e) {
-    result = { verdict: "error" as const, output: (e as Error).message }
+    result = { verdict: "error", output: e instanceof Error ? e.message : String(e) }
   }
   const at = ctx.now().toISOString()
   const stamp = at.replace(/[:.]/g, "-")
