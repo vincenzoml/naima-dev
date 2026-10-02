@@ -2,9 +2,9 @@
 
 ## Layout
 
-The repository's root holds the runtime folder, `naima/`, and what only
-developing Naima needs: a project's `naima-tracker/naima/` is exactly the
-contents of `naima/`.
+The workshop's root holds the product, `naima/` — a git submodule of
+`github.com/vincenzoml/naima` — and what only developing Naima needs: a
+project's `naima-tracker/naima/` is a git clone of the product.
 
 ```
 naima/src/
@@ -48,7 +48,7 @@ naima/src/
 ```
 
 ```
-naima/                    the runtime: what a project's program directory is a copy of
+naima/                    the product, a git submodule: what a project's program directory is a clone of
   naima.ts                the launcher's executable: deno run -A naima.ts <command>
   src/                    the program, above; no test
   skills/naima/           the agent skill, and the flow commands in commands/flow/
@@ -61,7 +61,7 @@ deno.json                 the tasks: naima, dev, typecheck, lint, fmt, test, doc
 scripts/coverage.ts       coverage of the whole test run, the launched copies of the program counted as the files they copy
 site/                     the project site
 .claude/commands/         a link to naima/skills/naima/commands/, for this repository's own agents
-.github/workflows/        pages.yml only: it builds and deploys the site; the tests run locally, before every push
+.github/workflows/        pages.yml only: it builds the site and pushes it to the product's gh-pages; the tests run locally, before every push
 ```
 
 What ships is only what runs: the contents of `naima/`, and nothing else.

@@ -8,16 +8,16 @@ case for this: Naima's repository uses exactly the model every project uses
 ([installing and updating](../naima/docs/guide/install.md)).
 
 1. **The tracker is managed by the locked commit.** `naima-tracker/naima/` is
-   a gitignored git clone of Naima's own repository, locked by `naima.json`
-   to a commit of `main`, exactly as a project is
-   ([the program](../naima/docs/reference/format.md#the-program)); that
-   commit is the "previous version". `deno task naima <command>` runs it,
-   through its own launcher, `naima-tracker/naima/naima.ts`; `deno task dev`
-   names the data with `--data`, since a program finds its data beside
-   itself. Alignment fetches the commit from this repository's own objects
-   first, so it needs no network; a lock naming a commit of the old layout
-   (the runtime in `naima/` rather than at the top) is moved by `naima
-   update` to the head of `main`.
+   the stable clone: a gitignored git clone of the product,
+   `github.com/vincenzoml/naima`, locked by `naima.json` to a commit of its
+   `main`, exactly as a project's program is
+   ([the program](../naima/docs/reference/format.md#the-program)); that commit
+   is the "previous version". `deno task naima <command>` runs it, through
+   its own launcher, `naima-tracker/naima/naima.ts`; `deno task dev` runs the
+   submodule `naima/` and names the data with `--data`, since a program finds
+   its data beside itself. A missing stable clone is restored with `git clone
+   https://github.com/vincenzoml/naima.git naima-tracker/naima` and any
+   `deno task naima` command, which aligns it to the lock.
 2. **The working tree is tested against the tracker, never its authority.**
    `deno task dev <command>` runs the working tree on the same data, and
    `deno task verify` runs `check` with both: the working tree as a test, the
@@ -27,11 +27,24 @@ case for this: Naima's repository uses exactly the model every project uses
    one commit. A change the tracker is about to use — a new type, field,
    status or directory — is used only after that update.
 
-The development files — `test/`, `develop/`, `AGENTS.md`, `.claude/`,
-`.github/`, `deno.json`, `scripts/`, `site/`, and this tracker — are on `main`
-only, outside the runtime folder `naima/`:
-the locked program never holds them, so `deno task naima` cannot read
-Naima's own items from inside its program directory by accident.
+This repository, `naima-dev`, is the workshop. The product is its submodule
+`naima/`, `github.com/vincenzoml/naima`: what a project clones, and nothing
+else. The development files — `test/`, `develop/`, `AGENTS.md`, `.claude/`,
+`.github/`, `deno.json`, `scripts/`, `site/`, and this tracker — are here
+only, outside the product, so `deno task naima` cannot read Naima's own items
+from inside its program directory by accident.
+
+A change to Naima is two commits, in order. In `naima/`, on a branch of the
+same name as the workshop branch: commit, merge into the product's `main`,
+push. Then, here, commit the new submodule pointer. A workshop commit never
+points at a product commit that is not on the product's `main`. A worktree of
+the workshop gets its submodule without the network: `git submodule update
+--init --reference <main worktree>/naima`. The stable clone moves as every
+project's program does: once the change is on the product's `main`, `deno
+task naima update`, committed here as one change.
+
+The site is built here, from `site/`, and pushed by `.github/workflows/pages.yml`
+to the product's branch `gh-pages`, which the product's Pages serves.
 
 ```sh
 deno task naima check        # the locked commit, on this tracker

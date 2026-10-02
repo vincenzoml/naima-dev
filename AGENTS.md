@@ -30,14 +30,21 @@ them with `deno task naima rules --audience agents` at the start of work
 These apply only to this repository; the general ones are on
 [the rules page](naima/docs/guide/rules.md).
 
+- **This repository is the workshop; the product is its submodule.**
+  `naima/` is a git submodule of `github.com/vincenzoml/naima`, the product a
+  project clones. A change to Naima is two commits in order: in `naima/`, on a
+  branch, merged into the product's `main` and pushed; only then the new
+  submodule pointer here. A worktree gets its submodule without the network:
+  `git submodule update --init --reference <main worktree>/naima`
+  ([Naima tracking itself](develop/bootstrap.md)).
 - **Naima tracks itself, and the tracker is managed by the locked commit.**
-  `deno task naima <command>` runs the gitignored copy of `naima/` in
-  `naima-tracker/naima/`, locked to a commit of `main` by
+  `deno task naima <command>` runs the stable clone `naima-tracker/naima/`, a
+  gitignored git clone of the product locked to a commit of its `main` by
   `naima-tracker/naima-data/naima.json`; `deno task dev <command>` runs the
-  working tree, as a test, and never writes the tracker. Every tracker change
+  submodule, as a test, and never writes the tracker. Every tracker change
   goes through the CLI, never by hand. A change the tracker is about to use is
-  merged and pushed first, then `naima update` moves the lock to it:
-  [Naima tracking itself](develop/bootstrap.md).
+  pushed to the product's `main` first, then `deno task naima update` moves
+  the lock to it: [Naima tracking itself](develop/bootstrap.md).
 - **English**, in code, docs, items and commit messages.
 - **Documentation states what is, never how it came to be.** History lives in
   git and in the tracker.
@@ -45,6 +52,7 @@ These apply only to this repository; the general ones are on
 ## Before pushing
 
 ```sh
+git submodule update --init   # naima/ at the commit this workshop records
 deno task verify    # typecheck, lint, format, tests, check (working tree and lock), reference current
 node --test "test/**/*.test.ts" && bun test --timeout 30000 ./test/     # the same tests on Node and Bun
 ```

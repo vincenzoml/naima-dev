@@ -1,0 +1,3 @@
+[submodule "naima"]
+	path = naima
+	url = https://github.com/vincenzoml/naima.git
