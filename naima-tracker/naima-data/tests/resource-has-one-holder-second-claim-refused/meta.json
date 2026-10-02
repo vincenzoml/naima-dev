@@ -1,0 +1,19 @@
+{
+  "id": "719cba63-c92e-47ee-b8d7-2c91a7826e35",
+  "title": "a resource has one holder: a second claim is refused naming the holder, release frees it, prune lists a gone holder, check flags two holders (test/plugins/coordination/coordination.test.ts, on Deno, Node and Bun)",
+  "status": "passed",
+  "created": "2026-10-02",
+  "runBy": "agent",
+  "impact": "high",
+  "priority": "now",
+  "confidence": "measured",
+  "effort": "S",
+  "triagedOn": "2026-10-02",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "115e545c-8fef-4089-9150-dcae3817ff60"
+    }
+  ],
+  "redSeen": "2026-10-02"
+}

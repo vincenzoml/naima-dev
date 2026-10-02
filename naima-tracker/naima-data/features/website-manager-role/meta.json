@@ -1,7 +1,7 @@
 {
   "id": "400cc3ba-a7a8-488b-9d2e-f4293bb7ddcf",
   "title": "Website manager role",
-  "status": "requested",
+  "status": "shipped",
   "created": "2026-10-02",
   "impact": "medium",
   "priority": "now",
@@ -13,5 +13,12 @@
       "rel": "relates-to",
       "id": "115e545c-8fef-4089-9150-dcae3817ff60"
     }
+  ],
+  "fixedOn": "2026-10-02",
+  "commits": [
+    "8b85db1"
+  ],
+  "docs": [
+    "naima/docs/guide/several-branches.md"
   ]
 }

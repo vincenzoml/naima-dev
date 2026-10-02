@@ -1,0 +1,25 @@
+{
+  "id": "acc0603d-2de0-4003-8163-e59d9a6279fa",
+  "title": "the website manager role's queue lists the items of kind site (naima queue --role website-manager)",
+  "status": "passed",
+  "created": "2026-10-02",
+  "runBy": "agent",
+  "impact": "medium",
+  "priority": "now",
+  "confidence": "measured",
+  "effort": "S",
+  "triagedOn": "2026-10-02",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "400cc3ba-a7a8-488b-9d2e-f4293bb7ddcf"
+    }
+  ],
+  "attached": {
+    "queue-proof.txt": {
+      "from": "agent",
+      "by": "Vincenzo Ciancia",
+      "on": "2026-10-02"
+    }
+  }
+}

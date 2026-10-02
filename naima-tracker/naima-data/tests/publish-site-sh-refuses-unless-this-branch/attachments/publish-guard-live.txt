@@ -1,0 +1,13 @@
+## dry-run without the site claim
+publish refused: site is free: no branch holds it — naima claim --resource site on claude/resource-claims, then publish
+exit=1
+## claim
+holds site (claim 38ada2e6-b5dd-4c29-8135-305b20ea13c0): no other branch may claim it until naima release --resource site
+wrote naima-tracker/naima-data/claims/38ada2e6-b5dd-4c29-8135-305b20ea13c0.json — commit it on claude/resource-claims with your work
+## dry-run holding the claim
+site: /var/folders/fy/30_kjq150gj50k_4jsnyzzcm0000gn/T//naima-site.LTunUq/site, 0 stars
+gh-pages already serves this build (90d343da6990c45e1a14c5aa0ca0e7f280cdd838)
+exit=0
+## release
+released site: another branch may claim it
+wrote naima-tracker/naima-data/claims/38ada2e6-b5dd-4c29-8135-305b20ea13c0.json
