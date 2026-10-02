@@ -1,0 +1,57 @@
+Outward split, final proof (2026-10-02, agent run)
+
+## Pages
+build_type=legacy source=gh-pages/
+first build: 8e456f8 (naima-dev 5a0fb6d); latest: built 90d343d (naima-dev d7b79be), a fast-forward on top of it
+live index.html, install.sh, install.ps1, llms.txt, favicon.svg byte-identical to scripts/site.ts on naima-dev d7b79be (--stars 0); publish-site.sh --dry-run: gh-pages already serves this build
+
+## Repos
+90d343da6990c45e1a14c5aa0ca0e7f280cdd838	refs/heads/gh-pages
+1f12afd4b205e679927c059b9146b685565e3d5b	refs/heads/main
+d7b79be8c670dd8fd4c8572d7768532d6a550fae	refs/heads/main
+
+## Fresh repo, live installer
+## date
+Fri Oct  2 14:55:22 UTC 2026
+## head -3
+#!/bin/sh
+# Install Naima in the git repository you are standing in (macOS, Linux).
+#
+## install
+naima: cloning https://github.com/vincenzoml/naima.git (main) into naima-tracker/naima
+wrote naima-tracker/: README.md, .gitignore, naima-data/naima.json — locked to https://github.com/vincenzoml/naima.git at 1f12afd4b205
+wrote AGENTS.md: Naima is in naima-tracker/ (naima/ the program, naima-data/ the data); if you find it elsewhere, update this line.
+next: naima new bugs "<the first thing to do>"
+0 items, 49 checks
+
+all invariants hold
+
+Naima is installed in <scratch>/proof-final.
+
+Next:
+  git add naima-tracker && git commit -m "Track this project with Naima"
+  alias naima='deno run -A "$(git rev-parse --show-toplevel)/naima-tracker/naima/naima.ts"'
+
+Agents: read naima-tracker/naima/skills/naima/SKILL.md
+install EXIT=0
+## test files
+       0
+## absent
+ls: naima-tracker/naima/AGENTS.md: No such file or directory
+ls: naima-tracker/naima/naima-tracker: No such file or directory
+## program commit
+1f12afd README: the GitHub landing page
+https://github.com/vincenzoml/naima.git
+## root
+LICENSE
+NOTICE
+README.md
+docs
+naima.ts
+skills
+src
+## check
+0 items, 49 checks
+
+all invariants hold
+check EXIT=0

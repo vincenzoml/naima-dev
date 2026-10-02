@@ -51,3 +51,7 @@ The outward commands, in order (the move script, scripts/split.sh, rehearsed loc
 9. Later updates of the stable clone: product change pushed to the product's `main`, then in the workshop `deno task naima update` and commit `naima-tracker/` with the new submodule pointer. Then migrate the paper repository and any other host by rerunning the installer (one commit each).
 
 Rollback after step 4: `git revert` P on the product (an ordinary commit), the Pages source back to GitHub Actions.
+
+### 2026-10-02 — agent, on main
+
+Outward steps 5-9 done (2026-10-02, agent): workshop pushed to naima-dev main as a fast-forward (8f97016); the main checkout moved to the workshop (origin naima-dev, submodule naima/, stable clone re-cloned from the product, legacy copy set aside as naima-tracker/.naima-legacy-2026-10-02/, since removed outside this session); the open unit ported (product 30c7c2a, workshop 44024d2); the product README is the landing page (product 1f12afd); Pages now serve the product's gh-pages (legacy build), published by hand with scripts/publish-site.sh — no deploy key, no secret, the pages workflow removed (cbebc9e, d7b79be). Proof in attachments/outward-proof-2026-10-02.txt: fresh repo, live curl | sh, 0 test files, no AGENTS.md or naima-tracker inside the program, check passes. Left for the owner: close this item once the evidence is accepted; rerun the installer in the paper repository and other hosts (step 9).

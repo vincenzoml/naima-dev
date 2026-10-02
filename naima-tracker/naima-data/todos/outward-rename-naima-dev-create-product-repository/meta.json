@@ -24,5 +24,17 @@
     }
   ],
   "runBy": "human",
-  "humanBecause": "credential"
+  "humanBecause": "credential",
+  "fixedOn": "2026-10-02",
+  "commits": [
+    "cbebc9e662c56af05223a25b59eb8abb103d3592",
+    "d7b79be8c670dd8fd4c8572d7768532d6a550fae"
+  ],
+  "attached": {
+    "outward-proof-2026-10-02.txt": {
+      "from": "agent",
+      "by": "Vincenzo Ciancia",
+      "on": "2026-10-02"
+    }
+  }
 }
