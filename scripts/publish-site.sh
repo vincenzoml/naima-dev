@@ -12,7 +12,8 @@
 #   sh scripts/publish-site.sh            # build and push
 #   sh scripts/publish-site.sh --dry-run  # build and commit, do not push
 #
-# Run from the workshop's root, on main, after the gate.
+# Run from the workshop's root, on main, after the gate. It builds the
+# committed HEAD, never the working tree: uncommitted edits are not published.
 set -eu
 
 PRODUCT="${NAIMA_PRODUCT_URL:-https://github.com/vincenzoml/naima.git}"
@@ -25,7 +26,8 @@ tmp=$(mktemp -d "${TMPDIR:-/tmp}/naima-site.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT
 
 stars=$(curl -fsS "https://api.github.com/repos/vincenzoml/naima" 2>/dev/null | grep -m1 '"stargazers_count"' | tr -dc 0-9 || true)
-(cd "$root" && deno run -A scripts/site.ts "$tmp/site" ${stars:+--stars "$stars"})
+mkdir "$tmp/src" && git -C "$root" archive HEAD site scripts/site.ts | tar -x -C "$tmp/src"
+(cd "$tmp/src" && deno run -A scripts/site.ts "$tmp/site" ${stars:+--stars "$stars"})
 touch "$tmp/site/.nojekyll"
 
 git init -q "$tmp/repo"
