@@ -1,0 +1,16 @@
+{
+  "id": "9e1c14b7-7b20-4fef-b116-f6c37b31d294",
+  "title": "the program as a git clone: naima open clones the new worktree's own, no network",
+  "status": "passed",
+  "created": "2026-10-02",
+  "runBy": "agent",
+  "evidenceKind": "observation",
+  "redSeen": "2026-10-02",
+  "section": "Proving gesture: test/plugins/coordination/worktrees.test.ts (open gives the new worktree its program as a local clone, no network; and open says so when this worktree has none): red without the wiring (both assert on the new program and on the message), green with it. deno task verify, node --test and bun test pass.",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "dcc71277-8c6f-4fa5-ba61-9df144912b23"
+    }
+  ]
+}

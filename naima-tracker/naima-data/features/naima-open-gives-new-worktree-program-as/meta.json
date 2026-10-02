@@ -18,5 +18,9 @@
       "rel": "blocked-by",
       "id": "900f15f5-6260-4d5c-a534-559c640752da"
     }
+  ],
+  "fixedOn": "2026-10-02",
+  "commits": [
+    "44024d20d77ae1fb02ab7a80b0b688fa98673c61"
   ]
 }
