@@ -46,7 +46,13 @@ task naima update`, committed here as one change.
 The site is built here, from `site/`, and pushed by hand with
 `sh scripts/publish-site.sh` (the owner's own git credentials; no CI, secret
 or deploy key) as a fast-forward commit on the product's branch `gh-pages`,
-which the product's Pages serves.
+which the product's Pages serves. It publishes only for the branch holding
+the `site` resource (`deno task naima claim --resource site`), refusing
+otherwise and naming the holder, and writes that claim into the gh-pages
+commit as `Resource-Claim: site <claim id> <branch>`; `deno run -A
+scripts/site-claims.ts audit <git-dir> <rev>` flags every publish commit since
+the first one carrying a claim that lacks it, and the script runs it on every
+publish.
 
 ```sh
 deno task naima check        # the locked commit, on this tracker

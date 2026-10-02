@@ -1,0 +1,11 @@
+{
+  "id": "115e545c-8fef-4089-9150-dcae3817ff60",
+  "title": "Resource claims: one holder per locked resource",
+  "status": "requested",
+  "created": "2026-10-02",
+  "impact": "high",
+  "priority": "now",
+  "confidence": "measured",
+  "effort": "M",
+  "triagedOn": "2026-10-02"
+}

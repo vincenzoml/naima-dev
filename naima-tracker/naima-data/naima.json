@@ -4,7 +4,7 @@
     "gates": 2
   },
   "source": "https://github.com/vincenzoml/naima.git",
-  "commit": "4104e85e2cc6ecd8d8e3980bb6e8ef569ec37493",
+  "commit": "395c9332ec8458c5deffec548520602e62ab349f",
   "plugins": {
     "gates": {
       "options": {
@@ -155,6 +155,41 @@
         }
       }
     },
-    "verifier-mcrl2": {}
+    "verifier-mcrl2": {},
+    "roles": {
+      "options": {
+        "roles": {
+          "website-manager": {
+            "title": "Website manager",
+            "owns": "the project site: it alone publishes it, holding the site resource claim while it does, and it takes the site changes everyone else files as items of kind site",
+            "refuses": [
+              "publishing the site without holding the site resource claim",
+              "making a site change filed by someone else without its item",
+              "leaving the site resource held once a publish is done"
+            ],
+            "kinds": [
+              "site"
+            ],
+            "types": []
+          }
+        }
+      }
+    },
+    "coordination": {
+      "options": {
+        "resources": {
+          "site": {
+            "says": "the published project site: the product's gh-pages branch, pushed by scripts/publish-site.sh",
+            "role": "website-manager"
+          },
+          "product-main": {
+            "says": "the product repository's main branch, github.com/vincenzoml/naima: pushed only as a fast-forward by its holder"
+          },
+          "releases": {
+            "says": "the release tags and the release notes of the product"
+          }
+        }
+      }
+    }
   }
 }

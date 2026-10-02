@@ -58,7 +58,11 @@ node --test "test/**/*.test.ts" && bun test --timeout 30000 ./test/     # the sa
 ```
 
 No CI runs them: these are the gate, run locally before every push. The site
-is published by hand, `sh scripts/publish-site.sh`, with no secret or deploy key.
+is published by hand, `sh scripts/publish-site.sh`, with no secret or deploy key,
+and only by the branch holding the `site` resource (`deno task naima claim
+--resource site`; the website manager role's work): the script refuses
+otherwise, naming the holder. `site`, `product-main` and `releases` are this
+workshop's locked resources (`deno task naima claims --resources`).
 
 What Naima is for — a silent software house of agents, born for software,
 that turns vibe coding into an exact science for an owner who only decides,

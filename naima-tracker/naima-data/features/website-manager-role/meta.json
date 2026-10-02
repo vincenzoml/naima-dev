@@ -1,0 +1,17 @@
+{
+  "id": "400cc3ba-a7a8-488b-9d2e-f4293bb7ddcf",
+  "title": "Website manager role",
+  "status": "requested",
+  "created": "2026-10-02",
+  "impact": "medium",
+  "priority": "now",
+  "confidence": "measured",
+  "effort": "S",
+  "triagedOn": "2026-10-02",
+  "links": [
+    {
+      "rel": "relates-to",
+      "id": "115e545c-8fef-4089-9150-dcae3817ff60"
+    }
+  ]
+}

@@ -400,3 +400,114 @@ test("naima check: a session note dated after the cut-off missing its acknowledg
     p.cleanup()
   }
 })
+
+const RESOURCES = { resources: { site: { says: "the published site" }, releases: { says: "the release tags", role: "release-manager" } } }
+
+test("a resource has one holder: a second branch's claim is refused naming the holder, and a release frees it", async () => {
+  const p = tempProject([things, coordination(RESOURCES)], { git: true })
+  try {
+    const a = createItem(p.ctx, p.ctx.registry.types.get("things")!, "Alpha")
+    p.git("add", "-A")
+    p.git("commit", "-q", "-m", "items")
+    p.git("checkout", "-q", "-b", "first")
+    assert.equal(await p.run("claim", "--resource", "site", "--note", "publishing"), 0)
+    assert.deepEqual(readClaims(p.ctx)[0]?.resources, ["site"])
+    assert.equal(await p.run("claim", "--resource", "site"), 0) // its own holder may claim again
+    await p.run("claim", a.slug) // items and resources share the branch's one file
+    assert.equal(readdirSync(join(p.ctx.trackerRoot, "claims")).length, 1)
+    p.git("add", "-A")
+    p.git("commit", "-q", "-m", "claim")
+
+    p.git("checkout", "-q", "-b", "second", "main")
+    await assert.rejects(p.run("claim", "--resource", "site"), /site is held by first/)
+    await p.run("claim", a.slug) // an item claim is still shared
+    p.output.length = 0
+    await p.run("claims", "--resources")
+    const listing = p.output.join("\n")
+    assert.match(listing, /site\s+first/)
+    assert.match(listing, /releases\s+free/)
+
+    p.git("checkout", "-q", "first")
+    await p.run("release", "--resource", "site")
+    assert.deepEqual(readClaims(p.ctx).find((c) => c.branch === "first")?.resources ?? [], [])
+    await p.run("release", a.slug)
+    assert.ok(!readClaims(p.ctx).some((c) => c.branch === "first" && c.local), "the emptied claim file is removed")
+    await assert.rejects(p.run("release", "--resource", "site"), /holds no claim|does not hold site/)
+    p.git("commit", "-q", "-am", "released")
+
+    p.git("checkout", "-q", "second")
+    assert.equal(await p.run("claim", "--resource", "site"), 0)
+  } finally {
+    p.cleanup()
+  }
+})
+
+test("only a declared resource can be claimed, and a declaration is checked when the plugin loads", async () => {
+  const p = tempProject([things, coordination(RESOURCES)], { git: true })
+  try {
+    p.git("checkout", "-q", "-b", "work")
+    await assert.rejects(p.run("claim", "--resource", "nope"), /nope is not a declared resource: site, releases/)
+    assert.throws(() => coordination({ resources: { "Bad Name": { says: "x" } } }), /resource/)
+    assert.throws(() => coordination({ resources: { site: {} } }), /says/)
+    assert.throws(() => coordination({ resources: ["site"] }), /resources/)
+  } finally {
+    p.cleanup()
+  }
+})
+
+test("claims --resources --json names each resource, its holder and the holder's claim id", async () => {
+  const p = tempProject([things, coordination(RESOURCES)], { git: true })
+  try {
+    p.git("checkout", "-q", "-b", "work")
+    await p.run("claim", "--resource", "releases")
+    p.output.length = 0
+    await p.run("claims", "--resources", "--json")
+    const d = JSON.parse(p.output.join("\n")) as { resources: { name: string; says: string; role?: string; holders: { branch: string; claim: string }[] }[] }
+    const releases = d.resources.find((r) => r.name === "releases")
+    assert.equal(releases?.role, "release-manager")
+    assert.equal(releases?.holders[0]?.branch, "work")
+    assert.equal(`${releases?.holders[0]?.claim}.json`, readdirSync(join(p.ctx.trackerRoot, "claims"))[0])
+    assert.deepEqual(d.resources.find((r) => r.name === "site")?.holders, [])
+  } finally {
+    p.cleanup()
+  }
+})
+
+test("prune lists a resource holder whose branch is gone; a second claim on its resource says so", async () => {
+  const p = tempProject([things, coordination(RESOURCES)], { git: true })
+  try {
+    p.git("checkout", "-q", "-b", "gone")
+    await p.run("claim", "--resource", "site")
+    p.git("add", "-A")
+    p.git("commit", "-q", "-m", "claim")
+    p.git("checkout", "-q", "main")
+    p.git("merge", "-q", "gone")
+    p.git("branch", "-q", "-D", "gone")
+    p.output.length = 0
+    await p.run("prune")
+    assert.match(p.output.join("\n"), /gone\s+0 items, holds site/)
+    p.git("checkout", "-q", "-b", "next")
+    await assert.rejects(p.run("claim", "--resource", "site"), /site is held by gone, a branch git no longer has: naima prune/)
+  } finally {
+    p.cleanup()
+  }
+})
+
+test("naima check: a resource held by two branches at once is a problem", async () => {
+  const p = tempProject([things, coordination(RESOURCES)], { git: true })
+  try {
+    const dir = join(p.ctx.trackerRoot, "claims")
+    for (const branch of ["one", "two"]) {
+      p.git("checkout", "-q", "-b", branch, "main")
+      mkdirSync(dir, { recursive: true })
+      writeFileSync(join(dir, `${branch}.json`), JSON.stringify({ branch, claimedAt: "2026-10-02", items: [], resources: ["site"] }))
+      p.git("add", "-A")
+      p.git("commit", "-q", "-m", `claim on ${branch}`)
+    }
+    const problems = (await runChecks(p.ctx)).problems.map((f) => f.message).filter((m) => /site is held by/.test(m))
+    assert.equal(problems.length, 1)
+    assert.match(problems[0] ?? "", /site is held by one, two/)
+  } finally {
+    p.cleanup()
+  }
+})
