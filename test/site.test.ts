@@ -1,5 +1,5 @@
 // The project site (site/, built by scripts/site.ts and published by
-// .github/workflows/pages.yml): the page's one-liners and agent prompt name
+// scripts/publish-site.sh): the page's one-liners and agent prompt name
 // the files the site serves, and the README gives the same install; and the POSIX installer installs Naima for real — fresh, again, and
 // refusing outside a git repository — from a source on this disk. The
 // Windows installer is not run by any test.

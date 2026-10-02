@@ -59,9 +59,8 @@ test/                     every test, mirroring naima/src/, and the test helper 
 develop/                  the pages for people changing Naima's code: this one, bootstrap, documentation
 deno.json                 the tasks: naima, dev, typecheck, lint, fmt, test, docs, verify, coverage
 scripts/coverage.ts       coverage of the whole test run, the launched copies of the program counted as the files they copy
-site/                     the project site
+site/                     the project site, published by scripts/publish-site.sh to the product's gh-pages
 .claude/commands/         a link to naima/skills/naima/commands/, for this repository's own agents
-.github/workflows/        pages.yml only: it builds the site and pushes it to the product's gh-pages; the tests run locally, before every push
 ```
 
 What ships is only what runs: the contents of `naima/`, and nothing else.

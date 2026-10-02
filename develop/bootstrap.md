@@ -30,7 +30,7 @@ case for this: Naima's repository uses exactly the model every project uses
 This repository, `naima-dev`, is the workshop. The product is its submodule
 `naima/`, `github.com/vincenzoml/naima`: what a project clones, and nothing
 else. The development files — `test/`, `develop/`, `AGENTS.md`, `.claude/`,
-`.github/`, `deno.json`, `scripts/`, `site/`, and this tracker — are here
+`deno.json`, `scripts/`, `site/`, and this tracker — are here
 only, outside the product, so `deno task naima` cannot read Naima's own items
 from inside its program directory by accident.
 
@@ -43,8 +43,10 @@ the workshop gets its submodule without the network: `git submodule update
 project's program does: once the change is on the product's `main`, `deno
 task naima update`, committed here as one change.
 
-The site is built here, from `site/`, and pushed by `.github/workflows/pages.yml`
-to the product's branch `gh-pages`, which the product's Pages serves.
+The site is built here, from `site/`, and pushed by hand with
+`sh scripts/publish-site.sh` (the owner's own git credentials; no CI, secret
+or deploy key) as a fast-forward commit on the product's branch `gh-pages`,
+which the product's Pages serves.
 
 ```sh
 deno task naima check        # the locked commit, on this tracker

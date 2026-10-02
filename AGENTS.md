@@ -57,8 +57,8 @@ deno task verify    # typecheck, lint, format, tests, check (working tree and lo
 node --test "test/**/*.test.ts" && bun test --timeout 30000 ./test/     # the same tests on Node and Bun
 ```
 
-No CI runs them: these are the gate, run locally before every push. `.github/`
-holds only `pages.yml`, which deploys the site.
+No CI runs them: these are the gate, run locally before every push. The site
+is published by hand, `sh scripts/publish-site.sh`, with no secret or deploy key.
 
 What Naima is for — a silent software house of agents, born for software,
 that turns vibe coding into an exact science for an owner who only decides,

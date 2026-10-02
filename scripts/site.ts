@@ -1,6 +1,6 @@
 // The project site as Pages publishes it: site/ as it is, with the
 // repository's star count written into the page when one is given. Run by
-// .github/workflows/pages.yml; the page fetches nothing at runtime.
+// scripts/publish-site.sh; the page fetches nothing at runtime.
 //
 // Standard APIs only, like the program: it runs on Deno, Node and Bun.
 //
