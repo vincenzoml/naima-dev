@@ -1,9 +1,10 @@
 import assert from "node:assert/strict"
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
 import { basename, join } from "node:path"
 import { test } from "node:test"
 import { type CheckOptions, createItem, DEFAULT_DATA, type Plugin, runChecks } from "../../../naima/src/core/api.ts"
-import { createContext, DEFAULT_PROGRAM, gitIn, removeTemp, tempProject } from "../../core/testing.ts"
+import { createContext, DEFAULT_PROGRAM, gitIn, productRepo, removeTemp, tempProject } from "../../core/testing.ts"
 import coordination, { readClaims } from "../../../naima/src/plugins/coordination/index.ts"
 
 const things: Plugin = {
@@ -60,6 +61,52 @@ test("open makes the worktree, the branch and the claim in one step, by the nami
     // The name defaults to the first item's slug.
     assert.equal(await p.run("open", "alpha", "--as", "agent"), 0)
     assert.ok(existsSync(join(p.dir, "alpha")))
+  } finally {
+    p.cleanup()
+  }
+})
+
+test("open gives the new worktree its program as a local clone of the current one's, no network", async () => {
+  const base = mkdtempSync(join(tmpdir(), "naima-open-clone-"))
+  const source = productRepo(join(base, "source"))
+  const p = tempProject([things, coordination({})], { git: true, lock: { source: "https://example.invalid/naima.git", commit: source.head } })
+  createItem(p.ctx, p.ctx.registry.types.get("things")!, "Alpha")
+  p.git("add", "-A")
+  p.git("commit", "-q", "-m", "items")
+  const dir = `${p.root}-worktrees`
+  // This worktree's own program: a clone of the source, at the locked commit — made with --local, so no network is asked of this setup either.
+  gitIn(base, "clone", "-q", "--local", "--", source.dir, p.ctx.program)
+  gitIn(p.ctx.program, "checkout", "-q", "--detach", source.head)
+  gitIn(p.ctx.program, "remote", "set-url", "origin", p.ctx.config.source)
+  const allowed = process.env["GIT_ALLOW_PROTOCOL"]
+  process.env["GIT_ALLOW_PROTOCOL"] = "file" // a source that does not resolve: only a repository on this disk may be read
+  try {
+    assert.equal(await p.run("open", "alpha", "--as", "agent", "--name", "cloned"), 0)
+    const path = join(dir, "cloned")
+    const program = join(path, DEFAULT_DATA, DEFAULT_PROGRAM)
+    assert.ok(existsSync(join(program, ".git")), "the new worktree's program is its own git clone")
+    assert.equal(gitIn(program, "rev-parse", "HEAD"), source.head, "checked out at the locked commit")
+    assert.equal(gitIn(program, "remote", "get-url", "origin"), p.ctx.config.source, "origin set to the lock's source")
+    assert.ok(p.output.some((l) => /cloned .*no network/.test(l)), "open says it cloned the program")
+  } finally {
+    if (allowed === undefined) delete process.env["GIT_ALLOW_PROTOCOL"]
+    else process.env["GIT_ALLOW_PROTOCOL"] = allowed
+    removeTemp(dir)
+    p.cleanup()
+    removeTemp(base)
+  }
+})
+
+test("open says so, and touches nothing, when this worktree itself has no program clone yet", async () => {
+  const p = project()
+  try {
+    assert.equal(await p.run("open", "alpha", "--as", "agent", "--name", "later"), 0)
+    const program = join(p.dir, "later", DEFAULT_DATA, DEFAULT_PROGRAM)
+    assert.ok(!existsSync(program), "nothing is cloned when this worktree has no program of its own")
+    assert.ok(
+      p.output.some((l) => /is not a program clone yet/.test(l) && /will align its own on its first run/.test(l)),
+      "open says so in one line",
+    )
   } finally {
     p.cleanup()
   }

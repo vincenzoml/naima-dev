@@ -144,10 +144,13 @@ const spawnGitTop = (cwd: string): string | null => {
 
 export const FIXED_NOW = new Date("2026-01-15T10:00:00.000Z")
 
-export function tempProject(plugins: Plugin[], opts: { git?: boolean; now?: Date } & RegistryOptions = {}): TempProject {
+export function tempProject(
+  plugins: Plugin[],
+  opts: { git?: boolean; now?: Date; lock?: { source?: string; commit?: string } } & RegistryOptions = {},
+): TempProject {
   const root = mkdtempSync(join(tmpdir(), "naima-"))
   const data = join(root, DEFAULT_DATA)
-  const lock = { source: "https://example.invalid/naima.git", commit: "0".repeat(40), program: DEFAULT_PROGRAM }
+  const lock = { source: "https://example.invalid/naima.git", commit: "0".repeat(40), ...opts.lock, program: DEFAULT_PROGRAM }
   const config = { format: FORMAT, formats: {}, ...lock, plugins: {}, rename: opts.rename ?? {}, extends: [], entryFiles: [...DEFAULT_ENTRY_FILES] }
   writeJson(join(data, DATA_FILE), { format: FORMAT, source: lock.source, commit: lock.commit })
   const output: string[] = []
