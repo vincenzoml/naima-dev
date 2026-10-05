@@ -4,7 +4,7 @@
 
 import assert from "node:assert/strict"
 import { spawnSync } from "node:child_process"
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs"
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { test } from "node:test"
@@ -199,3 +199,27 @@ test("a ui a test starts is stopped, launcher and program, even when the test fa
     w.cleanup()
   }
 })
+
+test(
+  "open through the launcher clones the program into the worktree it has just made, from the local clone, and writes the claim",
+  { skip, timeout: 60_000 },
+  () => {
+    const w = world()
+    try {
+      assert.equal(w.init().code, 0)
+      const made = launch(w.host, ["new", "todos", "Start the work"])
+      assert.equal(made.code, 0, made.err)
+      git(w.host, "add", "-A")
+      git(w.host, "commit", "-q", "-m", "a todo")
+      const slug = made.out.match(/todos\/([^\s/]+)/)?.[1]
+      assert.ok(slug, made.out)
+      const opened = launch(w.host, ["open", `todos/${slug}`, "--as", "agent", "--name", "start", "--note", "a test"])
+      assert.equal(opened.code, 0, opened.err)
+      const tree = join(w.base, "project-worktrees", "start")
+      assert.equal(git(join(tree, "naima-tracker", "naima"), "rev-parse", "HEAD"), git(join(w.host, "naima-tracker", "naima"), "rev-parse", "HEAD"))
+      assert.ok(readdirSync(join(tree, "naima-tracker", "naima-data", "claims")).length > 0, "no claim in the worktree")
+    } finally {
+      w.cleanup()
+    }
+  },
+)

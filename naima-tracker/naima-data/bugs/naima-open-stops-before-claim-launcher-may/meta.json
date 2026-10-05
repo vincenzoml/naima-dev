@@ -2,5 +2,6 @@
   "id": "f977eb0b-4d8e-4e78-9a77-f44c901d6d49",
   "title": "naima open stops before the claim: the launcher may not read the worktree it has just made",
   "status": "open",
-  "created": "2026-10-05"
+  "created": "2026-10-05",
+  "fixedOn": "2026-10-06"
 }

@@ -1,0 +1,17 @@
+{
+  "id": "79d1cafb-c45f-42f9-93ba-ef453de3fcef",
+  "title": "open through the launcher clones the program into the worktree it has just made and writes the claim (test/launcher.test.ts, on Deno)",
+  "status": "passed",
+  "created": "2026-10-05",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "f977eb0b-4d8e-4e78-9a77-f44c901d6d49"
+    }
+  ],
+  "runBy": "agent",
+  "evidenceKind": "diff",
+  "confidence": "measured",
+  "redSeen": "2026-10-05",
+  "triagedOn": "2026-10-05"
+}

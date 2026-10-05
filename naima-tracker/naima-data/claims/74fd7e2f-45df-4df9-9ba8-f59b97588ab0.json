@@ -1,0 +1,12 @@
+{
+  "branch": "claude/open-clone",
+  "claimedAt": "2026-10-05",
+  "note": "push the open fix to the product's main",
+  "items": [
+    {
+      "id": "f977eb0b-4d8e-4e78-9a77-f44c901d6d49",
+      "ref": "bugs/naima-open-stops-before-claim-launcher-may",
+      "title": "naima open stops before the claim: the launcher may not read the worktree it has just made"
+    }
+  ]
+}
