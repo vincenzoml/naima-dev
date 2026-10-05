@@ -2,5 +2,6 @@
   "id": "759d77cf-59ac-47fb-9cc2-cc0e43a1a415",
   "title": "Dependencies drive the work: a ready list, a topological order, no cycles",
   "status": "requested",
-  "created": "2026-10-05"
+  "created": "2026-10-05",
+  "fixedOn": "2026-10-05"
 }

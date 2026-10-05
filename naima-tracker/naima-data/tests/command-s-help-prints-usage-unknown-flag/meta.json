@@ -1,0 +1,17 @@
+{
+  "id": "74ef7599-2dce-4094-9465-1843e94d647c",
+  "title": "a command's --help prints its usage; an unknown flag is a usage error, never an internal one (test/cli.test.ts, on Deno, Node and Bun)",
+  "status": "passed",
+  "created": "2026-10-05",
+  "runBy": "agent",
+  "evidenceKind": "diff",
+  "confidence": "measured",
+  "redSeen": "2026-10-05",
+  "triagedOn": "2026-10-05",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "d800465a-e1b9-4303-a3b7-8de4d464fbe9"
+    }
+  ]
+}

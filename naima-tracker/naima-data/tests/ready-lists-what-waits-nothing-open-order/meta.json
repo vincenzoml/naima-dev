@@ -1,0 +1,16 @@
+{
+  "id": "2388b94a-4df3-4883-8666-f5729fffa42a",
+  "title": "ready lists what waits on nothing open, order respects every wait with its depth, a cycle fails the check (test/plugins/gates/dependencies.test.ts, on Deno, Node and Bun)",
+  "status": "passed",
+  "created": "2026-10-05",
+  "runBy": "agent",
+  "evidenceKind": "diff",
+  "confidence": "measured",
+  "triagedOn": "2026-10-05",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "759d77cf-59ac-47fb-9cc2-cc0e43a1a415"
+    }
+  ]
+}

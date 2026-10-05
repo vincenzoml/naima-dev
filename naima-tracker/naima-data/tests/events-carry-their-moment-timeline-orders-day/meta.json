@@ -1,0 +1,16 @@
+{
+  "id": "b0112798-551e-49b8-82f5-659632eb8794",
+  "title": "events carry their moment, the timeline orders a day by it, and the diary tells decisions, records and session notes in order (test/plugins/coordination/diary.test.ts, on Deno, Node and Bun)",
+  "status": "passed",
+  "created": "2026-10-05",
+  "runBy": "agent",
+  "evidenceKind": "diff",
+  "confidence": "measured",
+  "triagedOn": "2026-10-05",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "a3cdb8dc-79ed-4162-8201-7e00bf8802b6"
+    }
+  ]
+}

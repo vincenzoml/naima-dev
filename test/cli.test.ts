@@ -311,3 +311,19 @@ test("list, unlink, view, types and help each do what their usage says", async (
     h.cleanup()
   }
 })
+
+test("a command's --help prints its usage; an unknown flag is a usage error, never an internal one", async () => {
+  const h = host()
+  try {
+    assert.equal((await naima(h.root, ["init"])).code, 0)
+    const help = await naima(h.root, ["event", "--help"])
+    assert.equal(help.code, 0, help.err)
+    assert.match(help.out, /usage: naima event/)
+    const bogus = await naima(h.root, ["event", "2026-01-15", "x", "--bogus"])
+    assert.notEqual(bogus.code, 0)
+    assert.doesNotMatch(bogus.err, /internal error/)
+    assert.match(bogus.err, /--bogus/)
+  } finally {
+    h.cleanup()
+  }
+})

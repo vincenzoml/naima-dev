@@ -2,5 +2,6 @@
   "id": "d800465a-e1b9-4303-a3b7-8de4d464fbe9",
   "title": "naima <command> --help fails with an internal error",
   "status": "open",
-  "created": "2026-10-05"
+  "created": "2026-10-05",
+  "fixedOn": "2026-10-05"
 }

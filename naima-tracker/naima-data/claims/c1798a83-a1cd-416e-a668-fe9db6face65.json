@@ -1,0 +1,22 @@
+{
+  "branch": "claude/dag-diary-help",
+  "claimedAt": "2026-10-05",
+  "note": "fast-forward the product's main to the dependencies, diary and --help change",
+  "items": [
+    {
+      "id": "759d77cf-59ac-47fb-9cc2-cc0e43a1a415",
+      "ref": "features/dependencies-drive-work-ready-list-topological-order",
+      "title": "Dependencies drive the work: a ready list, a topological order, no cycles"
+    },
+    {
+      "id": "a3cdb8dc-79ed-4162-8201-7e00bf8802b6",
+      "ref": "features/diary-events-carry-time-timeline-orders-them",
+      "title": "A diary: events carry a time, the timeline orders them within a day, and a diary view tells the story"
+    },
+    {
+      "id": "d800465a-e1b9-4303-a3b7-8de4d464fbe9",
+      "ref": "bugs/naima-command-help-fails-internal-error",
+      "title": "naima <command> --help fails with an internal error"
+    }
+  ]
+}
