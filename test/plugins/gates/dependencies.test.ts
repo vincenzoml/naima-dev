@@ -18,6 +18,14 @@ const fixture = (): Plugin => ({
     says: "",
     statuses: { open: { category: "open", says: "" }, done: { category: "done", says: "" } },
     initialStatus: "open",
+  }, {
+    id: "groups",
+    dir: "GROUPS",
+    title: "",
+    says: "",
+    statuses: { open: { category: "open", says: "" }, done: { category: "done", says: "" } },
+    initialStatus: "open",
+    traits: ["group"],
   }],
   fields: [
     { name: "fixedOn", kind: "date", says: "" },
@@ -28,6 +36,8 @@ const fixture = (): Plugin => ({
   relations: [
     { name: "verifies", inverse: "verified-by", says: "" },
     { name: "verified-by", inverse: "verifies", says: "" },
+    { name: "part-of", inverse: "has-part", says: "" },
+    { name: "has-part", inverse: "part-of", says: "" },
   ],
 })
 
@@ -94,6 +104,36 @@ test("a cycle of blocked-by links fails the check, naming every item on it", asy
     assert.ok(cycle, "no cycle reported")
     for (const i of [req, spec, model]) assert.ok(cycle.message.includes(i.slug), cycle.message)
     assert.ok(!cycle.message.includes(docs.slug), cycle.message)
+  } finally {
+    p.cleanup()
+  }
+})
+
+test("a group stands for its items: ready and order never list it, and a wait on it is a wait on them", async () => {
+  const { p, ctx, req, spec } = plan()
+  try {
+    const g = createItem(ctx, typeOrThrow(ctx, "groups"), "The first phase")
+    const a = createItem(ctx, typeOrThrow(ctx, "todos"), "After the phase")
+    ctx.reload()
+    const group = ctx.repo.resolve(g.slug)
+    const after = ctx.repo.resolve(a.slug)
+    addLink(ctx, req, "part-of", group)
+    addLink(ctx, spec, "part-of", group)
+    addLink(ctx, after, "blocked-by", group)
+    ctx.reload()
+    assert.equal(await p.run("ready"), 0)
+    const ready = p.output.join("\n")
+    assert.ok(ready.includes(req.slug), ready)
+    assert.ok(!ready.includes(group.slug), ready)
+    assert.ok(!ready.includes(after.slug), ready)
+    assert.match(ready, /: 1 ready of 5 open/)
+    p.output.length = 0
+    assert.equal(await p.run("order"), 0)
+    const lines = p.output.filter((l) => l.includes("/"))
+    assert.ok(!lines.some((l) => l.includes(group.slug)), lines.join("\n"))
+    const at = (slug: string) => lines.findIndex((l) => l.includes(`/${slug} `))
+    assert.ok(at(spec.slug) >= 0 && at(spec.slug) < at(after.slug), lines.join("\n"))
+    assert.match(lines[at(after.slug)] ?? "", /^\s*2\s/)
   } finally {
     p.cleanup()
   }

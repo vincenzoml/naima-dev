@@ -6,5 +6,6 @@
   "impact": "low",
   "priority": "next",
   "confidence": "measured",
-  "triagedOn": "2026-10-05"
+  "triagedOn": "2026-10-05",
+  "fixedOn": "2026-10-06"
 }

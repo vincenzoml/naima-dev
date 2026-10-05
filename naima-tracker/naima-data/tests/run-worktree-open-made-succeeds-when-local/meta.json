@@ -1,0 +1,17 @@
+{
+  "id": "e3c94ff5-e514-45c4-bed0-428ae8a6a127",
+  "title": "a run in the worktree open made succeeds when the local clone's main lags the locked commit (test/launcher.test.ts, on Deno)",
+  "status": "passed",
+  "created": "2026-10-05",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "c79a78a0-3022-4eb1-acc3-dd126505a3a5"
+    }
+  ],
+  "runBy": "agent",
+  "evidenceKind": "diff",
+  "confidence": "measured",
+  "redSeen": "2026-10-06",
+  "triagedOn": "2026-10-05"
+}

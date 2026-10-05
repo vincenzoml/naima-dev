@@ -223,3 +223,28 @@ test(
     }
   },
 )
+
+test("the clone open makes runs in the new worktree when the local clone's own main is behind the locked commit", { skip, timeout: 90_000 }, () => {
+  const w = world()
+  try {
+    assert.equal(w.init().code, 0)
+    writeFileSync(join(w.source, "NEWS.md"), "A later commit of Naima.\n")
+    git(w.source, "add", "-A")
+    git(w.source, "commit", "-q", "-m", "later")
+    const updated = launch(w.host, ["update"])
+    assert.equal(updated.code, 0, updated.err)
+    const clone = join(w.host, "naima-tracker", "naima")
+    assert.notEqual(git(clone, "rev-parse", "main"), git(clone, "rev-parse", "HEAD"), "the clone's main should lag its locked commit")
+    const made = launch(w.host, ["new", "todos", "Start the work"])
+    assert.equal(made.code, 0, made.err)
+    git(w.host, "add", "-A")
+    git(w.host, "commit", "-q", "-m", "the lock and a todo")
+    const slug = made.out.match(/todos\/([^\s/]+)/)?.[1]
+    const opened = launch(w.host, ["open", `todos/${slug}`, "--as", "agent", "--name", "later", "--note", "a test"])
+    assert.equal(opened.code, 0, opened.err)
+    const listed = launch(join(w.base, "project-worktrees", "later"), ["list", "todos"])
+    assert.equal(listed.code, 0, listed.err)
+  } finally {
+    w.cleanup()
+  }
+})

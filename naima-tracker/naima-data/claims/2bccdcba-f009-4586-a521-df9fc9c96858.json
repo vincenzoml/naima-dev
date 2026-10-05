@@ -1,0 +1,12 @@
+{
+  "branch": "claude/ready-epics",
+  "claimedAt": "2026-10-05",
+  "note": "push ready/order groups fix and open lock-ref fix",
+  "items": [
+    {
+      "id": "3cb20fc5-ffa8-4e03-80f7-092c2c8342f9",
+      "ref": "bugs/naima-ready-lists-open-epics-as-work",
+      "title": "naima ready lists open epics as work, though an epic is done by its items and nobody works on it directly"
+    }
+  ]
+}

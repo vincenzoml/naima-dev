@@ -1,0 +1,17 @@
+{
+  "id": "dd931287-7b28-4c9b-82b5-727a505ad0d8",
+  "title": "ready and order never list a group with members, and a wait on a group is a wait on its items (test/plugins/gates/dependencies.test.ts, on Deno, Node and Bun)",
+  "status": "passed",
+  "created": "2026-10-05",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "3cb20fc5-ffa8-4e03-80f7-092c2c8342f9"
+    }
+  ],
+  "runBy": "agent",
+  "evidenceKind": "diff",
+  "confidence": "measured",
+  "redSeen": "2026-10-06",
+  "triagedOn": "2026-10-05"
+}
