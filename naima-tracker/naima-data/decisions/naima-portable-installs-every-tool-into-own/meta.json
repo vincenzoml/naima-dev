@@ -1,0 +1,13 @@
+{
+  "id": "9e57bc5f-d458-4e4c-a098-8b609aa30266",
+  "title": "Naima is portable: it installs every tool into its own discardable directory, never into the system",
+  "status": "settled",
+  "created": "2026-10-06",
+  "decidedOn": "2026-10-06",
+  "links": [
+    {
+      "rel": "relates-to",
+      "id": "13684627-b7b3-4738-87c6-a356fbdbb0d9"
+    }
+  ]
+}
