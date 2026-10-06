@@ -1,0 +1,13 @@
+{
+  "id": "13684627-b7b3-4738-87c6-a356fbdbb0d9",
+  "title": "Naima installs a plugin's tools on the machine it runs on, wherever that is",
+  "status": "settled",
+  "created": "2026-10-06",
+  "decidedOn": "2026-10-06",
+  "links": [
+    {
+      "rel": "settles",
+      "id": "fb3b0074-ab72-4689-bc04-57f906ecebb0"
+    }
+  ]
+}
