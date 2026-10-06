@@ -1,0 +1,17 @@
+{
+  "id": "65f524c4-aa7e-4b97-9be7-d730dfba81d0",
+  "title": "ready and order leave a standard out, and a wait on it is a note (test/plugins/gates/dependencies.test.ts, on Deno, Node and Bun)",
+  "status": "passed",
+  "created": "2026-10-06",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "004d3a29-8d28-4fc9-8399-ccbe7aafa141"
+    }
+  ],
+  "runBy": "agent",
+  "evidenceKind": "diff",
+  "confidence": "measured",
+  "redSeen": "2026-10-06",
+  "triagedOn": "2026-10-06"
+}

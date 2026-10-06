@@ -26,6 +26,14 @@ const fixture = (): Plugin => ({
     statuses: { open: { category: "open", says: "" }, done: { category: "done", says: "" } },
     initialStatus: "open",
     traits: ["group"],
+  }, {
+    id: "standards",
+    dir: "STANDARDS",
+    title: "",
+    says: "",
+    statuses: { stated: { category: "open", says: "" }, met: { category: "done", says: "" } },
+    initialStatus: "stated",
+    traits: ["standard"],
   }],
   fields: [
     { name: "fixedOn", kind: "date", says: "" },
@@ -134,6 +142,31 @@ test("a group stands for its items: ready and order never list it, and a wait on
     const at = (slug: string) => lines.findIndex((l) => l.includes(`/${slug} `))
     assert.ok(at(spec.slug) >= 0 && at(spec.slug) < at(after.slug), lines.join("\n"))
     assert.match(lines[at(after.slug)] ?? "", /^\s*2\s/)
+  } finally {
+    p.cleanup()
+  }
+})
+
+test("a standard the work is held to is not work: ready and order leave it out, and a wait on it is a note", async () => {
+  const { p, ctx, req } = plan()
+  try {
+    const s = createItem(ctx, typeOrThrow(ctx, "standards"), "The result is reproducible")
+    ctx.reload()
+    const standard = ctx.repo.resolve(s.slug)
+    addLink(ctx, req, "blocked-by", standard)
+    ctx.reload()
+    assert.equal(await p.run("ready"), 0)
+    const ready = p.output.join("\n")
+    assert.ok(!ready.includes(standard.slug), ready)
+    assert.ok(ready.includes(req.slug), ready)
+    assert.match(ready, /: 1 ready of 4 open/)
+    p.output.length = 0
+    assert.equal(await p.run("order"), 0)
+    assert.ok(!p.output.some((l) => l.includes(standard.slug)), p.output.join("\n"))
+    const report = await runChecks(ctx)
+    const notes = report.notes.filter((f) => f.item?.meta.id === req.meta.id && /not work/.test(f.message))
+    assert.equal(notes.length, 1, JSON.stringify(report.notes.map((f) => f.message)))
+    assert.ok(!report.problems.some((f) => /not work/.test(f.message)))
   } finally {
     p.cleanup()
   }

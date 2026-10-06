@@ -1,0 +1,12 @@
+{
+  "branch": "claude/ready-standards",
+  "claimedAt": "2026-10-06",
+  "note": "push ready/order standards fix",
+  "items": [
+    {
+      "id": "004d3a29-8d28-4fc9-8399-ccbe7aafa141",
+      "ref": "bugs/naima-ready-lists-every-stated-requirement-as",
+      "title": "naima ready lists every stated requirement as work, so in a project with 322 requirements it is unreadable"
+    }
+  ]
+}
