@@ -1,0 +1,13 @@
+{
+  "id": "c20c448c-95d0-4319-a1d3-6320906e9a5c",
+  "title": "Metrics steer the work through analysis, never by refusing a commit",
+  "status": "settled",
+  "created": "2026-10-07",
+  "decidedOn": "2026-10-07",
+  "links": [
+    {
+      "rel": "relates-to",
+      "id": "9c7ce1b9-f119-4a61-b87a-8e0df74e2d2d"
+    }
+  ]
+}
