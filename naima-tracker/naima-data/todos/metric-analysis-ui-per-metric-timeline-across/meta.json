@@ -3,10 +3,5 @@
   "title": "Metric analysis UI: per-metric timeline across commits, the commits where a metric changed, and what to work on next",
   "status": "open",
   "created": "2026-10-07",
-  "links": [
-    {
-      "rel": "relates-to",
-      "id": "c20c448c-95d0-4319-a1d3-6320906e9a5c"
-    }
-  ]
+  "links": []
 }
