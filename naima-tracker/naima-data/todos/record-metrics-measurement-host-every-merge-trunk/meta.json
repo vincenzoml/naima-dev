@@ -1,0 +1,6 @@
+{
+  "id": "7cd5d2f6-41b8-4db6-8c27-b19cda91195b",
+  "title": "Record metrics on a measurement host for every merge to the trunk, and let backfill's copy see named untracked data",
+  "status": "open",
+  "created": "2026-10-07"
+}

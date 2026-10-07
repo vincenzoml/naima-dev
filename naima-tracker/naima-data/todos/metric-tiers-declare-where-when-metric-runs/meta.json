@@ -1,0 +1,6 @@
+{
+  "id": "bdc0d7e1-62e5-4532-90a3-90712024a072",
+  "title": "Metric tiers: declare where and when a metric runs (any machine per commit, a measurement host per merge, a gate) and select them in metrics run",
+  "status": "open",
+  "created": "2026-10-07"
+}

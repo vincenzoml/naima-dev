@@ -1,0 +1,6 @@
+{
+  "id": "61f1dfe5-69c7-4b0a-96a4-80b5c9bbe1eb",
+  "title": "A json metric records a number even when its command exits non-zero: no way for a command to say do not record this",
+  "status": "open",
+  "created": "2026-10-07"
+}
