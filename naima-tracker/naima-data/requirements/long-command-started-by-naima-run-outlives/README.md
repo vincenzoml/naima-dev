@@ -3,3 +3,5 @@
 Specification: specs/long-work-naima-run-wait-run-list, sections 1 and 3 (naima run, 2–4).
 
 Checked by: a run started by `naima run` keeps running after the naima process that started it has exited; its record holds run.json, status.json with the command's pid, the log with the command's output, and the progress file the command wrote through NAIMA_RUN_PROGRESS; the record's directory is ignored by git without any change to the project's own ignore files.
+
+Why: in the incident of 2026-10-07 in VoxLogicA-2-clean (specification §0), the work and its waiting lived in agent sessions; when a session's loop did not end, nothing else knew the state of the run. A run that is its own process, with its own record, has a state any session can read (design choices 1 and 3).
