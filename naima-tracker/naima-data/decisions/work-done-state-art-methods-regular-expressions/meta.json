@@ -1,0 +1,17 @@
+{
+  "id": "df043d3c-d1b9-4d17-b56d-4fccd0461945",
+  "title": "Work is done with state-of-the-art methods; regular expressions and ad-hoc scripts only where they are genuinely the right tool",
+  "status": "settled",
+  "created": "2026-10-08",
+  "decidedOn": "2026-10-08",
+  "links": [
+    {
+      "rel": "settles",
+      "id": "e60676fa-e36d-455e-8a2a-f16a722a8884"
+    },
+    {
+      "rel": "settles",
+      "id": "15565294-b7a2-482f-817f-1270fba00ce2"
+    }
+  ]
+}

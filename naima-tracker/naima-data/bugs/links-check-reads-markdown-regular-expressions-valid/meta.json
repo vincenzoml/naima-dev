@@ -1,0 +1,11 @@
+{
+  "id": "15565294-b7a2-482f-817f-1270fba00ce2",
+  "title": "The links check reads markdown with regular expressions: valid links to HTML anchors are reported broken, and other CommonMark constructs are misread",
+  "status": "open",
+  "created": "2026-10-08",
+  "runBy": "agent",
+  "impact": "high",
+  "priority": "now",
+  "confidence": "diagnosed",
+  "triagedOn": "2026-10-08"
+}
