@@ -18,7 +18,7 @@ import rules from "../../../naima/src/plugins/rules/index.ts"
 import trackers from "../../../naima/src/plugins/trackers/index.ts"
 import { uiGrant } from "../../../naima/src/launcher.ts"
 import { groupAlive } from "../../core/processes.ts"
-import { gitIn as git, productRepo, removeTemp, tempProject, type TempProject } from "../../core/testing.ts"
+import { gitIn as git, productRepo, removeTemp, type TempProject, tempProject } from "../../core/testing.ts"
 import type { Check } from "../../../naima/src/core/api.ts"
 
 const REPO = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))))
@@ -55,7 +55,16 @@ test("a run outlives the naima that started it, with its log, its progress file 
   const p = project()
   try {
     await inside(p, async () => {
-      const code = await p.run("run", "hello", "--budget-time", "1m", "--every", "1s", "--", 'echo hi; echo "step 1 of 1" > "$NAIMA_RUN_PROGRESS"; sleep 1; echo bye')
+      const code = await p.run(
+        "run",
+        "hello",
+        "--budget-time",
+        "1m",
+        "--every",
+        "1s",
+        "--",
+        'echo hi; echo "step 1 of 1" > "$NAIMA_RUN_PROGRESS"; sleep 1; echo bye',
+      )
       assert.equal(code, 0)
       assert.match(out(p), /run hello: started, pid \d+/)
       const v = await statusOf(p, "hello")
@@ -66,7 +75,7 @@ test("a run outlives the naima that started it, with its log, its progress file 
       assert.equal(await p.run("wait", "hello", "--timeout", "30s"), 0)
       assert.match(out(p), /run hello: succeeded — exit 0/)
       assert.match(out(p), /progress: "step 1 of 1"/)
-      assert.match(out(p), /    hi\n    bye/)
+      assert.match(out(p), / {4}hi\n {4}bye/)
       for (const f of ["run.json", "status.json", "log", "progress"]) assert.ok(existsSync(join(runs(p), "hello", f)), f)
     })
   } finally {
@@ -80,7 +89,7 @@ test("several words after -- are a program and its arguments, run without a shel
     await inside(p, async () => {
       assert.equal(await p.run("run", "argv", "--budget-time", "1m", "--every", "1s", "--", "echo", "$HOME", "a;b"), 0)
       assert.equal(await p.run("wait", "argv", "--timeout", "30s"), 0)
-      assert.match(out(p), /    \$HOME a;b/)
+      assert.match(out(p), / {4}\$HOME a;b/)
     })
   } finally {
     p.cleanup()
@@ -95,7 +104,7 @@ test("a command that fails is reported failed with its exit code, and wait exits
       p.output.length = 0
       assert.equal(await p.run("wait", "fails", "--timeout", "30s"), 1)
       assert.match(out(p), /run fails: failed — exit 3/)
-      assert.match(out(p), /    broken/)
+      assert.match(out(p), / {4}broken/)
     })
   } finally {
     p.cleanup()
@@ -126,7 +135,20 @@ test("a run over its disk budget is killed, its peak size recorded", { skip: !po
   const p = project()
   try {
     await inside(p, async () => {
-      await p.run("run", "fills", "--budget-time", "1m", "--budget-disk", "1M", "--creates", "stores", "--every", "1s", "--", "mkdir -p stores && head -c 2097152 /dev/zero > stores/blob && sleep 60")
+      await p.run(
+        "run",
+        "fills",
+        "--budget-time",
+        "1m",
+        "--budget-disk",
+        "1M",
+        "--creates",
+        "stores",
+        "--every",
+        "1s",
+        "--",
+        "mkdir -p stores && head -c 2097152 /dev/zero > stores/blob && sleep 60",
+      )
       p.output.length = 0
       assert.equal(await p.run("wait", "fills", "--timeout", "40s"), 1)
       assert.match(out(p), /run fills: killed — over its disk budget/)
@@ -172,9 +194,23 @@ test("run list shows each run against its budgets with its progress, and marks s
       const record = (name: string, staleMs: number, heartbeat: number) => {
         const dir = join(runs(p), name)
         mkdirSync(dir, { recursive: true })
-        const spec = { name, command: ["x"], shell: true, cwd: p.root, budgetTimeMs: 7_200_000, creates: [], everyMs: 1000, staleMs, guardTracked: false, started: new Date(hour).toISOString() }
+        const spec = {
+          name,
+          command: ["x"],
+          shell: true,
+          cwd: p.root,
+          budgetTimeMs: 7_200_000,
+          creates: [],
+          everyMs: 1000,
+          staleMs,
+          guardTracked: false,
+          started: new Date(hour).toISOString(),
+        }
         writeFileSync(join(dir, "run.json"), JSON.stringify(spec))
-        writeFileSync(join(dir, "status.json"), JSON.stringify({ state: "running", supervisorPid: 1, pid: 1, heartbeat: new Date(heartbeat).toISOString(), elapsedMs: 0 }))
+        writeFileSync(
+          join(dir, "status.json"),
+          JSON.stringify({ state: "running", supervisorPid: 1, pid: 1, heartbeat: new Date(heartbeat).toISOString(), elapsedMs: 0 }),
+        )
         writeFileSync(join(dir, "log"), "old output\n")
         utimesSync(join(dir, "log"), new Date(hour), new Date(hour))
       }
@@ -183,9 +219,9 @@ test("run list shows each run against its budgets with its progress, and marks s
       p.output.length = 0
       assert.equal(await p.run("run", "list"), 0)
       const lines = p.output
-      assert.match(lines.find((l) => l.startsWith("done "))!, /^done  succeeded  \d+s of 1m  progress "half way" \d+s ago$/)
-      assert.match(lines.find((l) => l.startsWith("ghost "))!, /^ghost  LOST  1h of 2h/)
-      assert.match(lines.find((l) => l.startsWith("silent "))!, /^silent  STALE  1h of 2h/)
+      assert.match(lines.find((l) => l.startsWith("done "))!, /^done {2}succeeded {2}\d+s of 1m {2}progress "half way" \d+s ago$/)
+      assert.match(lines.find((l) => l.startsWith("ghost "))!, /^ghost {2}LOST {2}1h of 2h/)
+      assert.match(lines.find((l) => l.startsWith("silent "))!, /^silent {2}STALE {2}1h of 2h/)
       p.output.length = 0
       assert.equal(await p.run("wait", "ghost", "--timeout", "10s"), 1, "a lost run is over: wait returns at once")
       assert.match(out(p), /run ghost: lost — its supervisor is gone/)
@@ -203,7 +239,20 @@ test("run clean removes the declared paths and the record, and nothing else", { 
   try {
     await inside(p, async () => {
       writeFileSync(join(p.root, "keep.txt"), "mine\n")
-      await p.run("run", "tidy", "--budget-time", "1m", "--every", "1s", "--creates", "tmp-stores", "--creates", "never-made", "--", "mkdir -p tmp-stores/a && echo x > tmp-stores/a/f")
+      await p.run(
+        "run",
+        "tidy",
+        "--budget-time",
+        "1m",
+        "--every",
+        "1s",
+        "--creates",
+        "tmp-stores",
+        "--creates",
+        "never-made",
+        "--",
+        "mkdir -p tmp-stores/a && echo x > tmp-stores/a/f",
+      )
       await p.run("wait", "tidy", "--timeout", "30s")
       assert.ok(existsSync(join(p.root, "tmp-stores", "a", "f")))
       p.output.length = 0
@@ -236,15 +285,32 @@ test("a declared path that is the repository, above it, the home directory, or h
     assert.equal(unsafePath(p.root, join(p.root, "stores")), null)
     assert.equal(unsafePath(p.root, join(tmpdir(), "elsewhere")), null)
     await inside(p, async () => {
-      await assert.rejects(() => p.run("run", "bad", "--budget-time", "1m", "--creates", "data", "--", "true"), /--creates .*data is or holds a file git tracks/)
+      await assert.rejects(
+        () => p.run("run", "bad", "--budget-time", "1m", "--creates", "data", "--", "true"),
+        /--creates .*data is or holds a file git tracks/,
+      )
     })
     assert.equal(existsSync(join(runs(p), "bad")), false, "a refused run writes nothing")
     // Clean checks again: a record whose declared path has come to hold a tracked file is refused, and nothing is removed.
     const dir = join(runs(p), "later")
     mkdirSync(dir, { recursive: true })
-    const spec = { name: "later", command: ["true"], shell: true, cwd: p.root, budgetTimeMs: 60_000, creates: [join(p.root, "data")], everyMs: 1000, staleMs: 60_000, guardTracked: false, started: new Date().toISOString() }
+    const spec = {
+      name: "later",
+      command: ["true"],
+      shell: true,
+      cwd: p.root,
+      budgetTimeMs: 60_000,
+      creates: [join(p.root, "data")],
+      everyMs: 1000,
+      staleMs: 60_000,
+      guardTracked: false,
+      started: new Date().toISOString(),
+    }
     writeFileSync(join(dir, "run.json"), JSON.stringify(spec))
-    writeFileSync(join(dir, "status.json"), JSON.stringify({ state: "ended", supervisorPid: 1, heartbeat: new Date().toISOString(), elapsedMs: 1, reason: "exit", exitCode: 0 }))
+    writeFileSync(
+      join(dir, "status.json"),
+      JSON.stringify({ state: "ended", supervisorPid: 1, heartbeat: new Date().toISOString(), elapsedMs: 1, reason: "exit", exitCode: 0 }),
+    )
     await assert.rejects(() => p.run("run", "clean", "later"), /tracked\.csv\) — nothing removed/)
     assert.ok(existsSync(join(p.root, "data", "tracked.csv")))
   } finally {
@@ -296,7 +362,10 @@ done
 exec sh -c "$1"
 `
 
-test("a remote run is one ssh call to the host's own Naima, always guarded, and a tracked file it changes fails it", { skip: (!hasDeno || !posix) && "needs deno and a POSIX shell", timeout: 120_000 }, async () => {
+test("a remote run is one ssh call to the host's own Naima, always guarded, and a tracked file it changes fails it", {
+  skip: (!hasDeno || !posix) && "needs deno and a POSIX shell",
+  timeout: 120_000,
+}, async () => {
   const host = project()
   const bin = mkdtempSync(join(tmpdir(), "naima-fake-ssh-"))
   writeFileSync(join(bin, "ssh"), FAKE_SSH)
@@ -317,10 +386,10 @@ test("a remote run is one ssh call to the host's own Naima, always guarded, and 
     assert.equal(await p.run("wait", "remote", "--timeout", "60s", "--every", "1s"), 1)
     assert.match(out(p), /run remote on lab: failed — exit 0/)
     assert.match(out(p), /tracked files changed, which a guarded run must not: tracked\.txt/)
-    assert.match(out(p), /    remote done/)
+    assert.match(out(p), / {4}remote done/)
     p.output.length = 0
     await p.run("run", "list")
-    assert.match(out(p), /^remote  failed  .*on lab/m)
+    assert.match(out(p), /^remote {2}failed {2}.*on lab/m)
     assert.equal(await p.run("run", "clean", "remote"), 0)
     assert.equal(existsSync(join(host.root, "naima-tracker", ".runs", "remote")), false)
     assert.equal(existsSync(join(runs(p), "remote")), false)
@@ -352,7 +421,10 @@ test("the shipped long-work rule is listed for agents with its acknowledgement, 
   const p = project()
   try {
     await p.run("rules", "--audience", "agents")
-    assert.match(out(p), new RegExp(`MUST · agents · ${LONG_WORK_RULE.title} \\(long-work/long-work-through-naima-run, shipped by long-work, enforced by wait-loops`))
+    assert.match(
+      out(p),
+      new RegExp(`MUST · agents · ${LONG_WORK_RULE.title} \\(long-work/long-work-through-naima-run, shipped by long-work, enforced by wait-loops`),
+    )
     assert.match(out(p), /Acknowledge: Long work mode on/)
     p.output.length = 0
     assert.equal(await p.run("rules", "check-ack", join(p.root, "naima-tracker", "naima-data", "naima.json")), 1)
@@ -382,7 +454,7 @@ test("hand-written waits are found: a pattern lookup, a loop that sleeps; a mark
   assert.deepEqual(findWaits(incident).map((w) => w.what), ["pattern lookup", "sleep loop"])
   assert.deepEqual(findWaits("while true\ndo\n  ssh lab cat progress\n  sleep 300\ndone\n").map((w) => [w.line, w.what]), [[1, "sleep loop"]])
   assert.deepEqual(findWaits("pkill -9 -f bench"), [{ line: 1, what: "pattern lookup", text: "pkill -9 -f bench" }])
-  assert.deepEqual(findWaits("while read -r line; do echo \"$line\"; done < list.txt\n"), [])
+  assert.deepEqual(findWaits('while read -r line; do echo "$line"; done < list.txt\n'), [])
   assert.deepEqual(findWaits("# while true; do sleep 1; done\n"), [])
   assert.deepEqual(findWaits("# naima: allow-wait-loop retrying a flaky mirror\nuntil curl -f x; do sleep 5; done\n"), [])
   assert.deepEqual(findWaits("pgrep bench\n"), [], "a lookup by exact name is not a pattern on command lines")
@@ -392,7 +464,7 @@ test("the check wait-loops reports a tracked script as a problem and a session n
   const p = project()
   try {
     mkdirSync(join(p.root, "scripts"))
-    writeFileSync(join(p.root, "scripts", "bench.sh"), "#!/bin/sh\nwhile kill -0 \"$PID\"; do\n  sleep 10\ndone\n")
+    writeFileSync(join(p.root, "scripts", "bench.sh"), '#!/bin/sh\nwhile kill -0 "$PID"; do\n  sleep 10\ndone\n')
     writeFileSync(join(p.root, "scripts", "untracked.sh"), "while true; do sleep 1; done\n")
     p.git("add", "scripts/bench.sh")
     p.git("commit", "-q", "-m", "script")

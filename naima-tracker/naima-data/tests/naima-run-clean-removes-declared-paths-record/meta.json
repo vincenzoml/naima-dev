@@ -1,7 +1,7 @@
 {
   "id": "eb308be8-b0bf-43e1-8259-f1ae6658d337",
   "title": "naima run clean removes the declared paths and the record only, refusing tracked paths and running runs (test/plugins/long-work/long-work.test.ts, on Deno, Node and Bun)",
-  "status": "open",
+  "status": "passed",
   "created": "2026-10-08",
   "runBy": "agent",
   "links": [

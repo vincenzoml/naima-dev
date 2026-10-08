@@ -1,7 +1,7 @@
 {
   "id": "f04b04a7-2f0b-410f-be99-e02f36d972f3",
   "title": "the shipped long-work rule is listed for agents and retirable, and naima check flags wait loops (test/plugins/long-work/long-work.test.ts, on Deno, Node and Bun)",
-  "status": "open",
+  "status": "passed",
   "created": "2026-10-08",
   "runBy": "agent",
   "links": [

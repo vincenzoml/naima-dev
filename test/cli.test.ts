@@ -215,7 +215,10 @@ test("guide, inside a project, prints the project's active rules for agents firs
     assert.equal((await naima(h.root, ["new", "rules", "Sign the release", "--set", "audience=people", "--set", "strength=must"])).code, 0)
     const guide = await naima(h.root, ["guide"])
     assert.equal(guide.code, 0, guide.err)
-    assert.match(guide.out, /^Read first — the project's rules for agents[^\n]*\n\nMUST · agents · Ask before deleting[^\n]*\n {4}Ask first\.\n\nNaima /)
+    assert.match(
+      guide.out,
+      /^Read first — the project's rules for agents[^\n]*\n\nMUST · agents · Ask before deleting[^\n]*\n {4}Ask first\.\n\nMUST · agents · Long work goes through naima run[^\n]*shipped by long-work[\s\S]*?\n\nAcknowledge: Long work mode on\n\nNaima /,
+    )
     assert.doesNotMatch(guide.out, /Sign the release/)
     assert.equal((await naima(h.base, ["guide"])).out.split("\n")[0]?.startsWith("Naima "), true, "outside a project: the documentation only")
   } finally {

@@ -1,6 +1,6 @@
 {
   "id": "88ff4944-acb0-4beb-8113-3afd6c9bc6e9",
   "title": "naima wait finds a run by its record, never by a process pattern, is bounded by a timeout, and prints the exit status and the log's tail",
-  "status": "stated",
+  "status": "met",
   "created": "2026-10-08"
 }

@@ -1,7 +1,7 @@
 {
   "id": "0d0bbbec-349a-48bf-a70f-1b97ba2952fe",
   "title": "a run over its time budget is killed, its whole process group with it (test/plugins/long-work/long-work.test.ts, on Deno, Node and Bun)",
-  "status": "open",
+  "status": "passed",
   "created": "2026-10-08",
   "runBy": "agent",
   "links": [

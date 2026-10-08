@@ -34,3 +34,9 @@ not clean.
 
 Related: the decision that Naima installs tools portably (a host is where
 Naima runs), and the metrics tiers (fmt-5000 only).
+
+## Notes
+
+### 2026-10-08 — Claude, on agent/agent-runs, on agent/agent-runs
+
+Implemented on agent/agent-runs (product commits 582c985, f75e57b): plugin long-work (naima run, wait, run list/status/stop/clean), the rules plugin's shipped-rules point and retire option, the launcher's grant for run and wait. 431/431 tests on Deno, Node and Bun (macOS). Left: merge to the product's main and the lock update (then status=shipped); the Windows and Linux runs owed by tests/platform-choices-win32-darwin-linux-suite-macos.

@@ -1,7 +1,7 @@
 {
   "id": "1b58bdff-e5fe-481d-a8d1-8f3df28d0b2d",
   "title": "a remote run goes through one ssh call to the host's own Naima, and a guarded run that changes a tracked file fails (test/plugins/long-work/long-work.test.ts, on Deno, Node and Bun)",
-  "status": "open",
+  "status": "passed",
   "created": "2026-10-08",
   "runBy": "agent",
   "links": [

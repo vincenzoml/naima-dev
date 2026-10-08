@@ -1,6 +1,6 @@
 {
   "id": "289be114-4379-4f97-96b6-33d6fef3c304",
   "title": "naima run clean removes only what the run declared it creates: never a tracked file, never while it runs",
-  "status": "stated",
+  "status": "met",
   "created": "2026-10-08"
 }

@@ -1,7 +1,7 @@
 {
   "id": "8707864e-8125-43c5-a167-327fd9b31c98",
   "title": "the platform choices for win32, darwin and linux, and the suite on macOS (test/plugins/long-work/long-work.test.ts, on Deno, Node and Bun)",
-  "status": "open",
+  "status": "partial",
   "created": "2026-10-08",
   "runBy": "agent",
   "links": [
