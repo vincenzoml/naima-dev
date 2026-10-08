@@ -1,0 +1,13 @@
+{
+  "id": "6681f91f-7db7-42f1-b313-bebed695a1df",
+  "title": "a run outlives the naima that started it, with log, progress and an ignored record (test/plugins/long-work/long-work.test.ts, on Deno, Node and Bun)",
+  "status": "open",
+  "created": "2026-10-08",
+  "runBy": "agent",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "2eb218ad-b979-4e01-b194-74e70bc07de7"
+    }
+  ]
+}

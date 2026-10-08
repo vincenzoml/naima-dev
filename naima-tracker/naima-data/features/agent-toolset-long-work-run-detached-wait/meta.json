@@ -1,0 +1,53 @@
+{
+  "id": "1d9c4548-3a8d-4fa4-88f4-50eaa13688d4",
+  "title": "An agent toolset for long work: run detached, wait, poll and report through Naima commands, made mandatory by a rule",
+  "status": "planned",
+  "created": "2026-10-08",
+  "priority": "now",
+  "impact": "high",
+  "effort": "L",
+  "confidence": "diagnosed",
+  "triagedOn": "2026-10-08",
+  "links": [
+    {
+      "rel": "specified-by",
+      "id": "bcf2f66a-03c5-42eb-b0a3-bf360e29a37f"
+    },
+    {
+      "rel": "satisfies",
+      "id": "2eb218ad-b979-4e01-b194-74e70bc07de7"
+    },
+    {
+      "rel": "satisfies",
+      "id": "acee76dd-0120-4a97-a73f-8600cc95c4e8"
+    },
+    {
+      "rel": "satisfies",
+      "id": "3fc9fd2c-3ffc-42ed-aeba-fc156fa2ea52"
+    },
+    {
+      "rel": "satisfies",
+      "id": "88ff4944-acb0-4beb-8113-3afd6c9bc6e9"
+    },
+    {
+      "rel": "satisfies",
+      "id": "7b993b48-e80c-4512-aaea-954e64199101"
+    },
+    {
+      "rel": "satisfies",
+      "id": "289be114-4379-4f97-96b6-33d6fef3c304"
+    },
+    {
+      "rel": "satisfies",
+      "id": "5071048f-4015-4ea0-b507-a0640b00d369"
+    },
+    {
+      "rel": "satisfies",
+      "id": "112a0de9-7ff1-4487-a86f-d5f859abbae3"
+    },
+    {
+      "rel": "satisfies",
+      "id": "492b6920-8006-4db5-9706-3b033684ad9a"
+    }
+  ]
+}

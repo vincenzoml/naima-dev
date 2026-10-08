@@ -1,0 +1,6 @@
+{
+  "id": "5071048f-4015-4ea0-b507-a0640b00d369",
+  "title": "A remote run uses the host's own Naima over ssh, and a tracked file it changes there fails the run",
+  "status": "stated",
+  "created": "2026-10-08"
+}

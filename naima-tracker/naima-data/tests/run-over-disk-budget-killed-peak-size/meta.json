@@ -1,0 +1,13 @@
+{
+  "id": "46749879-968b-4beb-b31e-05e932484a9b",
+  "title": "a run over its disk budget is killed, its peak size recorded (test/plugins/long-work/long-work.test.ts, on Deno, Node and Bun)",
+  "status": "open",
+  "created": "2026-10-08",
+  "runBy": "agent",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "3fc9fd2c-3ffc-42ed-aeba-fc156fa2ea52"
+    }
+  ]
+}

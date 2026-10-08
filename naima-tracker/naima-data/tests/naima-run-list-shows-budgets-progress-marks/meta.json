@@ -1,0 +1,13 @@
+{
+  "id": "8b5c23e8-8767-440e-b6e0-9b7b10067ba9",
+  "title": "naima run list shows budgets and progress, and marks stale and lost runs (test/plugins/long-work/long-work.test.ts, on Deno, Node and Bun)",
+  "status": "open",
+  "created": "2026-10-08",
+  "runBy": "agent",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "7b993b48-e80c-4512-aaea-954e64199101"
+    }
+  ]
+}

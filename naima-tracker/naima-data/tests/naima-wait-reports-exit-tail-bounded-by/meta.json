@@ -1,0 +1,13 @@
+{
+  "id": "725ca02a-c5b7-484c-bf0a-c54822590058",
+  "title": "naima wait reports exit and tail, is bounded by its timeout, and no source looks a process up by pattern (test/plugins/long-work/long-work.test.ts, on Deno, Node and Bun)",
+  "status": "open",
+  "created": "2026-10-08",
+  "runBy": "agent",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "88ff4944-acb0-4beb-8113-3afd6c9bc6e9"
+    }
+  ]
+}
