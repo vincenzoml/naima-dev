@@ -6,6 +6,7 @@ import type { Plugin } from "../../../naima/src/core/api.ts"
 import { runChecks } from "../../../naima/src/core/api.ts"
 import { tempProject } from "../../core/testing.ts"
 import docs, { anchor, anchorsOf, documentationGaps, renderReference } from "../../../naima/src/plugins/docs/index.ts"
+import { parseMarkdown } from "../../../naima/src/plugins/docs/commonmark.ts"
 
 const features: Plugin = {
   name: "features",
@@ -111,7 +112,9 @@ test("every internal link of the generated reference resolves", () => {
   try {
     const text = renderReference(p.ctx)
     const anchors = anchorsOf(text)
-    for (const m of text.matchAll(/\]\(#([^)]+)\)/g)) assert.ok(anchors.has(m[1] ?? ""), `#${m[1]} has no heading`)
+    for (const { target } of parseMarkdown(text).links.filter((l) => l.target.startsWith("#"))) {
+      assert.ok(anchors.has(target.slice(1)), `${target} has no heading`)
+    }
   } finally {
     p.cleanup()
   }

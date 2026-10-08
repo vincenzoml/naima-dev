@@ -1,0 +1,26 @@
+{
+  "id": "669d3e4d-61ab-4bdf-9551-949be320a09b",
+  "title": "The links check reads CommonMark: links to HTML anchors resolve, a missing anchor is still reported",
+  "status": "passed",
+  "created": "2026-10-08",
+  "runBy": "agent",
+  "evidenceKind": "diff",
+  "redSeen": "2026-10-08",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "15565294-b7a2-482f-817f-1270fba00ce2"
+    }
+  ],
+  "attached": {
+    "red-green-links-check.log": {
+      "from": "agent",
+      "by": "Vincenzo Ciancia",
+      "on": "2026-10-08"
+    }
+  },
+  "impact": "high",
+  "priority": "now",
+  "confidence": "measured",
+  "triagedOn": "2026-10-08"
+}

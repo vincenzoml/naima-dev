@@ -1,0 +1,6 @@
+== main (f75e57b long)
+docs/coverage.md:3: link appendix.md#src-3 — docs/appendix.md has no heading #src-3
+docs/coverage.md:4: link appendix.md#lex-definition — docs/appendix.md has no heading #lex-definition
+docs/coverage.md:5: link appendix.md#src-99 — docs/appendix.md has no heading #src-99
+== fix (f75e57b long)
+docs/coverage.md:5: link appendix.md#src-99 — docs/appendix.md has no heading #src-99

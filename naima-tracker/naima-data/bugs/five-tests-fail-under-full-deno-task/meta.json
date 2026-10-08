@@ -1,0 +1,11 @@
+{
+  "id": "4059ab32-37ef-466f-b797-3052f6c1d927",
+  "title": "Five tests fail under a full deno task verify run and pass alone",
+  "status": "open",
+  "created": "2026-10-08",
+  "runBy": "agent",
+  "impact": "medium",
+  "priority": "next",
+  "confidence": "measured",
+  "triagedOn": "2026-10-08"
+}
