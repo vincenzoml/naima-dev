@@ -1,0 +1,11 @@
+{
+  "id": "c5825c65-baf9-4a3f-b68d-93e4122f44ce",
+  "title": "naima prune --branch cannot remove a worktree that holds a submodule: git refuses, and the worktree and branch stay",
+  "status": "open",
+  "created": "2026-10-08",
+  "runBy": "agent",
+  "impact": "medium",
+  "priority": "next",
+  "confidence": "measured",
+  "triagedOn": "2026-10-08"
+}
