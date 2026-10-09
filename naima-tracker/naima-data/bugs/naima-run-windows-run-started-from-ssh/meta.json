@@ -1,0 +1,6 @@
+{
+  "id": "4cc3dbe7-98bf-4abf-b5ec-514c95a14ec4",
+  "title": "naima run on Windows: a run started from an ssh session is lost when the session ends, so every --host run on a Windows host is lost",
+  "status": "open",
+  "created": "2026-10-09"
+}

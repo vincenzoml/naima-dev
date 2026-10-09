@@ -1,0 +1,6 @@
+{
+  "id": "659fd1d6-69ef-4a50-8b2d-28bc3230e1a0",
+  "title": "Windows install docs: Deno by hand skips the published checksum and adds to PATH on every run; the git advice is a system install",
+  "status": "open",
+  "created": "2026-10-09"
+}

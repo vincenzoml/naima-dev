@@ -1,0 +1,6 @@
+{
+  "id": "5db9d847-bdf0-410a-ae30-93560ab458c5",
+  "title": "naima run --host and tools --host quote for a POSIX shell, but a Windows host's sshd runs cmd",
+  "status": "open",
+  "created": "2026-10-09"
+}
