@@ -82,7 +82,7 @@ test("mCRL2: a missing tool is an error that says which and how to get it, never
   const r = await v.verify({ model, property: "true", options: {} }, ctxStub)
   assert.equal(r.verdict, "error")
   assert.match(r.output, /^tool missing: mcrl22lps/)
-  assert.match(r.output, /mcrl2\.org/)
+  assert.match(r.output, /naima tools install mcrl2 installs mCRL2 202607\.0/)
   await assert.rejects(Promise.resolve(v.version!(ctxStub)), /tool missing: mcrl22lps/)
 })
 

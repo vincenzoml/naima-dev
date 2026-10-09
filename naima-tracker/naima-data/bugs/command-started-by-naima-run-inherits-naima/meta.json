@@ -1,0 +1,10 @@
+{
+  "id": "d98e3f22-6e82-492b-836e-8a89689fffa0",
+  "title": "A command started by naima run inherits NAIMA_LAUNCHED, so a Naima it starts believes it was launched and fails",
+  "status": "open",
+  "created": "2026-10-09",
+  "impact": "medium",
+  "priority": "next",
+  "confidence": "diagnosed",
+  "triagedOn": "2026-10-09"
+}

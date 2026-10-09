@@ -174,7 +174,7 @@ test("naima plugin enable turns on an opt-in plugin, set writes a validated opti
     const shown = await p.run("plugin", "show", "verifier-mcrl2")
     assert.equal(shown.code, 0, shown.err)
     assert.match(shown.out, /^verifier-mcrl2: on$/m)
-    assert.match(shown.out, /bin \(default PATH\) — the absolute directory holding the mCRL2 tools/)
+    assert.match(shown.out, /bin \(default installed, then PATH\) — the absolute directory holding the mCRL2 tools/)
 
     const bad = await p.run("plugin", "set", "verifier-mcrl2", "nope=1")
     assert.equal(bad.code, 2)

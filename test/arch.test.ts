@@ -106,7 +106,7 @@ test("a plugin, wherever it lives, imports only the core's public API and its ow
 })
 
 /** The contract's own words: the kinds of contribution a plugin declares. A plugin named after one ("gates") does not own the word. */
-const CONTRACT = ["types", "fields", "relations", "dirs", "checks", "commands", "views", "summary", "rank", "gates", "verifiers", "options"].flatMap((
+const CONTRACT = ["types", "fields", "relations", "dirs", "checks", "commands", "views", "summary", "rank", "gates", "verifiers", "tools", "options"].flatMap((
   k,
 ) => [k, k.replace(/s$/, "")])
 
