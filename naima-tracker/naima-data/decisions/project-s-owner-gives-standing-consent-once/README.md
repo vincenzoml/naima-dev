@@ -13,3 +13,13 @@ After `naima tools install` shipped with a consent prompt, the agent asked the o
 ## Why
 
 The question costs the owner attention for no decision: the install is reversible and contained. Consent belongs where risk is.
+
+## Clarified by the owner the same day
+
+"Fix Naima so Deno must be installed and the other apps are installed in a
+portable way inside the repo or with a cache like uv — preferably with a
+cache." So: Deno is the one prerequisite; every other tool a plugin declares
+is installed automatically on first need, without a question, into a
+per-user, content-addressed cache shared by all projects on the machine (as
+uv does for Python), each project pinning the versions it uses. The consent
+prompt is kept only for tools that are not open-licensed or need root.
