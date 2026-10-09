@@ -1,0 +1,13 @@
+{
+  "id": "b4974a16-6eea-4e2d-8c18-2f89df00c69a",
+  "title": "a declaration lacking its version, licence, verify, or a source lacking url, size or sha256, is refused at load naming the plugin; the shipped ones load (test/plugins/tools/tools.test.ts, on Deno, Node and Bun)",
+  "status": "passed",
+  "created": "2026-10-09",
+  "runBy": "agent",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "71502854-c2d8-467e-b2d0-c8a05f8daa14"
+    }
+  ]
+}

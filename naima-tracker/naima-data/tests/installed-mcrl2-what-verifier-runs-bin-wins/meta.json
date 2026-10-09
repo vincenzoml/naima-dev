@@ -1,0 +1,13 @@
+{
+  "id": "c2c38356-7885-4d07-82f3-005c59144a44",
+  "title": "the installed mCRL2 is what the verifier runs, bin wins, PATH is the fallback; the launcher grants naima tools alone write, network and running (test/plugins/tools/tools.test.ts, on Deno, Node and Bun)",
+  "status": "passed",
+  "created": "2026-10-09",
+  "runBy": "agent",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "10252f07-5b7c-4dd2-8ce5-b0eae859b86d"
+    }
+  ]
+}

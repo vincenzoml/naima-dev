@@ -1,7 +1,7 @@
 {
   "id": "fb3b0074-ab72-4689-bc04-57f906ecebb0",
   "title": "A plugin declares the external tools it needs; Naima reports them per machine and installs them with the owner's consent",
-  "status": "planned",
+  "status": "shipped",
   "created": "2026-10-06",
   "links": [
     {
@@ -44,5 +44,8 @@
       "rel": "satisfies",
       "id": "580107c4-4704-4afb-ab21-b076a2271056"
     }
+  ],
+  "docs": [
+    "naima/docs/guide/tools.md"
   ]
 }

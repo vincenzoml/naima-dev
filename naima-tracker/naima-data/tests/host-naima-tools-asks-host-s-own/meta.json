@@ -1,0 +1,13 @@
+{
+  "id": "e1670eb8-25b5-47d8-b84b-0f39edf4d548",
+  "title": "with --host, naima tools asks the host's own Naima: the plan, the consent here, the install with --consent and --by (test/plugins/tools/tools.test.ts, on Deno, Node and Bun)",
+  "status": "passed",
+  "created": "2026-10-09",
+  "runBy": "agent",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "456b338c-a9b1-40db-bb10-1f26e3bc2241"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "8ae14916-8224-4ac8-9df0-1a0e1cde6504",
+  "title": "naima tools reports installed, missing, unavailable and undeclared tools and writes nothing; tools show prints the plan (test/plugins/tools/tools.test.ts, on Deno, Node and Bun)",
+  "status": "passed",
+  "created": "2026-10-09",
+  "runBy": "agent",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "506219ee-3000-44d4-b9f2-7d41f0451709"
+    }
+  ]
+}

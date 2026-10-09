@@ -1,6 +1,6 @@
 {
   "id": "580107c4-4704-4afb-ab21-b076a2271056",
   "title": "mCRL2 202607.0 and Storm (stormpy 1.14.0, on a shipped Python) are declared for every platform that has an artefact, and each platform without one has a plain answer",
-  "status": "stated",
+  "status": "met",
   "created": "2026-10-09"
 }

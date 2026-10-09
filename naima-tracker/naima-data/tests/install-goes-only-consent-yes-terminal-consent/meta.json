@@ -1,0 +1,13 @@
+{
+  "id": "a8ed516d-b92a-4ad6-8263-77be2d82b42f",
+  "title": "an install goes on only with consent, a yes on the terminal or --consent with --by, recorded in the receipt; nothing is fetched without it (test/plugins/tools/tools.test.ts, on Deno, Node and Bun)",
+  "status": "passed",
+  "created": "2026-10-09",
+  "runBy": "agent",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "b454125a-7ba9-47ce-aeb1-2a6a64ff5c55"
+    }
+  ]
+}

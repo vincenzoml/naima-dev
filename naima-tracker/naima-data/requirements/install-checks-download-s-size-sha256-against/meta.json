@@ -1,6 +1,6 @@
 {
   "id": "8f258969-94a6-4584-862b-bc74b5b71674",
   "title": "An install checks the download's size and sha256 against the declaration and leaves nothing installed when either differs",
-  "status": "stated",
+  "status": "met",
   "created": "2026-10-09"
 }

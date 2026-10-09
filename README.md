@@ -52,7 +52,9 @@ these steps in order.
    This repository tracks its work with Naima: at the start of every session read naima-tracker/naima/skills/naima/SKILL.md and `naima rules --audience agents`, and work by them.
    ```
 
-By hand, without the installer:
+By hand, without the installer — Deno first, if `deno --version` does not
+answer: [Deno by hand](naima/README.md#deno-by-hand), for macOS, Linux and
+Windows, does what Deno's own installer does, for your user only. Then:
 
 ```sh
 git clone https://github.com/vincenzoml/naima.git naima-tracker/naima

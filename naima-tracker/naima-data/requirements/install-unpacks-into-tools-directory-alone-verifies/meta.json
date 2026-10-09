@@ -1,6 +1,6 @@
 {
   "id": "f1f3674b-fe74-4008-a496-52b373b56950",
   "title": "An install unpacks into the tools directory alone, verifies the tool by running it, and touches neither PATH nor the system; deleting the directory removes every tool",
-  "status": "stated",
+  "status": "met",
   "created": "2026-10-09"
 }

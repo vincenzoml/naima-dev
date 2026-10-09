@@ -1,0 +1,13 @@
+{
+  "id": "61429a5a-588b-479a-9e23-302fe8ceafb3",
+  "title": "naima tools remove removes a tool and refuses the Python under an installed Storm (test/plugins/tools/tools.test.ts, on Deno, Node and Bun)",
+  "status": "passed",
+  "created": "2026-10-09",
+  "runBy": "agent",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "0dfb7de2-ec16-4a98-8ae5-bd4a6eeaa246"
+    }
+  ]
+}

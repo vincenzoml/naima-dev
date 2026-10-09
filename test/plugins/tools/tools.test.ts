@@ -14,7 +14,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { test } from "node:test"
 import trackers from "../../../naima/src/plugins/trackers/index.ts"
-import { readReceipt, type ToolDeclaration, type ToolsWorld, toolsPlugin } from "../../../naima/src/plugins/tools/index.ts"
+import { readReceipt, type ToolDeclaration, toolsPlugin, type ToolsWorld } from "../../../naima/src/plugins/tools/index.ts"
 import { declarationRefusal } from "../../../naima/src/plugins/tools/contract.ts"
 import { type Exec, readAr, realExec } from "../../../naima/src/plugins/tools/install.ts"
 import { MCRL2, toolPath } from "../../../naima/src/plugins/verifier-mcrl2/index.ts"
@@ -219,7 +219,10 @@ test("naima tools reports each declared tool as installed, missing, unavailable,
     assert.equal(await b.p.run("tools", "--json"), 0)
     const r = JSON.parse(b.out()) as { platform: string; tools: { name: string; state: string }[] }
     assert.equal(r.platform, PLATFORM)
-    assert.deepEqual(r.tools.map((t) => [t.name, t.state]), [["here", "installed"], ["absent", "missing"], ["nowhere", "unavailable"], ["foreign", "undeclared"]])
+    assert.deepEqual(r.tools.map((t) => [t.name, t.state]), [["here", "installed"], ["absent", "missing"], ["nowhere", "unavailable"], [
+      "foreign",
+      "undeclared",
+    ]])
     assert.deepEqual(readdirSync(b.dir).sort(), before, "reporting writes nothing")
     b.p.output.length = 0
     assert.equal(await b.p.run("tools", "show", "absent"), 0)
@@ -275,7 +278,10 @@ test("a download whose sha256 or size differs from the declaration stops the ins
   const large = { ...fake, name: "large", platforms: { [PLATFORM]: { ...source, size: source.size + 10 } } as ToolDeclaration["platforms"] }
   const c = bench([small, large], fixtures)
   try {
-    await assert.rejects(b.p.run("tools", "install", "fake", ...CONSENT), /the download's sha256 is [0-9a-f]{64}, the declaration says 0{64} — nothing installed/)
+    await assert.rejects(
+      b.p.run("tools", "install", "fake", ...CONSENT),
+      /the download's sha256 is [0-9a-f]{64}, the declaration says 0{64} — nothing installed/,
+    )
     assert.deepEqual(readdirSync(b.dir), [], "no tool, no staging directory")
     await assert.rejects(c.p.run("tools", "install", "small", ...CONSENT), /larger than the declared \d+ bytes — stopped, nothing installed/)
     await assert.rejects(c.p.run("tools", "install", "large", ...CONSENT), /downloaded \d+ bytes, the declaration says \d+ — nothing installed/)
@@ -287,59 +293,74 @@ test("a download whose sha256 or size differs from the declaration stops the ins
   }
 })
 
-test("tar.gz, zip and deb unpack into the tools directory alone, the tool verified by running it; one that fails its check is not kept", { skip: !posix }, async () => {
-  const fixtures = mkdtempSync(join(tmpdir(), "naima-fixtures-"))
-  const server = await serve(fixtures)
-  const tools: ToolDeclaration[] = [tgzTool(fixtures, server.url, "tgz")]
-  // A .deb: an ar archive whose data.tar.gz holds usr/bin/<program>.
-  const tree = mkdtempSync(join(tmpdir(), "naima-tree-"))
-  toolTree(tree, "usr", "debtool", "1.0.0")
-  tar(tree, join(fixtures, "data.tar.gz"), "-cz")
-  writeFileSync(join(fixtures, "debtool.deb"), ar([["debian-binary", new TextEncoder().encode("2.0\n")], ["control.tar.gz", new Uint8Array(3)], ["data.tar.gz", readFileSync(join(fixtures, "data.tar.gz"))]]))
-  const deb = join(fixtures, "debtool.deb")
-  tools.push(decl("debtool", { url: `${server.url}/debtool.deb`, size: size(deb), sha256: sha(deb), format: "deb", bin: "usr/bin" }))
-  if (process.platform === "darwin") {
-    // bsdtar writes and reads zip; on Linux the zip path is unzip's.
-    const zipTree = mkdtempSync(join(tmpdir(), "naima-tree-"))
-    toolTree(zipTree, "ziptool-1.0.0", "ziptool", "1.0.0")
-    const r = spawnSync("tar", ["-a", "-cf", join(fixtures, "ziptool.zip"), "-C", zipTree, "."])
-    assert.equal(r.status, 0)
-    const zip = join(fixtures, "ziptool.zip")
-    tools.push(decl("ziptool", { url: `${server.url}/ziptool.zip`, size: size(zip), sha256: sha(zip), format: "zip", bin: "ziptool-1.0.0/bin" }))
-  }
-  tools.push(tgzTool(fixtures, server.url, "liar", "0.9.0", { verify: { program: "liar", args: ["--version"], expect: "liar 1.0.0" } }))
-  const b = bench(tools, fixtures)
-  const home = process.env["HOME"]
-  const path = process.env["PATH"]
-  try {
-    for (const t of tools.filter((t) => t.name !== "liar")) {
-      b.p.output.length = 0
-      assert.equal(await b.p.run("tools", "install", t.name, ...CONSENT), 0, t.name)
-      assert.match(b.out(), new RegExp(`${t.name}: verified — ${t.name} 1\\.0\\.0`))
-      const root = join(b.dir, t.name, "1.0.0")
-      assert.ok(existsSync(join(root, "naima-tool.json")), `${t.name}: its receipt`)
-      b.p.output.length = 0
-      assert.equal(await b.p.run("tools", "path", t.name), 0)
-      assert.equal(spawnSync(b.out(), ["--version"], { encoding: "utf8" }).stdout.trim(), `${t.name} 1.0.0`)
+test(
+  "tar.gz, zip and deb unpack into the tools directory alone, the tool verified by running it; one that fails its check is not kept",
+  { skip: !posix },
+  async () => {
+    const fixtures = mkdtempSync(join(tmpdir(), "naima-fixtures-"))
+    const server = await serve(fixtures)
+    const tools: ToolDeclaration[] = [tgzTool(fixtures, server.url, "tgz")]
+    // A .deb: an ar archive whose data.tar.gz holds usr/bin/<program>.
+    const tree = mkdtempSync(join(tmpdir(), "naima-tree-"))
+    toolTree(tree, "usr", "debtool", "1.0.0")
+    tar(tree, join(fixtures, "data.tar.gz"), "-cz")
+    writeFileSync(
+      join(fixtures, "debtool.deb"),
+      ar([["debian-binary", new TextEncoder().encode("2.0\n")], ["control.tar.gz", new Uint8Array(3)], [
+        "data.tar.gz",
+        readFileSync(join(fixtures, "data.tar.gz")),
+      ]]),
+    )
+    const deb = join(fixtures, "debtool.deb")
+    tools.push(decl("debtool", { url: `${server.url}/debtool.deb`, size: size(deb), sha256: sha(deb), format: "deb", bin: "usr/bin" }))
+    if (process.platform === "darwin") {
+      // bsdtar writes and reads zip; on Linux the zip path is unzip's.
+      const zipTree = mkdtempSync(join(tmpdir(), "naima-tree-"))
+      toolTree(zipTree, "ziptool-1.0.0", "ziptool", "1.0.0")
+      const r = spawnSync("tar", ["-a", "-cf", join(fixtures, "ziptool.zip"), "-C", zipTree, "."])
+      assert.equal(r.status, 0)
+      const zip = join(fixtures, "ziptool.zip")
+      tools.push(decl("ziptool", { url: `${server.url}/ziptool.zip`, size: size(zip), sha256: sha(zip), format: "zip", bin: "ziptool-1.0.0/bin" }))
     }
-    await assert.rejects(b.p.run("tools", "install", "liar", ...CONSENT), /liar: the install does not run here — liar --version did not print "liar 1\.0\.0".*nothing installed/)
-    assert.equal(existsSync(join(b.dir, "liar")), false)
-    assert.deepEqual(readdirSync(b.dir).sort(), tools.filter((t) => t.name !== "liar").map((t) => t.name).sort(), "the tools, and no staging directory")
-    assert.equal(process.env["HOME"], home)
-    assert.equal(process.env["PATH"], path, "PATH untouched")
-    rmSync(b.dir, { recursive: true })
-    b.p.output.length = 0
-    await b.p.run("tools", "--json")
-    const after = JSON.parse(b.out()) as { tools: { state: string }[] }
-    assert.ok(after.tools.every((t) => t.state === "missing"), "deleting the directory removes every tool")
-  } finally {
-    await server.close()
-    b.cleanup()
-    rmSync(tree, { recursive: true, force: true })
-  }
-})
+    tools.push(tgzTool(fixtures, server.url, "liar", "0.9.0", { verify: { program: "liar", args: ["--version"], expect: "liar 1.0.0" } }))
+    const b = bench(tools, fixtures)
+    const home = process.env["HOME"]
+    const path = process.env["PATH"]
+    try {
+      for (const t of tools.filter((t) => t.name !== "liar")) {
+        b.p.output.length = 0
+        assert.equal(await b.p.run("tools", "install", t.name, ...CONSENT), 0, t.name)
+        assert.match(b.out(), new RegExp(`${t.name}: verified — ${t.name} 1\\.0\\.0`))
+        const root = join(b.dir, t.name, "1.0.0")
+        assert.ok(existsSync(join(root, "naima-tool.json")), `${t.name}: its receipt`)
+        b.p.output.length = 0
+        assert.equal(await b.p.run("tools", "path", t.name), 0)
+        assert.equal(spawnSync(b.out(), ["--version"], { encoding: "utf8" }).stdout.trim(), `${t.name} 1.0.0`)
+      }
+      await assert.rejects(
+        b.p.run("tools", "install", "liar", ...CONSENT),
+        /liar: the install does not run here — liar --version did not print "liar 1\.0\.0".*nothing installed/,
+      )
+      assert.equal(existsSync(join(b.dir, "liar")), false)
+      assert.deepEqual(readdirSync(b.dir).sort(), tools.filter((t) => t.name !== "liar").map((t) => t.name).sort(), "the tools, and no staging directory")
+      assert.equal(process.env["HOME"], home)
+      assert.equal(process.env["PATH"], path, "PATH untouched")
+      rmSync(b.dir, { recursive: true })
+      b.p.output.length = 0
+      await b.p.run("tools", "--json")
+      const after = JSON.parse(b.out()) as { tools: { state: string }[] }
+      assert.ok(after.tools.every((t) => t.state === "missing"), "deleting the directory removes every tool")
+    } finally {
+      await server.close()
+      b.cleanup()
+      rmSync(tree, { recursive: true, force: true })
+    }
+  },
+)
 
-test("a dmg is mounted read-only with hdiutil inside the staging directory, its app copied out, its licence prompt answered after consent, and detached", { skip: !posix }, async () => {
+test("a dmg is mounted read-only with hdiutil inside the staging directory, its app copied out, its licence prompt answered after consent, and detached", {
+  skip: !posix,
+}, async () => {
   const fixtures = mkdtempSync(join(tmpdir(), "naima-fixtures-"))
   writeFileSync(join(fixtures, "app.dmg"), "an image")
   const server = await serve(fixtures)
@@ -395,52 +416,59 @@ PY
 esac
 `
 
-test("a pip source is installed by the needed Python into a venv, hash-checked and binary only; that Python cannot be removed under it", { skip: !posix }, async () => {
-  const fixtures = mkdtempSync(join(tmpdir(), "naima-fixtures-"))
-  const server = await serve(fixtures)
-  const tree = mkdtempSync(join(tmpdir(), "naima-tree-"))
-  mkdirSync(join(tree, "python", "bin"), { recursive: true })
-  writeFileSync(join(tree, "python", "bin", "python"), FAKE_PYTHON)
-  chmodSync(join(tree, "python", "bin", "python"), 0o755)
-  tar(tree, join(fixtures, "python.tar.gz"), "-cz")
-  const f = join(fixtures, "python.tar.gz")
-  const python = { ...PYTHON, platforms: { [PLATFORM]: { url: `${server.url}/python.tar.gz`, size: size(f), sha256: sha(f), format: "tar.gz", bin: "python/bin" } } } as ToolDeclaration
-  const requirement = `stormpy==1.14.0 --hash=sha256:${"a".repeat(64)}`
-  const stormDecl = {
-    ...STORM,
-    platforms: { [PLATFORM]: { url: "https://pypi.org/simple", size: 1000, format: "pip", python: "python", bin: "venv/bin", requirements: [requirement] } },
-  } as ToolDeclaration
-  const b = bench([python, stormDecl], fixtures)
-  try {
-    b.p.output.length = 0
-    assert.equal(await b.p.run("tools", "show", "storm", "--json"), 0)
-    assert.deepEqual((JSON.parse(b.out()) as { tool: string }[]).map((s) => s.tool), ["python", "storm"], "the Python first")
-    b.p.output.length = 0
-    assert.equal(await b.p.run("tools", "install", "storm", ...CONSENT), 0)
-    assert.match(b.out(), /installed python 3\.13\.16\+20261003: .*\ninstalled storm 1\.14\.0: /s)
-    const venv = join(b.dir, "storm", "1.14.0")
-    assert.equal(
-      readFileSync(join(venv, "venv", "pip-args"), "utf8").replace(/-r \S+/, "-r <file>").trim(),
-      "-m pip install --require-hashes --only-binary :all: --no-deps --disable-pip-version-check --no-input -r <file>",
-    )
-    assert.equal(readFileSync(join(venv, "venv", "requirements"), "utf8"), requirement + "\n")
-    const venvMade = b.calls.find((c) => c[1] === "-m" && c[2] === "venv")!
-    assert.equal(venvMade[0], join(b.dir, "python", "3.13.16+20261003", "python", "bin", "python"), "the venv is made by the installed Python")
-    await assert.rejects(b.p.run("tools", "remove", "python"), /python is needed by storm, installed here — naima tools remove storm first; nothing removed/)
-    b.p.output.length = 0
-    assert.equal(await b.p.run("tools", "remove", "storm"), 0)
-    assert.match(b.out(), /removed storm \(1\.14\.0\)/)
-    assert.equal(await b.p.run("tools", "remove", "python"), 0)
-    assert.deepEqual(readdirSync(b.dir), [])
-    b.p.output.length = 0
-    assert.equal(await b.p.run("tools", "remove", "python"), 0)
-    assert.match(b.out(), /python is not installed here .*: nothing to remove/)
-  } finally {
-    await server.close()
-    b.cleanup()
-    rmSync(tree, { recursive: true, force: true })
-  }
-})
+test(
+  "a pip source is installed by the needed Python into a venv, hash-checked and binary only; that Python cannot be removed under it",
+  { skip: !posix },
+  async () => {
+    const fixtures = mkdtempSync(join(tmpdir(), "naima-fixtures-"))
+    const server = await serve(fixtures)
+    const tree = mkdtempSync(join(tmpdir(), "naima-tree-"))
+    mkdirSync(join(tree, "python", "bin"), { recursive: true })
+    writeFileSync(join(tree, "python", "bin", "python"), FAKE_PYTHON)
+    chmodSync(join(tree, "python", "bin", "python"), 0o755)
+    tar(tree, join(fixtures, "python.tar.gz"), "-cz")
+    const f = join(fixtures, "python.tar.gz")
+    const python = {
+      ...PYTHON,
+      platforms: { [PLATFORM]: { url: `${server.url}/python.tar.gz`, size: size(f), sha256: sha(f), format: "tar.gz", bin: "python/bin" } },
+    } as ToolDeclaration
+    const requirement = `stormpy==1.14.0 --hash=sha256:${"a".repeat(64)}`
+    const stormDecl = {
+      ...STORM,
+      platforms: { [PLATFORM]: { url: "https://pypi.org/simple", size: 1000, format: "pip", python: "python", bin: "venv/bin", requirements: [requirement] } },
+    } as ToolDeclaration
+    const b = bench([python, stormDecl], fixtures)
+    try {
+      b.p.output.length = 0
+      assert.equal(await b.p.run("tools", "show", "storm", "--json"), 0)
+      assert.deepEqual((JSON.parse(b.out()) as { tool: string }[]).map((s) => s.tool), ["python", "storm"], "the Python first")
+      b.p.output.length = 0
+      assert.equal(await b.p.run("tools", "install", "storm", ...CONSENT), 0)
+      assert.match(b.out(), /installed python 3\.13\.16\+20261003: .*\ninstalled storm 1\.14\.0: /s)
+      const venv = join(b.dir, "storm", "1.14.0")
+      assert.equal(
+        readFileSync(join(venv, "venv", "pip-args"), "utf8").replace(/-r \S+/, "-r <file>").trim(),
+        "-m pip install --require-hashes --only-binary :all: --no-deps --disable-pip-version-check --no-input -r <file>",
+      )
+      assert.equal(readFileSync(join(venv, "venv", "requirements"), "utf8"), requirement + "\n")
+      const venvMade = b.calls.find((c) => c[1] === "-m" && c[2] === "venv")!
+      assert.equal(venvMade[0], join(b.dir, "python", "3.13.16+20261003", "python", "bin", "python"), "the venv is made by the installed Python")
+      await assert.rejects(b.p.run("tools", "remove", "python"), /python is needed by storm, installed here — naima tools remove storm first; nothing removed/)
+      b.p.output.length = 0
+      assert.equal(await b.p.run("tools", "remove", "storm"), 0)
+      assert.match(b.out(), /removed storm \(1\.14\.0\)/)
+      assert.equal(await b.p.run("tools", "remove", "python"), 0)
+      assert.deepEqual(readdirSync(b.dir), [])
+      b.p.output.length = 0
+      assert.equal(await b.p.run("tools", "remove", "python"), 0)
+      assert.match(b.out(), /python is not installed here .*: nothing to remove/)
+    } finally {
+      await server.close()
+      b.cleanup()
+      rmSync(tree, { recursive: true, force: true })
+    }
+  },
+)
 
 test("an installed mCRL2 is what the verifier runs, without PATH: bin wins, PATH is the fallback; the launcher lets every command read the tools directory and only naima tools write it", () => {
   const dir = mkdtempSync(join(tmpdir(), "naima-tools-"))
@@ -471,7 +499,14 @@ test("an installed mCRL2 is what the verifier runs, without PATH: bin wins, PATH
   assert.equal(toolsDir({ LOCALAPPDATA: "C:\\Users\\a\\AppData\\Local" }, "windows"), join("C:\\Users\\a\\AppData\\Local", "naima", "tools"))
   assert.equal(platformKey("win32", "x64"), "windows-x64")
   assert.equal(platformKey("linux", "aarch64"), "linux-arm64")
-  const fence = { root: "/r", tracker: "/r/naima-tracker", data: "/r/naima-tracker/naima-data", program: "/r/naima-tracker/naima", entry: "/r/naima-tracker/naima", tools: "/t/tools" }
+  const fence = {
+    root: "/r",
+    tracker: "/r/naima-tracker",
+    data: "/r/naima-tracker/naima-data",
+    program: "/r/naima-tracker/naima",
+    entry: "/r/naima-tracker/naima",
+    tools: "/t/tools",
+  }
   const plain = permissions({ ...fence, ui: uiGrant("check", "linux", "/deno", "/t/tools") })
   assert.match(plain[0]!, /--allow-read=.*\/t\/tools/, "every command reads the tools directory")
   assert.doesNotMatch(plain[1]!, /\/t\/tools/)
@@ -490,51 +525,74 @@ done
 exec sh -c "$1"
 `
 
-test("with --host, naima tools asks the host's own Naima: the plan first, the consent here, then the install with --consent and --by", { skip: !posix }, async () => {
-  const bin = mkdtempSync(join(tmpdir(), "naima-fake-ssh-"))
-  const log = join(bin, "calls")
-  writeFileSync(join(bin, "ssh"), FAKE_SSH)
-  const plan = JSON.stringify([{ tool: "fake", version: "1.0.0", licence: "MIT", homepage: "https://example.invalid", installed: false, url: "https://example.invalid/fake.tar.gz", size: 2000000, sha256: "b".repeat(64), format: "tar.gz" }])
-  // The host's Naima, stood in for: it records each question and answers it.
-  writeFileSync(
-    join(bin, "host-naima"),
-    `#!/bin/sh\nfor a in "$@"; do printf '[%s]' "$a" >> "${log}"; done; echo >> "${log}"\ncase "$2" in\n  show) echo '${plan}' ;;\n  install) echo "installed fake 1.0.0: /srv/tools/fake/1.0.0" ;;\n  *) echo "tools on this machine (linux-x64), in /srv/tools:" ;;\nesac\n`,
-  )
-  chmodSync(join(bin, "ssh"), 0o755)
-  chmodSync(join(bin, "host-naima"), 0o755)
-  const b = bench([], mkdtempSync(join(tmpdir(), "naima-fixtures-")))
-  const config: Config = { ...b.p.ctx.config, plugins: { "long-work": { enabled: true, checks: {}, options: { hosts: { lab: { ssh: "me@lab.invalid", dir: bin, naima: join(bin, "host-naima") } } } } } }
-  const ctx: Context = createContext({ root: b.p.root, data: b.p.ctx.trackerRoot, program: b.p.ctx.program }, config, b.p.ctx.registry, {
-    out: (l = "") => void b.p.output.push(l),
-    err: (l) => void b.p.errors.push(l),
-    now: () => new Date(),
-  })
-  const cmd = toolsPlugin(() => b.world).commands![0]!
-  const path = process.env["PATH"]
-  process.env["PATH"] = `${bin}:${path}`
-  try {
-    assert.equal(await cmd.run(["--host", "lab"], ctx), 0)
-    assert.match(b.out(), /lab: tools on this machine \(linux-x64\)/)
-    await assert.rejects(Promise.resolve(cmd.run(["install", "fake", "--host", "lab"], ctx)), /no terminal to ask on/)
-    assert.match(b.out(), /To install on lab \(me@lab\.invalid\):\n {2}fake 1\.0\.0\n {4}source: {2}https:\/\/example\.invalid\/fake\.tar\.gz\n {4}size: {4}2 MB download/)
-    b.answers.push("y")
-    b.p.output.length = 0
-    assert.equal(await cmd.run(["install", "fake", "--host", "lab"], ctx), 0)
-    assert.match(b.out(), /lab: installed fake 1\.0\.0: \/srv\/tools\/fake\/1\.0\.0/)
-    const calls = readFileSync(log, "utf8").trim().split("\n")
-    assert.deepEqual(calls, [
-      "[tools]",
-      "[tools][show][fake][--json]",
-      "[tools][show][fake][--json]",
-      "[tools][install][fake][--consent][y][--by][tester]",
-    ], "one ssh call per question; the install carries the consent given here")
-    await assert.rejects(Promise.resolve(cmd.run(["--host", "nowhere"], ctx)), /no host "nowhere" — declare it in naima\.json: plugins\.long-work\.options\.hosts\.nowhere.*declared: lab/)
-  } finally {
-    process.env["PATH"] = path
-    removeTemp(bin)
-    b.cleanup()
-  }
-})
+test(
+  "with --host, naima tools asks the host's own Naima: the plan first, the consent here, then the install with --consent and --by",
+  { skip: !posix },
+  async () => {
+    const bin = mkdtempSync(join(tmpdir(), "naima-fake-ssh-"))
+    const log = join(bin, "calls")
+    writeFileSync(join(bin, "ssh"), FAKE_SSH)
+    const plan = JSON.stringify([{
+      tool: "fake",
+      version: "1.0.0",
+      licence: "MIT",
+      homepage: "https://example.invalid",
+      installed: false,
+      url: "https://example.invalid/fake.tar.gz",
+      size: 2000000,
+      sha256: "b".repeat(64),
+      format: "tar.gz",
+    }])
+    // The host's Naima, stood in for: it records each question and answers it.
+    writeFileSync(
+      join(bin, "host-naima"),
+      `#!/bin/sh\nfor a in "$@"; do printf '[%s]' "$a" >> "${log}"; done; echo >> "${log}"\ncase "$2" in\n  show) echo '${plan}' ;;\n  install) echo "installed fake 1.0.0: /srv/tools/fake/1.0.0" ;;\n  *) echo "tools on this machine (linux-x64), in /srv/tools:" ;;\nesac\n`,
+    )
+    chmodSync(join(bin, "ssh"), 0o755)
+    chmodSync(join(bin, "host-naima"), 0o755)
+    const b = bench([], mkdtempSync(join(tmpdir(), "naima-fixtures-")))
+    const config: Config = {
+      ...b.p.ctx.config,
+      plugins: { "long-work": { enabled: true, checks: {}, options: { hosts: { lab: { ssh: "me@lab.invalid", dir: bin, naima: join(bin, "host-naima") } } } } },
+    }
+    const ctx: Context = createContext({ root: b.p.root, data: b.p.ctx.trackerRoot, program: b.p.ctx.program }, config, b.p.ctx.registry, {
+      out: (l = "") => void b.p.output.push(l),
+      err: (l) => void b.p.errors.push(l),
+      now: () => new Date(),
+    })
+    const cmd = toolsPlugin(() => b.world).commands![0]!
+    const path = process.env["PATH"]
+    process.env["PATH"] = `${bin}:${path}`
+    try {
+      assert.equal(await cmd.run(["--host", "lab"], ctx), 0)
+      assert.match(b.out(), /lab: tools on this machine \(linux-x64\)/)
+      await assert.rejects(async () => await cmd.run(["install", "fake", "--host", "lab"], ctx), /no terminal to ask on/)
+      assert.match(
+        b.out(),
+        /To install on lab \(me@lab\.invalid\):\n {2}fake 1\.0\.0\n {4}source: {2}https:\/\/example\.invalid\/fake\.tar\.gz\n {4}size: {4}2 MB download/,
+      )
+      b.answers.push("y")
+      b.p.output.length = 0
+      assert.equal(await cmd.run(["install", "fake", "--host", "lab"], ctx), 0)
+      assert.match(b.out(), /lab: installed fake 1\.0\.0: \/srv\/tools\/fake\/1\.0\.0/)
+      const calls = readFileSync(log, "utf8").trim().split("\n")
+      assert.deepEqual(calls, [
+        "[tools]",
+        "[tools][show][fake][--json]",
+        "[tools][show][fake][--json]",
+        "[tools][install][fake][--consent][y][--by][tester]",
+      ], "one ssh call per question; the install carries the consent given here")
+      await assert.rejects(
+        async () => await cmd.run(["--host", "nowhere"], ctx),
+        /no host "nowhere" — declare it in naima\.json: plugins\.long-work\.options\.hosts\.nowhere.*declared: lab/,
+      )
+    } finally {
+      process.env["PATH"] = path
+      removeTemp(bin)
+      b.cleanup()
+    }
+  },
+)
 
 test("readAr reads the members of an ar archive and refuses what is not one", () => {
   const members = readAr(ar([["debian-binary", new TextEncoder().encode("2.0\n")], ["data.tar.gz", new Uint8Array([1, 2, 3])]]))

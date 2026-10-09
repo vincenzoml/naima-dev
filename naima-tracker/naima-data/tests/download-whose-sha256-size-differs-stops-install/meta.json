@@ -1,0 +1,13 @@
+{
+  "id": "43648fb6-560b-4f5f-a684-568acad20a4d",
+  "title": "a download whose sha256 or size differs stops the install and leaves nothing installed (test/plugins/tools/tools.test.ts, on Deno, Node and Bun)",
+  "status": "passed",
+  "created": "2026-10-09",
+  "runBy": "agent",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "8f258969-94a6-4584-862b-bc74b5b71674"
+    }
+  ]
+}

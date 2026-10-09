@@ -1,0 +1,13 @@
+{
+  "id": "79411b3f-b3c2-46e1-905e-b146fd57813c",
+  "title": "tar.gz, zip, deb, dmg and pip installs land in the tools directory with a receipt after the tool ran; a failing check keeps nothing; deleting the directory removes every tool (test/plugins/tools/tools.test.ts, on Deno, Node and Bun)",
+  "status": "passed",
+  "created": "2026-10-09",
+  "runBy": "agent",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "f1f3674b-fe74-4008-a496-52b373b56950"
+    }
+  ]
+}

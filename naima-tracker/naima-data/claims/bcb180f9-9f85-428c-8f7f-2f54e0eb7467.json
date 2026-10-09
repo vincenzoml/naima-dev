@@ -1,6 +1,7 @@
 {
   "branch": "agent/tool-install",
   "claimedAt": "2026-10-09",
+  "note": "merge agent/tool-install into the product's main",
   "items": [
     {
       "id": "fb3b0074-ab72-4689-bc04-57f906ecebb0",
@@ -8,5 +9,7 @@
       "title": "A plugin declares the external tools it needs; Naima reports them per machine and installs them with the owner's consent"
     }
   ],
-  "note": "specify and build naima tools: declare, report, install, remove, portable directory"
+  "resources": [
+    "product-main"
+  ]
 }

@@ -1,0 +1,21 @@
+{
+  "id": "68233378-24b2-4573-9778-1dc1b5866e74",
+  "title": "mCRL2 202607.0 and Storm installed for real through the launcher on macOS arm64 into a scratch tools directory, then a property verified with that mCRL2 with PATH stripped",
+  "status": "passed",
+  "created": "2026-10-09",
+  "runBy": "agent",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "580107c4-4704-4afb-ab21-b076a2271056"
+    },
+    {
+      "rel": "verifies",
+      "id": "10252f07-5b7c-4dd2-8ce5-b0eae859b86d"
+    },
+    {
+      "rel": "verifies",
+      "id": "f1f3674b-fe74-4008-a496-52b373b56950"
+    }
+  ]
+}

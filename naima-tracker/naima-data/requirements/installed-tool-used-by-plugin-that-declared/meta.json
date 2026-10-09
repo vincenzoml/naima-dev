@@ -1,6 +1,6 @@
 {
   "id": "10252f07-5b7c-4dd2-8ce5-b0eae859b86d",
   "title": "An installed tool is used by the plugin that declared it without PATH, and the launcher grants its programs and only naima tools the rights to install",
-  "status": "stated",
+  "status": "met",
   "created": "2026-10-09"
 }

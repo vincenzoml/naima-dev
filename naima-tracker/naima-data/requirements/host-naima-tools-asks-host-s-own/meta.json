@@ -1,6 +1,6 @@
 {
   "id": "456b338c-a9b1-40db-bb10-1f26e3bc2241",
   "title": "With --host, naima tools asks the host's own Naima over ssh; an install shows the host's plan and asks the consent here",
-  "status": "stated",
+  "status": "met",
   "created": "2026-10-09"
 }
