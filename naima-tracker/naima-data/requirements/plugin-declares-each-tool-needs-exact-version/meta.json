@@ -1,0 +1,6 @@
+{
+  "id": "71502854-c2d8-467e-b2d0-c8a05f8daa14",
+  "title": "A plugin declares each tool it needs with an exact version, a licence, a check, and per platform a source with size and sha256 or an answer saying why there is none",
+  "status": "stated",
+  "created": "2026-10-09"
+}

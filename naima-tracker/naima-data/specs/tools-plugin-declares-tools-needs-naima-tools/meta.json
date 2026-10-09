@@ -1,0 +1,8 @@
+{
+  "id": "50155a81-03b0-423d-8d5b-cf94d568fb5d",
+  "title": "Tools: a plugin declares the tools it needs; naima tools reports, installs and removes them in a discardable directory",
+  "status": "current",
+  "created": "2026-10-09",
+  "spec": "tools-plugin-declares-tools-needs-naima-tools",
+  "version": 1
+}

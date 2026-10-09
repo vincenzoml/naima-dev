@@ -1,6 +1,48 @@
 {
   "id": "fb3b0074-ab72-4689-bc04-57f906ecebb0",
   "title": "A plugin declares the external tools it needs; Naima reports them per machine and installs them with the owner's consent",
-  "status": "requested",
-  "created": "2026-10-06"
+  "status": "planned",
+  "created": "2026-10-06",
+  "links": [
+    {
+      "rel": "specified-by",
+      "id": "50155a81-03b0-423d-8d5b-cf94d568fb5d"
+    },
+    {
+      "rel": "satisfies",
+      "id": "71502854-c2d8-467e-b2d0-c8a05f8daa14"
+    },
+    {
+      "rel": "satisfies",
+      "id": "506219ee-3000-44d4-b9f2-7d41f0451709"
+    },
+    {
+      "rel": "satisfies",
+      "id": "b454125a-7ba9-47ce-aeb1-2a6a64ff5c55"
+    },
+    {
+      "rel": "satisfies",
+      "id": "8f258969-94a6-4584-862b-bc74b5b71674"
+    },
+    {
+      "rel": "satisfies",
+      "id": "f1f3674b-fe74-4008-a496-52b373b56950"
+    },
+    {
+      "rel": "satisfies",
+      "id": "10252f07-5b7c-4dd2-8ce5-b0eae859b86d"
+    },
+    {
+      "rel": "satisfies",
+      "id": "0dfb7de2-ec16-4a98-8ae5-bd4a6eeaa246"
+    },
+    {
+      "rel": "satisfies",
+      "id": "456b338c-a9b1-40db-bb10-1f26e3bc2241"
+    },
+    {
+      "rel": "satisfies",
+      "id": "580107c4-4704-4afb-ab21-b076a2271056"
+    }
+  ]
 }
