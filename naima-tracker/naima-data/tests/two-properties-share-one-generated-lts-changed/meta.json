@@ -1,0 +1,13 @@
+{
+  "id": "3f5b3b9b-41b7-4b8c-9777-4fabb232ebc9",
+  "title": "Two properties share one generated LTS; a changed model makes a new one and removes the old; a damaged LTS is made again; a later generation of a published key is discarded (test/plugins/verifier-mcrl2/lts-route.test.ts, on Deno, Node and Bun)",
+  "status": "passed",
+  "created": "2026-10-10",
+  "runBy": "agent",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "f07d8e96-31ce-4311-9d7c-f746b0d0a5bc"
+    }
+  ]
+}

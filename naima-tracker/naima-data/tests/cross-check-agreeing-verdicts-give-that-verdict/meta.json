@@ -1,0 +1,13 @@
+{
+  "id": "a1aaae13-9723-4e7e-b913-5660e898960f",
+  "title": "Cross-check: agreeing verdicts give that verdict with the standard route's counterexample; disagreement is an error; a missing verdict on either side gives none (test/plugins/verifier-mcrl2/lts-route.test.ts, on Deno, Node and Bun)",
+  "status": "passed",
+  "created": "2026-10-10",
+  "runBy": "agent",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "ca926611-b8bc-4868-ac4f-04c713d7fa6e"
+    }
+  ]
+}

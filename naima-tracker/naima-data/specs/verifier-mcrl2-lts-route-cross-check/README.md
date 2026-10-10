@@ -79,8 +79,9 @@ two facts hold.
 
 - **Hiding changes nothing**: an action formula that does not mention the
   name `a`, and does not mention `tau`, cannot tell an action `a(d)` from the
-  internal action τ — each of its atoms is false on both, `true` is true on
-  both, and the boolean connectives and quantifiers combine equal values. So
+  internal action τ — each of its action atoms is false on both, `true` is
+  true on both, `val(…)` depends on data only, and the boolean connectives
+  and quantifiers combine equal values. So
   renaming every unmentioned action to τ preserves the truth of any formula
   that mentions neither them nor `tau`, provided no transition carries a
   multi-action that joins a hidden action to another one (§3.3).
@@ -104,15 +105,18 @@ syntax, restricted to: `true`, `false`, `!`, `&&`, `||`, `=>`, `forall` and
 `exists` over data variables, `[R]φ`, `<R>φ`, `mu X . φ`, `nu X . φ`, a
 variable `X`, `val(…)`, parentheses, and `%` comments. Regular formulas `R`:
 an action formula, `nil`, `R . R`, `R + R` (choice), `R*`, `R+`. Action
-formulas: `true`, `false`, an action `a` or `a(…)` (its data arguments are not
-interpreted), `!`, `&&`, `||`, `=>`, `forall` and `exists`. A formula using
-anything else — a parameterised fixpoint `X(…)`, `delay`, `yaled`, `@` time,
-a multi-action `a | b`, `tau`, `val` inside an action formula, a quantitative
-operator, a bare data expression — is outside the fragment.
+formulas: `true`, `false`, `val(…)`, an action `a` or `a(…)` (data arguments,
+sorts and `val` arguments are skipped, not interpreted), `!`, `&&`, `||`,
+`=>`, `forall` and `exists`. A formula using anything else — a parameterised
+fixpoint `X(…)`, `delay`, `yaled`, `@` time, a multi-action `a | b`, `tau`, a
+quantitative operator, a bare data expression — is outside the fragment.
 
 An action formula `α` **includes τ** when it is true of τ, computed
-syntactically: `true` yes, `false` and every action no, the connectives as
-boolean operations, a quantifier as its body. A **τ-closed star** is `α*` with
+syntactically in three values: `true` yes, `false` and every action no,
+`val(…)` unknown (its value does not depend on the action), the connectives
+as Kleene's three-valued operations, a quantifier as its body. An action
+formula in a position where the rule below asks whether it includes τ, and
+for which the answer is unknown, is outside the fragment. A **τ-closed star** is `α*` with
 `α` an action formula that includes τ. A **visible step** is an action
 formula that does not include τ.
 
@@ -124,8 +128,10 @@ is **in the fragment** when it is built by:
 - `!φ`, `φ && ψ`, `φ || ψ`, `φ => ψ`, `forall v: S . φ`, `exists v: S . φ`,
   with `φ`, `ψ` in the fragment;
 - `[R]φ` or `<R>φ` with `R` a **weak path** and either `φ` in the fragment,
-  or, when `R` ends in a τ-closed star, `φ` one of `<true>true` and
-  `[true]false` (deadlock freedom, and deadlock, reached through the star);
+  or, when `R` ends in a τ-closed star, `[R]<true>true` (deadlock freedom
+  through the star) and `<R>[true]false` (a deadlock reached through it) —
+  after the joining above, `[R][true]false` and `<R><true>true` are not this
+  case, and are not preserved;
 - one of four **inevitability patterns**, `α` an action formula that includes
   τ: `mu X . ([α]X && <true>true)` (every maximal path leaves α: performs an
   action outside it), `mu X . [α]X` (no infinite α-path), and their duals

@@ -1,6 +1,6 @@
 {
   "id": "ca926611-b8bc-4868-ac4f-04c713d7fa6e",
   "title": "The cross-check runs the standard route and the LTS route and gives a verdict only when both reach the same one; a disagreement is an error",
-  "status": "stated",
+  "status": "met",
   "created": "2026-10-10"
 }

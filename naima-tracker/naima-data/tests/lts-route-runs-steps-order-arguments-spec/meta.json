@@ -1,0 +1,13 @@
+{
+  "id": "0c3ad3ed-6fc8-434a-8403-6e1767c7e333",
+  "title": "The LTS route runs its steps in order with the arguments the spec names; false is confirmed and explained on the unreduced LTS; live, the real tools agree with the standard route (test/plugins/verifier-mcrl2/lts-route.test.ts, on Deno, Node and Bun)",
+  "status": "passed",
+  "created": "2026-10-10",
+  "runBy": "agent",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "272ea585-a26b-41a1-b50d-0a9698151194"
+    }
+  ]
+}

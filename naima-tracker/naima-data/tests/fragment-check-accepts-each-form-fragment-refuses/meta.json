@@ -1,0 +1,13 @@
+{
+  "id": "4fd23db5-7508-41ce-aff2-88e64b464a0b",
+  "title": "The fragment check accepts each form of the fragment and refuses each other form naming it; a refused formula or a mixed multi-action label is an error run with no verdict (test/plugins/verifier-mcrl2/formula.test.ts and lts-route.test.ts, on Deno, Node and Bun)",
+  "status": "passed",
+  "created": "2026-10-10",
+  "runBy": "agent",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "dbabb3f0-7043-482e-b2c8-8e0ff712d519"
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 {
   "id": "f07d8e96-31ce-4311-9d7c-f746b0d0a5bc",
   "title": "One LTS serves every property of a model at one version: cached under a key over the model's inputs, the toolset version and the recipe, published atomically, checked by its sha256 on reuse, superseded entries removed",
-  "status": "stated",
+  "status": "met",
   "created": "2026-10-10"
 }

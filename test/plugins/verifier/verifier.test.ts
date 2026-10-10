@@ -311,3 +311,37 @@ test("a property run by another version of its tool is reported stale", async ()
     p.cleanup()
   }
 })
+
+test("a run keeps the adapter's details of how it reached the verdict, only as a JSON object", async () => {
+  let details: unknown = { route: "lts", states: 7 }
+  const detailed: Plugin = {
+    name: "detailed",
+    says: "an adapter that says how it decided",
+    contributes: {
+      verifiers: [{ id: "detailed", says: "holds, saying how", verify: () => Promise.resolve({ verdict: "holds", output: "ok", details }) } as Verifier],
+    },
+  }
+  const p = tempProject([verifier(), detailed])
+  try {
+    const { ctx } = p
+    writeFileSync(join(p.root, "m"), "x\n")
+    const prop = createItem(ctx, ctx.registry.types.get("properties")!, "said", { verifier: "detailed", model: "m", property: "anything" })
+    assert.equal(await p.run("verify", prop.slug), 0)
+    assert.deepEqual(readRun(ctx.repo.resolve(prop.slug))?.details, { route: "lts", states: 7 })
+
+    details = ["not", "an", "object"]
+    assert.equal(await p.run("verify", prop.slug), 1)
+    const run = readRun(ctx.repo.resolve(prop.slug))!
+    assert.equal(run.verdict, "error")
+    assert.match(run.output, /adapter "detailed" returned details that are not a JSON object/)
+    assert.equal(run.details, undefined)
+
+    const item = ctx.repo.resolve(prop.slug)
+    const name = JSON.parse(readFileSync(join(item.dir, "meta.json"), "utf8")).lastRun as string
+    const file = join(item.dir, "attachments", name)
+    writeFileSync(file, JSON.stringify({ ...JSON.parse(readFileSync(file, "utf8")), details: "text" }))
+    assert.equal(readRun(ctx.repo.resolve(prop.slug)), null, "a record whose details is not an object is not trusted")
+  } finally {
+    p.cleanup()
+  }
+})

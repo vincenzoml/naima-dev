@@ -34,9 +34,10 @@ function replay(answer: "pbessolveTrue" | "pbessolveFalse", over: Partial<Record
   const calls: Call[] = []
   const formulas: string[] = []
   const run: Runner = (program, args, cwd) => {
-    calls.push({ program, args, cwd })
     const tool = basename(program)
+    // A run's details ask each tool it started for its version: not a step of the route.
     if (args[0] === "--version") return over["version"] ?? tools("version")
+    calls.push({ program, args, cwd })
     const replaced = over[tool]
     if (replaced) return replaced
     if (tool === "lps2pbes") {
@@ -118,11 +119,12 @@ test("mCRL2: a property naming an .mcf file reads it, from the project root, and
 })
 
 test("mCRL2: the tools come from PATH, or from the bin option, and are declared as the programs it runs", async () => {
-  assert.deepEqual(mcrl2Verifier().runs, ["mcrl22lps", "lps2pbes", "pbessolve", "lps2lts"])
+  assert.deepEqual(mcrl2Verifier().runs, ["mcrl22lps", "lps2pbes", "pbessolve", "lps2lts", "ltsinfo", "ltsconvert", "lts2pbes"])
   const { run, calls } = replay("pbessolveTrue")
   const v = mcrl2Verifier({ bin: "/opt/mcrl2/bin", run })
-  assert.deepEqual(v.runs, ["/opt/mcrl2/bin/mcrl22lps", "/opt/mcrl2/bin/lps2pbes", "/opt/mcrl2/bin/pbessolve", "/opt/mcrl2/bin/lps2lts"])
+  assert.deepEqual(v.runs, ["mcrl22lps", "lps2pbes", "pbessolve", "lps2lts", "ltsinfo", "ltsconvert", "lts2pbes"].map((t) => `/opt/mcrl2/bin/${t}`))
   assert.equal(await v.version!(ctxStub), "mcrl22lps mCRL2 toolset 202307.1 (Release)")
+  await v.verify({ model, property: "true", options: {} }, ctxStub)
   assert.equal(calls[0]!.program, "/opt/mcrl2/bin/mcrl22lps")
   assert.throws(() => mcrl2Plugin({ bin: "relative/bin" }), /bin must be an absolute path/)
 })

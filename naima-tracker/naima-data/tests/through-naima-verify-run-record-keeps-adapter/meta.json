@@ -1,0 +1,13 @@
+{
+  "id": "934420a3-e059-4681-9f3f-371d330b694d",
+  "title": "Through naima verify the run record keeps the adapter's details; details that are not an object are an error, and a record holding them is not trusted (test/plugins/verifier-mcrl2/lts-route.test.ts and test/plugins/verifier/verifier.test.ts, on Deno, Node and Bun)",
+  "status": "passed",
+  "created": "2026-10-10",
+  "runBy": "agent",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "c1966b2b-766c-4d80-8be1-096519b508fc"
+    }
+  ]
+}
