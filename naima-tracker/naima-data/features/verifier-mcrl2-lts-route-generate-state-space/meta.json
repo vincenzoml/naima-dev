@@ -1,7 +1,7 @@
 {
   "id": "2d0e5b36-cd92-4e2e-843c-5a025d555a2b",
   "title": "verifier-mcrl2: an LTS route — generate the state space once per model, hide and reduce per formula, solve on the LTS — with a cross-check against the standard route",
-  "status": "requested",
+  "status": "shipped",
   "created": "2026-10-10",
   "impact": "high",
   "priority": "now",
