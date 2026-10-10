@@ -1,0 +1,13 @@
+{
+  "id": "9ffc2c14-5960-42f5-86e6-795dcc29184f",
+  "title": "The check progress-declared flags long work declared with neither progress nor a reason (test/plugins/long-work/progress.test.ts, on Deno, Node and Bun)",
+  "status": "passed",
+  "created": "2026-10-10",
+  "runBy": "agent",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "29425e00-93df-4a7d-8139-58eb582ed599"
+    }
+  ]
+}

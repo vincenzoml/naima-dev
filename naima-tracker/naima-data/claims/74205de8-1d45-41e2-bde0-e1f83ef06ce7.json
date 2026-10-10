@@ -1,6 +1,7 @@
 {
   "branch": "agent/progress",
   "claimedAt": "2026-10-10",
+  "note": "pushing the progress change to the product's main",
   "items": [
     {
       "id": "c8afb7f0-1a42-42f0-9e81-28f18af700d2",
@@ -11,7 +12,34 @@
       "id": "00636b2c-82f6-4ef2-90b9-677df1d5e892",
       "ref": "specs/progress-long-work-says-how-far",
       "title": "Progress: long work says how far it is"
+    },
+    {
+      "id": "aeb463f8-059c-4537-adf9-e9bff1e7d83e",
+      "ref": "tests/progress-rule-listed-everyone-as-must-enforced",
+      "title": "The progress rule is listed for everyone as a must enforced by progress-declared, and can be retired (test/plugins/long-work/progress.test.ts, on Deno, Node and Bun)"
+    },
+    {
+      "id": "14c2d2f1-a796-4c8f-89e7-d830ca39a61d",
+      "ref": "tests/run-s-progress-line-shown-rate-eta",
+      "title": "A run's progress line is shown with its rate and ETA by run status, run list and wait, here and on a host (test/plugins/long-work/progress.test.ts, on Deno, Node and Bun)"
+    },
+    {
+      "id": "5a63dace-9950-4775-b95b-3fc9d644d318",
+      "ref": "tests/run-silent-past-stale-stale-no-progress",
+      "title": "A run silent past --stale is stale; a --no-progress run shows its reason, elapsed time and last log line (test/plugins/long-work/progress.test.ts, on Deno, Node and Bun)"
+    },
+    {
+      "id": "ce0f9008-5d83-4dd8-9868-9dc3d76b6751",
+      "ref": "tests/verify-metrics-run-tools-install-report-their",
+      "title": "verify, metrics run and tools install report their progress through the core reporter (test/plugins/long-work/progress-commands.test.ts, on Deno, Node and Bun)"
+    },
+    {
+      "id": "9ffc2c14-5960-42f5-86e6-795dcc29184f",
+      "ref": "tests/check-progress-declared-flags-long-work-declared",
+      "title": "The check progress-declared flags long work declared with neither progress nor a reason (test/plugins/long-work/progress.test.ts, on Deno, Node and Bun)"
     }
   ],
-  "note": "progress for long work: the rule, the run channel, Naima's own commands, the check"
+  "resources": [
+    "product-main"
+  ]
 }

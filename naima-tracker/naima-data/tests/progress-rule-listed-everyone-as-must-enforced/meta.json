@@ -1,0 +1,13 @@
+{
+  "id": "aeb463f8-059c-4537-adf9-e9bff1e7d83e",
+  "title": "The progress rule is listed for everyone as a must enforced by progress-declared, and can be retired (test/plugins/long-work/progress.test.ts, on Deno, Node and Bun)",
+  "status": "passed",
+  "created": "2026-10-10",
+  "runBy": "agent",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "3698eb04-7525-429b-a11f-c5091cfc8836"
+    }
+  ]
+}

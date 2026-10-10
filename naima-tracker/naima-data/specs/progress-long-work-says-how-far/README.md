@@ -100,12 +100,12 @@ echo "compiling the second half" > "$NAIMA_RUN_PROGRESS"
 
 ## 5. `naima wait` while it waits
 
-While the run has not ended, `naima wait` prints to standard error one line,
-`run <name>: <elapsed> · <progress as in §3.4>` — or, for a `--no-progress`
-run, the elapsed time and the log's last line — when that line has changed
-since it last printed one and at least `--report` has passed (default 30s;
-the first line after one `--report`). Its final report and `--json` are
-unchanged.
+While the run has not ended, `naima wait` prints to standard error, every
+`--report` (default 30s; the first after one `--report`), one line:
+`run <name>: <state>, <elapsed> · progress <as in §3.4>` — or, for a
+`--no-progress` run, `no progress (<reason>), last said "<the log's last
+line>"`; for a run that has written no progress yet, `no progress reported
+yet`. Its final report and `--json` are unchanged.
 
 ## 6. Naima's own long work
 
@@ -120,7 +120,8 @@ gives every command one reporter:
    and every other change at most once a second, rewrites the progress file
    with one structured line (§2); while nothing changes, the line is
    rewritten every 5 seconds, so a stage the tool cannot count is not taken
-   for silence. Nothing goes to standard error.
+   for silence; at the end the last state is written. Nothing goes to
+   standard error.
 3. **Outside a run:** nothing in the first 2 seconds, so short work stays
    quiet; then standard error gets `progress: <as in §3.4, rate and ETA
    computed in the process>` at a stage change, on a change at most every 2
@@ -141,9 +142,10 @@ The commands:
   line is. The other tools say no count: their stage, with the elapsed time.
   No mCRL2 tool states a total, so a stage has a rate and no ETA; the ETA is
   the overall one.
-- **`naima metrics run`**: the metrics taken of those asked, the stage named
-  by the metric being taken; `metrics backfill`: the commits measured of
-  those to measure. A metric's own command reports nothing while it runs.
+- **`naima metrics run`**: the overall count is the metrics taken of those
+  asked, the stage named by the metric being taken; `metrics backfill`: the
+  overall count is the commits measured of those to measure. A metric's own
+  command reports nothing while it runs.
 - **`naima tools install`**: the stage `download`, the bytes received of the
   declared size; then `unpack` and `verify`, without a count.
 

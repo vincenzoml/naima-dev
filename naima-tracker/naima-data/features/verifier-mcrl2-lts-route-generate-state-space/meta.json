@@ -32,5 +32,8 @@
       "rel": "specified-by",
       "id": "8e181d2a-12ea-4b01-9b66-9ec15de225f5"
     }
+  ],
+  "docs": [
+    "naima/docs/guide/prove-and-close.md#two-model-checkers-mcrl2-and-voxlogica"
   ]
 }

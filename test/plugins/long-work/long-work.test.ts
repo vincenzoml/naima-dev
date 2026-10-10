@@ -428,11 +428,11 @@ test("the shipped long-work rule is listed for agents with its acknowledgement, 
     assert.match(out(p), /Acknowledge: Long work mode on/)
     p.output.length = 0
     assert.equal(await p.run("rules", "check-ack", join(p.root, "naima-tracker", "naima-data", "naima.json")), 1)
-    assert.match(out(p), /missing acknowledgement: Long work mode on/)
+    assert.match(out(p), /missing acknowledgements: Long work mode on · Progress mode on/)
   } finally {
     p.cleanup()
   }
-  const retired = project({}, { retire: ["long-work-through-naima-run"] })
+  const retired = project({}, { retire: ["long-work-through-naima-run", "long-work-reports-progress"] })
   try {
     await retired.run("rules", "--audience", "agents")
     assert.match(out(retired), /no active rules for agents/)

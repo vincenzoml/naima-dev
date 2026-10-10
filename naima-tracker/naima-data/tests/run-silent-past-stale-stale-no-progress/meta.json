@@ -1,0 +1,13 @@
+{
+  "id": "5a63dace-9950-4775-b95b-3fc9d644d318",
+  "title": "A run silent past --stale is stale; a --no-progress run shows its reason, elapsed time and last log line (test/plugins/long-work/progress.test.ts, on Deno, Node and Bun)",
+  "status": "passed",
+  "created": "2026-10-10",
+  "runBy": "agent",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "5ed7de98-4fab-4670-80eb-4b735eb8610e"
+    }
+  ]
+}

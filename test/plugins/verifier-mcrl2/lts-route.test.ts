@@ -128,7 +128,7 @@ test("LTS route: the LTS once, then per formula hide, reduce modulo dpbranching-
     )
     assert.ok(convert!.args[2]!.startsWith(cacheOf(p.root)), "the reduction reads the cached LTS")
     assert.ok(translate!.args[0]!.startsWith("--formula=") && !translate!.args.includes("--counter-example"))
-    assert.deepEqual(solve!.args.filter((a) => a.startsWith("--")), [], "the reduced PBES is solved without evidence")
+    assert.deepEqual(solve!.args.filter((a) => a.startsWith("--")), ["--verbose"], "the reduced PBES is solved without evidence, verbose for its progress")
     const d = said(r)
     assert.equal(d.route, "lts")
     assert.deepEqual(d.mentioned, ["off", "on"])
@@ -145,7 +145,7 @@ test("LTS route: the LTS once, then per formula hide, reduce modulo dpbranching-
     const threaded = toolset()
     rmSync(cacheOf(p.root), { recursive: true })
     await mcrl2Verifier({ run: threaded.run }).verify({ model: p.model, property: "[true* . on]false", options: { ...lts, threads: 4 } }, p.ctx)
-    assert.equal(threaded.calls[1]!.args[0], "--threads=4")
+    assert.deepEqual(threaded.calls[1]!.args.slice(0, 2), ["--verbose", "--threads=4"])
     for (const threads of [0, 1.5, "8"]) {
       const bad = await mcrl2Verifier({ run }).verify({ model: p.model, property: "true", options: { ...lts, threads } }, p.ctx)
       assert.equal(bad.verdict, "error")

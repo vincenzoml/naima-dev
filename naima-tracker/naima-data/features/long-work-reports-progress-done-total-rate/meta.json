@@ -33,5 +33,10 @@
       "rel": "satisfies",
       "id": "29425e00-93df-4a7d-8139-58eb582ed599"
     }
+  ],
+  "docs": [
+    "naima/docs/guide/long-work.md#say-how-far-it-is",
+    "naima/docs/agents/long-work.md",
+    "naima/docs/guide/rules.md#long-work-reports-its-progress-or-says-why-it-cannot-and-what-it-reports-instead"
   ]
 }

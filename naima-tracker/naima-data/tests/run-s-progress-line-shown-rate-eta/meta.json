@@ -1,0 +1,13 @@
+{
+  "id": "14c2d2f1-a796-4c8f-89e7-d830ca39a61d",
+  "title": "A run's progress line is shown with its rate and ETA by run status, run list and wait, here and on a host (test/plugins/long-work/progress.test.ts, on Deno, Node and Bun)",
+  "status": "passed",
+  "created": "2026-10-10",
+  "runBy": "agent",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "f10de5b3-14f2-43dc-afc8-2ee9418b3fcb"
+    }
+  ]
+}

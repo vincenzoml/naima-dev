@@ -1,0 +1,11 @@
+{
+  "id": "c8f4dc6f-bfa4-4684-bbec-a5122ff4911c",
+  "title": "The LTS-route session note of 2026-10-10 carries no acknowledgement line, so naima check fails on main",
+  "status": "open",
+  "created": "2026-10-10",
+  "priority": "now",
+  "impact": "low",
+  "effort": "S",
+  "confidence": "diagnosed",
+  "triagedOn": "2026-10-10"
+}

@@ -1,0 +1,13 @@
+{
+  "id": "ce0f9008-5d83-4dd8-9868-9dc3d76b6751",
+  "title": "verify, metrics run and tools install report their progress through the core reporter (test/plugins/long-work/progress-commands.test.ts, on Deno, Node and Bun)",
+  "status": "passed",
+  "created": "2026-10-10",
+  "runBy": "agent",
+  "links": [
+    {
+      "rel": "verifies",
+      "id": "30d8c090-d94c-4b9d-bced-f6e436f07b6a"
+    }
+  ]
+}
