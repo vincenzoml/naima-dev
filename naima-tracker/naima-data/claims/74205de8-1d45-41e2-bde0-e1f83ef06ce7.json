@@ -1,0 +1,17 @@
+{
+  "branch": "agent/progress",
+  "claimedAt": "2026-10-10",
+  "items": [
+    {
+      "id": "c8afb7f0-1a42-42f0-9e81-28f18af700d2",
+      "ref": "features/long-work-reports-progress-done-total-rate",
+      "title": "Long work reports its progress: done of total, rate and ETA, or what it can when it cannot"
+    },
+    {
+      "id": "00636b2c-82f6-4ef2-90b9-677df1d5e892",
+      "ref": "specs/progress-long-work-says-how-far",
+      "title": "Progress: long work says how far it is"
+    }
+  ],
+  "note": "progress for long work: the rule, the run channel, Naima's own commands, the check"
+}

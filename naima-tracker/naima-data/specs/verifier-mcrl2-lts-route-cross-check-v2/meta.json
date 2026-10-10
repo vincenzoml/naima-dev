@@ -1,0 +1,14 @@
+{
+  "id": "12a2c7a5-5670-4616-81d9-25ec9d501d42",
+  "title": "verifier-mcrl2: the LTS route and the cross-check v2",
+  "status": "current",
+  "created": "2026-10-10",
+  "spec": "verifier-mcrl2-lts-route-cross-check",
+  "version": 2,
+  "links": [
+    {
+      "rel": "supersedes",
+      "id": "8e181d2a-12ea-4b01-9b66-9ec15de225f5"
+    }
+  ]
+}

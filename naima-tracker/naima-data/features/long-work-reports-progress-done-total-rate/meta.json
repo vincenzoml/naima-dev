@@ -1,0 +1,37 @@
+{
+  "id": "c8afb7f0-1a42-42f0-9e81-28f18af700d2",
+  "title": "Long work reports its progress: done of total, rate and ETA, or what it can when it cannot",
+  "status": "requested",
+  "created": "2026-10-10",
+  "priority": "now",
+  "impact": "high",
+  "effort": "L",
+  "confidence": "diagnosed",
+  "triagedOn": "2026-10-10",
+  "links": [
+    {
+      "rel": "specified-by",
+      "id": "00636b2c-82f6-4ef2-90b9-677df1d5e892"
+    },
+    {
+      "rel": "satisfies",
+      "id": "3698eb04-7525-429b-a11f-c5091cfc8836"
+    },
+    {
+      "rel": "satisfies",
+      "id": "f10de5b3-14f2-43dc-afc8-2ee9418b3fcb"
+    },
+    {
+      "rel": "satisfies",
+      "id": "5ed7de98-4fab-4670-80eb-4b735eb8610e"
+    },
+    {
+      "rel": "satisfies",
+      "id": "30d8c090-d94c-4b9d-bced-f6e436f07b6a"
+    },
+    {
+      "rel": "satisfies",
+      "id": "29425e00-93df-4a7d-8139-58eb582ed599"
+    }
+  ]
+}
