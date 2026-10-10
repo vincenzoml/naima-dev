@@ -1,0 +1,6 @@
+{
+  "id": "dbabb3f0-7043-482e-b2c8-8e0ff712d519",
+  "title": "The LTS route is taken only for a formula in the syntactic fragment the reduction preserves and an LTS whose multi-actions never join a hidden action to another; otherwise the run is an error saying why, never a verdict and never a silent fallback",
+  "status": "stated",
+  "created": "2026-10-10"
+}

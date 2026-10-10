@@ -1,0 +1,6 @@
+{
+  "id": "272ea585-a26b-41a1-b50d-0a9698151194",
+  "title": "The LTS route decides a property on the state space: generated once, hidden and reduced per formula modulo divergence-preserving branching bisimilarity, solved by lts2pbes and pbessolve; a false verdict is confirmed and explained on the unreduced LTS",
+  "status": "stated",
+  "created": "2026-10-10"
+}
